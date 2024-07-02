@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+.button {
+  border: none;
+  color: white;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+}
+
+.buttonOK {background-color: #04AA6D;} /* Green */
+.buttonSearching {background-color: #008CBA;} /* Blue */
+.buttonError {background-color: #808C6D;} /* Red */
+
+</style>
+   <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Parameter</title>
+    <script>
+        function sendParameter(value = "") {
+            fetch('/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ parameter: value }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+        
+        function endAction(){
+            window.close();
+        }
+
+        function exitAction(){
+            exitButton.textContent = "Closing...";
+            sendParameter("Exit");
+            setTimeout(sendParameter,3000);
+            setTimeout(endAction,4000);
+        }
+
+    </script>
+
+</head>
+<body>
+
+<div align="center">
+<p>Click on the Button to connect to the Dwarf II, and Connect it to your Home Wifi if STA Mode is configured</p>
+<button id="startButton" class="button buttonSearching">Connect</button>
+<button id="exitButton" class="button buttonError" onClick="exitAction()">Exit</button>
+</div>
+
+<script src="
+https://cdn.jsdelivr.net/npm/protobufjs@7.2.6/dist/protobuf.min.js
+"></script>
+
+<script >
+
+// ++++++++++++++++++
+// SET HOME WIFI DATA
+// ++++++++++++++++++
+let BluetoothPWD = "";
+let BleSTASSIDDwarf = "";
+let BleSTAPWDDwarf = "";
+let deviceDwarfII;
+let characteristicDwarfII;
+
+</script>
+
+<script type="module">
+//******************************************************
+// Use this sample for using the API in a pure JS
+//
+// Copy the dist repertory of dwarf API in your home project directory to dist_js
+// --------------------------------------------------------
+// mkdir home_project_dir/dist_js
+// cp -r dwarfii_api_dir/dist/* home_project_dir/dist_js/
+// --------------------------------------------------------
+// Copy in this dist_js repertory the present src subdirectory, 
+// --------------------------------------------------------
+// cp -r dwarfii_api_dir/dist_js/src/* home_project_dir/dist_js/
+// --------------------------------------------------------
+// that will replace the file home_project_dir/dist_js/src/protobuf/protobuf.js file
+//*****************************************************
+
+// import the Dwarf APIfunctions needed here
+import { Dwarfii_Api, messageGetconfig, messageWifiSTA, analyzePacketBle} from "./dist_js/index.js" ; 
+
+window.addEventListener('DOMContentLoaded', async (event) => {
+    const startButton = document.getElementById('startButton');
+    sendParameter("");
+
+    if (startButton) {
+        startButton.addEventListener('click', handleClick);
+    }
+});
+
+async function handleClick(event) {
+    try {
+        const device = await navigator.bluetooth.requestDevice(
+            {
+                filters: [
+                    { namePrefix: 'DWARF' },
+                    { services: ['0000daf2-0000-1000-8000-00805f9b34fb'] }
+                ],
+                optionalServices: ['0000daf2-0000-1000-8000-00805f9b34fb']
+            }
+        );
+        let phase = 0;
+
+        // Add the new class
+        startButton.textContent = "Find Dwarf II..." + device.name;
+        console.log('Got device:', device.name);
+        console.log('id:', device.id);
+        console.log('gatt:', device.gatt);
+
+        const server = await device.gatt.connect();
+        console.log('server:', server);
+
+        const service = await server.getPrimaryService('0000daf2-0000-1000-8000-00805f9b34fb');
+        console.log('Got service:', service.uuid);
+
+        const characteristic = await service.getCharacteristic('00009999-0000-1000-8000-00805f9b34fb');
+        console.log('Got characteristic:', characteristic.uuid);
+        console.log('Got characteristic:', characteristic.service);
+        console.log(characteristic);
+
+        let characteristicDwarfII = characteristic;
+
+        characteristicDwarfII.addEventListener('characteristicvaluechanged', handleValueChanged);
+
+        await characteristicDwarfII.startNotifications();
+
+        const data_test = await characteristicDwarfII.readValue('00009999-0000-1000-8000-00805f9b34fb');
+        console.log('Got detail characteristic:', data_test);
+        console.log(data_test);
+        startButton.textContent = "Connecting to Dwarf II..." + device.name;
+
+        // get Wifi 
+        let bufferGetConfig = messageGetconfig(BluetoothPWD);
+
+        await characteristicDwarfII.writeValue(bufferGetConfig);
+        phase = 1;
+
+        async function handleValueChanged(event) {
+            let configValue;
+            let value = event.target.value;
+            console.log('Value changed:', value);
+
+            if (phase == 1 && value.byteLength) {
+
+              let bufferReadConfig = value.buffer;
+              console.log('Read:', bufferReadConfig);
+              configValue = analyzePacketBle(bufferReadConfig, false);
+              console.log('Read:', configValue);
+              let result_data = JSON.parse(configValue);
+
+              // check if Config Frame received
+              if (result_data.cmd === undefined || result_data.cmd != 1) {
+                // Ignore Frame
+                console.log("Ignore Frame Received: cmd=", result_data.cmd);
+              } else if (result_data.code && result_data.code != 0) {
+                console.log("Error get Config:" + result_data.code + " (" + Dwarfii_Api.DwarfBleErrorCode[result_data.code] + ")" );
+                actionDisconnect("Error get Config:" + result_data.code + " (" + Dwarfii_Api.DwarfBleErrorCode[result_data.code] + ")");
+              }
+              // check StaMod Not Configured but config saved in memory
+              else if (result_data.state == 0 && BleSTASSIDDwarf !== undefined && BleSTAPWDDwarf !== undefined) {
+                startButton.textContent = "Send Wifi config to Dwarf II..." + device.name;
+                console.log("Load WiFi configuration...");
+                phase = 2;
+                // set WifiSTA
+                let bufferSetWifiSta = messageWifiSTA(1, BluetoothPWD, BleSTASSIDDwarf, BleSTAPWDDwarf);
+                await characteristic.writeValue(bufferSetWifiSta);
+              }
+              else if (result_data.state != 2) {
+                 console.log("Error WiFi configuration not Completed! Restart it and Use the mobile App.");
+                actionDisconnect("Error WiFi configuration not Completed! Restart it and Use the mobile App.");
+              } else if (result_data.wifiMode != 2) {
+                console.log("Error STA MODE not Configured! Restart it and Use the mobile App.");
+                actionDisconnect("Error STA MODE not Configured! Restart it and Use the mobile App.");
+              }
+              // set WifiSTA
+              else {
+                startButton.textContent = "Set Wifi config to Dwarf II..." + device.name;
+                console.log("Get correct WiFi configuration...");
+                phase = 2;
+                // set WifiSTA
+                let bufferSetWifiSta = messageWifiSTA(1, BluetoothPWD, result_data.ssid, result_data.psd);
+                await characteristic.writeValue(bufferSetWifiSta);
+              }
+            }
+            else if (phase == 2 && value.byteLength) {
+              phase = 1;
+              let bufferReadResult = value.buffer;
+              console.log('Read:', bufferReadResult);
+              configValue = analyzePacketBle(bufferReadResult, false);
+              console.log('Read:', configValue);
+              let result_data = JSON.parse(configValue);
+
+              // check if STA Frame received
+              if (result_data.cmd === undefined || result_data.cmd != 3) {
+                // Ignore Frame
+                console.log("Ignore Frame Received: cmd=", result_data.cmd);
+              } else if (result_data.code && result_data.code != 0) {
+                console.log("Error set WifiSTA:" + result_data.code + " (" + Dwarfii_Api.DwarfBleErrorCode[result_data.code] + ")" );
+                actionDisconnect("Error set WifiSTA:" + result_data.code + " (" + Dwarfii_Api.DwarfBleErrorCode[result_data.code] + ")" );
+              } else {
+                console.log("Connected with IP: ", result_data.ip);
+                sendParameter(result_data.ip);
+                startButton.classList.remove("buttonSearching");
+                startButton.classList.add("buttonOK");
+                startButton.textContent = "Connected to Dwarf II";
+                await characteristicDwarfII.stopNotifications();
+                characteristicDwarfII.removeEventListener("characteristicvaluechanged", handleValueChanged);
+              }
+            }
+        }
+
+        function onDisconnected() {
+          console.log("> Bluetooth Device disconnected");
+          // Remove the current class
+          startButton.classList.remove("buttonSearching");
+          startButton.classList.add("buttonError");
+          startButton.textContent = "Disconnected, Retry...";
+        }
+
+        async function actionDisconnect(errorText) {
+          try {
+            startButton.classList.add("buttonError");
+            startButton.textContent = "Disconnected..." + errorText;
+            // disconnect Bluetooth
+            if (characteristicDwarfII) {
+              await characteristicDwarfII.stopNotifications();
+              characteristicDwarfII.removeEventListener(
+                "characteristicvaluechanged",
+                handleValueChanged
+              );
+            }
+            if (deviceDwarfII) {
+              deviceDwarfII.removeEventListener(
+                "gattserverdisconnected",
+                onDisconnected
+              );
+              if (deviceDwarfII.gatt) await deviceDwarfII.gatt.disconnect();
+            }
+          } catch (error) {
+            console.error(error);
+          }
+        }
+
+    } catch (error) {
+        if (error.message == "Bluetooth adapter not available.") {
+            //DOMException: Bluetooth adapter not available
+            // Remove the current class
+            startButton.classList.remove("buttonSearching");
+
+            // Add the new class
+            startButton.classList.add("buttonError");
+            startButton.textContent = "Bluetooth adapter not available.";
+            console.error(error);
+        }
+        else if (error.message == "User cancelled the requestDevice() chooser.") {
+            //DOMException: Bluetooth adapter not available
+            // Remove the current class
+            startButton.classList.remove("buttonSearching");
+
+            // Add the new class
+            startButton.classList.add("buttonError");
+            startButton.textContent = "Action Cancelled.";
+            console.error(error);
+        }
+        else {
+           
+            // Remove the current class
+            startButton.classList.remove("buttonSearching");
+
+            // Add the new class
+            startButton.classList.add("buttonError");
+            startButton.textContent = "Error, Retry...";
+            console.error(error);
+        }
+    }
+}
+</script>
+
+
+</body>
+</html>
+
+

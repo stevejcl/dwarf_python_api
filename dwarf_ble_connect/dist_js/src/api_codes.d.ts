@@ -1,0 +1,50 @@
+/** @module api_codes */
+export const DwarfIP: "192.168.88.1";
+export function wsURL(IP: string): string;
+export function wideangleURL(IP: string): string;
+export function telephotoURL(IP: string): string;
+export function rawPreviewURL(IP: string): string;
+export function firmwareVersion(IP: string): string;
+export function getDefaultParamsConfig(IP: string): string;
+export const modeAuto: 0;
+export const modeManual: 1;
+export const autofocusGlobal: 0;
+export const autofocusArea: 1;
+export const exposureTelephotoModeAuto: 0;
+export const exposureWideangleModeAuto: 3;
+export const whiteBalanceScenesIDValue: {
+    0: string;
+    1: string;
+    2: string;
+    3: string;
+    4: string;
+    5: string;
+    6: string;
+};
+export const whiteBalanceScenesValueID: {
+    "incandescent lamp": number;
+    "fluorescent lamp": number;
+    "warm fluorescent lamp": number;
+    sunlight: number;
+    "overcast sky": number;
+    "evening twilight": number;
+    shadow: number;
+};
+export const IRCut: 0;
+export const IRPass: 1;
+export const binning1x1: 0;
+export const binning2x2: 1;
+export const fileFits: 0;
+export const fileTiff: 1;
+export const rawPreviewContinousSuperimpose: 0;
+export const rawPreviewSingle15: 1;
+export const rawPreviewSingleComposite: 2;
+export const continuous_mode: 1;
+export const pulse_mode: 2;
+export const speedDecelerate: 0;
+export const speedAccelerate: 1;
+export const anticlockwise: 0;
+export const clockwise: 1;
+export const spinMotor: 1;
+export const pitchMotor: 2;
+//# sourceMappingURL=api_codes.d.ts.map
