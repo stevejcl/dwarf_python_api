@@ -3,22 +3,38 @@ Dwarf II, some api functions to be used with python
 
 It uses the new api V2.0.
 
-The frames that can be tested are : 
-- Connect with Bluetooth
+The frames that can be used are : 
+- connect to the dwarf with bluetooth
 - Sendind config parameter : Time and Timezone
 - Do a calibration
 - Do a goto to differents target (Polaris, Vega, M42 and M31)
 - Do a goto to a solar system target : Jupiter
-- Take Photo
-- Download the files
+- Do manual target
+- Change the parameters of you tele lens
+- Take Tele photo
+- Download last image or previous one
+- Start a imaging session
+- Download images from last session
+- Even do a Siril live integration with the current imaging session
+- And many others functions
 
-Install this package in the current dir of your poject with the option: --target .
 
+To use this library, you need :
 
-When using this package, you nned to install :
+ 1.  python installed on your computer
 
-websockets==11.0.3
+ 2.  Install the require libraries with downloading the requirements.txt file and do
+  
+     python -m pip install -r requirements.txt
 
-protobuf==3.20.*
+ 3.  Install this package in the current root dir of your poject
 
-bleak
+     It's due to the bluetooth connection that's need a web page and so need to start a web server locally.
+
+     So you have to install this package with :
+
+     python -m pip install dwarf_python_api@git+https://github.com/stevejcl/dwarf_python_api --target .
+
+ 
+     !!! Dont's miss the dot at the end of the line
+
