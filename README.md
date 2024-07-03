@@ -36,5 +36,5 @@ To use this library, you need :
      python -m pip install dwarf_python_api@git+https://github.com/stevejcl/dwarf_python_api --target .
 
  
-     !!! Dont's miss the dot at the end of the line
+     !!! Don't miss the dot at the end of the line
 
