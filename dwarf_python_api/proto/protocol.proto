@@ -124,7 +124,7 @@ enum DwarfCMD {
     CMD_RGB_POWER_REBOOT = 13505; // Restart
 
     CMD_STEP_MOTOR_RUN = 14000; // Motor motion
-    CMD_STEP_MOTOR_RUNTO = 14001; // Motor motion to
+    CMD_STEP_MOTOR_RUN_TO = 14001; // Motor motion to
     CMD_STEP_MOTOR_STOP = 14002; // Motor stop
     CMD_STEP_MOTOR_RESET = 14003; // Motor Reset
     CMD_STEP_MOTOR_CHANGE_SPEED = 14004; // Motor Change Speed
@@ -220,8 +220,10 @@ enum DwarfErrorCode {
 
     CODE_RGB_POWER_UART_INIT_FAILED = -13800; // Serial port Initialization failed
 
+    CODE_STEP_MOTOR_INVALID_PARAMETER_ID = -14504; // Motor Invalid Id Parameter
     CODE_STEP_MOTOR_LIMIT_POSITION_WARNING = -14518; // GOTO limit warning
     CODE_STEP_MOTOR_LIMIT_POSITION_HITTED = -14519; // Star collision limit
+    CODE_STEP_MOTOR_POSITION_NEED_RESET = -14520; // Motor Position need Reset
 
     CODE_TRACK_TRACKER_INITING = -14900; // Tracking is initializing
     CODE_TRACK_TRACKER_FAILED = -14901; // Trace failed

@@ -10,6 +10,7 @@ import dwarf_python_api.lib.my_logger as log
 import dwarf_python_api.proto.astro_pb2 as astro
 import dwarf_python_api.proto.system_pb2 as system
 import dwarf_python_api.proto.camera_pb2 as camera
+import dwarf_python_api.proto.focus_pb2 as focus
 import dwarf_python_api.proto.protocol_pb2 as protocol
 import dwarf_python_api.proto.motor_control_pb2 as motor
 import dwarf_python_api.proto.ble_pb2 as ble
@@ -613,6 +614,57 @@ def perform_calibration():
 
     return False
 
+def perform_start_autofocus(infinite = False):
+
+    # AutoFocus
+    module_id = 8  # MODULE_FOCUS
+    type_id = 0; #REQUEST
+
+    ReqAstroAutoFocus_message = focus.ReqAstroAutoFocus ()
+
+    # Assign the value : infinite = False : 0  True 1
+    ReqAstroAutoFocus_message.mode = int(infinite)
+
+    command = 15004 #CMD_FOCUS_START_ASTRO_AUTO_FOCUS
+
+    response = connect_socket(ReqAstroAutoFocus_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == "ok":
+          log.debug("Autofocus success")
+          return True
+      else:
+          log.error("Error:", response)
+    else:
+        log.error("Dwarf API:", "Dwarf II not connected")
+
+    return False
+
+def perform_stop_autofocus():
+
+    # AutoFocus
+    module_id = 8  # MODULE_FOCUS
+    type_id = 0; #REQUEST
+
+    ReqStopAstroAutoFocus_message = focus.ReqStopAstroAutoFocus ()
+
+    command = 15005 #CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS
+
+    response = connect_socket(ReqStopAstroAutoFocus_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == "ok":
+          log.debug("Autofocus Stop success")
+          return True
+      else:
+          log.error("Error:", response)
+    else:
+        log.error("Dwarf API:", "Dwarf II not connected")
+
+    return False
+
 def perform_decoding_test(show_test, show_test1, show_test2):
 
     fct_show_test(show_test, show_test1, show_test2)
@@ -896,7 +948,7 @@ def motor_action( action ):
       ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 2;
-      command = 14001; #CMD_STEP_MOTOR_RUNTO
+      command = 14001; #CMD_STEP_MOTOR_RUN_TO
       response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
     if (action == 2):
@@ -906,7 +958,7 @@ def motor_action( action ):
       ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
-      command = 14001; #CMD_STEP_MOTOR_RUNTO
+      command = 14001; #CMD_STEP_MOTOR_RUN_TO
       response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
     if (action == 3):
@@ -916,7 +968,7 @@ def motor_action( action ):
       ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
-      command = 14001; #CMD_STEP_MOTOR_RUNTO
+      command = 14001; #CMD_STEP_MOTOR_RUN_TO
       response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
     if (action == 4):
@@ -926,7 +978,7 @@ def motor_action( action ):
       ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
-      command = 14001; #CMD_STEP_MOTOR_RUNTO
+      command = 14001; #CMD_STEP_MOTOR_RUN_TO
       response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
     if (action == 0):

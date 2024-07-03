@@ -239,7 +239,7 @@ class WebSocketClient:
                                     self.stop_task.set()
                                     self.result = "ok"
                                     await asyncio.sleep(5)
-                                    print("Error CMD_SYSTEM_SET_HOSTSLAVE_MODE CODE {getErrorCodeValueName(ComResponse_message.code)}")
+                                    print(f"Error CMD_SYSTEM_SET_HOSTSLAVE_MODE CODE {getErrorCodeValueName(ComResponse_message.code)}")
                                 else :
                                     self.result = "ok"
                                     my_logger.debug("SET HOST OK >> EXIT")
@@ -256,46 +256,79 @@ class WebSocketClient:
                                 print("Decoding CMD_STEP_MOTOR_RUN")
                                 my_logger.debug(f"receive id data >> {ResNotifyMotor_message.id}")
                                 my_logger.debug(f"receive code data >> {ResNotifyMotor_message.code}")
+                                print("Decoding CMD_STEP_MOTOR_RUN")
 
-                                self.result = "ok"
-                                my_logger.debug("CMD_STEP_MOTOR_RUN OK >> EXIT")
-                                print("Success CMD_STEP_MOTOR_RUN")
-                                # Signal the ping and receive functions to stop
-                                self.stop_task.set()
-                                await asyncio.sleep(5)
+                                # OK = 0; // No Error
+                                if (ResNotifyMotor_message.code != protocol.OK):
+                                    if (ResNotifyMotor_message.code == protocol.CODE_STEP_MOTOR_POSITION_NEED_RESET):
+                                        my_logger.debug(f"Error MOTOR need RESET >> EXIT")
 
-                            # CMD_STEP_MOTOR_RUNTO = 14001; // Motor motion to
-                            if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_RUNTO):
+                                    # Signal the ping and receive functions to stop
+                                    self.stop_task.set()
+                                    self.result = ResNotifyMotor_message.code
+                                    await asyncio.sleep(5)
+                                    print(f"Error CMD_STEP_MOTOR_RUN CODE {getErrorCodeValueName(ResNotifyMotor_message.code)}")
+                                else :
+                                    self.result = "ok"
+                                    my_logger.debug("CMD_STEP_MOTOR_RUN OK >> EXIT")
+                                    print("Success CMD_STEP_MOTOR_RUN")
+                                    # Signal the ping and receive functions to stop
+                                    self.stop_task.set()
+                                    await asyncio.sleep(5)
+
+                            # CMD_STEP_MOTOR_RUN_TO = 14001; // Motor motion to
+                            if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_RUN_TO):
                                 ResNotifyMotorPosition_message = motor.ResMotorPosition()
                                 ResNotifyMotorPosition_message.ParseFromString(WsPacket_message.data)
 
-                                print("Decoding CMD_STEP_MOTOR_RUNTO")
                                 my_logger.debug(f"receive id data >> {ResNotifyMotorPosition_message.id}")
                                 my_logger.debug(f"receive code data >> {ResNotifyMotorPosition_message.code}")
                                 my_logger.debug(f"receive position data >> {ResNotifyMotorPosition_message.position}")
+                                print("Decoding CMD_STEP_MOTOR_RUN_TO")
 
-                                self.result = "ok"
-                                my_logger.debug("CMD_STEP_MOTOR_RUNTO OK >> EXIT")
-                                print("Success CMD_STEP_MOTOR_RUNTO")
-                                # Signal the ping and receive functions to stop
-                                self.stop_task.set()
-                                await asyncio.sleep(5)
+                                # OK = 0; // No Error
+                                if (ResNotifyMotorPosition_message.code != protocol.OK):
+                                    if (ResNotifyMotorPosition_message.code == protocol.CODE_STEP_MOTOR_POSITION_NEED_RESET):
+                                        my_logger.debug(f"Error MOTOR need RESET >> EXIT")
+
+                                    # Signal the ping and receive functions to stop
+                                    self.stop_task.set()
+                                    self.result = ResNotifyMotorPosition_message.code
+                                    await asyncio.sleep(5)
+                                    print(f"Error CMD_STEP_MOTOR_RUN_TO CODE {getErrorCodeValueName(ResNotifyMotorPosition_message.code)}")
+                                else :
+                                    self.result = "ok"
+                                    my_logger.debug("CMD_STEP_MOTOR_RUN_TO OK >> EXIT")
+                                    print("Success CMD_STEP_MOTOR_RUN_TO")
+                                    # Signal the ping and receive functions to stop
+                                    self.stop_task.set()
+                                    await asyncio.sleep(5)
 
                             # CMD_STEP_MOTOR_RESET = 14003; // Motor CMD_STEP_MOTOR_RESET
                             if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_RESET):
                                 ResNotifyMotor_message = motor.ResMotor()
                                 ResNotifyMotor_message.ParseFromString(WsPacket_message.data)
 
-                                print("Decoding CMD_STEP_MOTOR_RESET")
                                 my_logger.debug(f"receive id data >> {ResNotifyMotor_message.id}")
                                 my_logger.debug(f"receive code data >> {ResNotifyMotor_message.code}")
+                                print("Decoding CMD_STEP_MOTOR_RESET")
+                                # OK = 0; // No Error
+                                if (ResNotifyMotor_message.code != protocol.OK):
+                                    if (ResNotifyMotor_message.code == protocol.CODE_STEP_MOTOR_POSITION_NEED_RESET):
+                                        my_logger.debug(f"Error MOTOR need RESET >> EXIT")
 
-                                self.result = "ok"
-                                my_logger.debug("CMD_STEP_MOTOR_RESET OK >> EXIT")
-                                print("Success CMD_STEP_MOTOR_RESET")
-                                # Signal the ping and receive functions to stop
-                                self.stop_task.set()
-                                await asyncio.sleep(5)
+                                    # Signal the ping and receive functions to stop
+                                    self.stop_task.set()
+                                    self.result = ResNotifyMotor_message.code
+                                    await asyncio.sleep(5)
+                                    print(f"Error CMD_STEP_MOTOR_RESET CODE {getErrorCodeValueName(ResNotifyMotor_message.code)}")
+                                else :
+                                    self.result = "ok"
+                                    my_logger.debug("CMD_STEP_MOTOR_RESET OK >> EXIT")
+                                    print("Success CMD_STEP_MOTOR_RESET")
+                                    # Signal the ping and receive functions to stop
+                                    self.stop_task.set()
+                                    await asyncio.sleep(5)
 
                             # CMD_STEP_MOTOR_SERVICE_JOYSTICK = 14006; // Motor motion to
                             if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_SERVICE_JOYSTICK):
@@ -306,12 +339,23 @@ class WebSocketClient:
                                 my_logger.debug(f"receive code data >> {ComResponse_message.code}")
                                 my_logger.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
 
-                                self.result = "ok"
-                                my_logger.debug("CMD_STEP_MOTOR_SERVICE_JOYSTICK OK >> EXIT")
-                                print("Success CMD_STEP_MOTOR_SERVICE_JOYSTICK")
-                                # Signal the ping and receive functions to stop
-                                self.stop_task.set()
-                                await asyncio.sleep(5)
+                                # OK = 0; // No Error
+                                if (ComResponse_message.code != protocol.OK):
+                                    if (ComResponse_message.code == protocol.CODE_STEP_MOTOR_POSITION_NEED_RESET):
+                                        my_logger.debug(f"Error MOTOR need RESET >> EXIT")
+
+                                    # Signal the ping and receive functions to stop
+                                    self.stop_task.set()
+                                    self.result = ComResponse_message.code
+                                    await asyncio.sleep(5)
+                                    print(f"Error CMD_STEP_MOTOR_SERVICE_JOYSTICK CODE {getErrorCodeValueName(ComResponse_message.code)}")
+                                else :
+                                    self.result = "ok"
+                                    my_logger.debug("CMD_STEP_MOTOR_SERVICE_JOYSTICK OK >> EXIT")
+                                    print("Success CMD_STEP_MOTOR_SERVICE_JOYSTICK")
+                                    # Signal the ping and receive functions to stop
+                                    self.stop_task.set()
+                                    await asyncio.sleep(5)
 
                             # CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE = 10039; // // Get the working status of the whole machine
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE):
@@ -329,7 +373,7 @@ class WebSocketClient:
                                     self.stop_task.set()
                                     self.result = "ok"
                                     await asyncio.sleep(5)
-                                    print("Error CAMERA_TELE_GET_SYSTEM_WORKING_STATE CODE {getErrorCodeValueName(ComResponse_message.code)}")
+                                    print(f"Error CAMERA_TELE_GET_SYSTEM_WORKING_STATE CODE {getErrorCodeValueName(ComResponse_message.code)}")
                                 else:
                                     print("Continue OK CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE")
 
@@ -349,7 +393,7 @@ class WebSocketClient:
                                     self.stop_task.set()
                                     self.result = "ok"
                                     await asyncio.sleep(5)
-                                    print("Error CMD_CAMERA_TELE_OPEN_CAMERA CODE {getErrorCodeValueName(ComResponse_message.code)}")
+                                    print(f"Error CMD_CAMERA_TELE_OPEN_CAMERA CODE {getErrorCodeValueName(ComResponse_message.code)}")
                                 else:
                                     print("Continue OK CMD_CAMERA_TELE_OPEN_CAMERA")
 
@@ -369,7 +413,7 @@ class WebSocketClient:
                                     self.stop_task.set()
                                     self.result = ComResponse_message.code
                                     await asyncio.sleep(5)
-                                    print("Error CMD_CAMERA_TELE_PHOTOGRAPH CODE {getErrorCodeValueName(ComResponse_message.code)}")
+                                    print(f"Error CMD_CAMERA_TELE_PHOTOGRAPH CODE {getErrorCodeValueName(ComResponse_message.code)}")
                                 else:
                                     print("Continue OK CMD_CAMERA_TELE_PHOTOGRAPH")
 
@@ -470,50 +514,50 @@ class WebSocketClient:
 
                             # CMD_ASTRO_START_CALIBRATION = 11000; // Start calibration
                             elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_CALIBRATION):
-                                ComResponse = base__pb2.ComResponse()
-                                ComResponse.ParseFromString(WsPacket_message.data)
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
 
                                 print("Decoding CMD_ASTRO_START_CALIBRATION")
-                                my_logger.debug(f"receive code data >> {ComResponse.code}")
-                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse.code)}")
+                                my_logger.debug(f"receive code data >> {ComResponse_message.code}")
+                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
 
                                 # CODE_ASTRO_CALIBRATION_FAILED = -11504; // Calibration failed
-                                if (ComResponse.code == -11504):
+                                if (ComResponse_message.code == -11504):
                                     my_logger.debug("Error CALIBRATION >> EXIT")
                                     self.stopcalibration = True
 
                             # CMD_SYSTEM_SET_TIME = 13000; // Set the system time
                             elif (WsPacket_message.cmd==protocol.CMD_SYSTEM_SET_TIME):
-                                ComResponse = base__pb2.ComResponse()
-                                ComResponse.ParseFromString(WsPacket_message.data)
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
 
                                 print("Decoding CMD_SYSTEM_SET_TIME")
-                                my_logger.debug(f"receive code data >> {ComResponse.code}")
-                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse.code)}")
+                                my_logger.debug(f"receive code data >> {ComResponse_message.code}")
+                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
 
                                 # Signal the ping and receive functions to stop
                                 self.stop_task.set()
-                                self.result = ComResponse.code
+                                self.result = ComResponse_message.code
                                 await asyncio.sleep(5)
-                                if (ComResponse.code == protocol.CODE_SYSTEM_SET_TIME_FAILED):
+                                if (ComResponse_message.code == protocol.CODE_SYSTEM_SET_TIME_FAILED):
                                     print("Error CMD_SYSTEM_SET_TIME")
                                 else:
                                     print("OK CMD_SYSTEM_SET_TIME")
 
                             # CMD_SYSTEM_SET_TIME_ZONE = 13001; // Set the time zone
                             elif (WsPacket_message.cmd==protocol.CMD_SYSTEM_SET_TIME_ZONE):
-                                ComResponse = base__pb2.ComResponse()
-                                ComResponse.ParseFromString(WsPacket_message.data)
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
 
                                 print("Decoding CMD_SYSTEM_SET_TIME_ZONE")
-                                my_logger.debug(f"receive code data >> {ComResponse.code}")
-                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse.code)}")
+                                my_logger.debug(f"receive code data >> {ComResponse_message.code}")
+                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
 
                                 # Signal the ping and receive functions to stop
                                 self.stop_task.set()
-                                self.result = ComResponse.code
+                                self.result = ComResponse_message.code
                                 await asyncio.sleep(5)
-                                if (ComResponse.code == protocol.CODE_SYSTEM_SET_TIMEZONE_FAILED):
+                                if (ComResponse_message.code == protocol.CODE_SYSTEM_SET_TIMEZONE_FAILED):
                                     print("Error CMD_SYSTEM_SET_TIME_ZONE")
                                 else:
                                     print("OK CMD_SYSTEM_SET_TIME_ZONE")
@@ -541,6 +585,40 @@ class WebSocketClient:
                                         print("Error GOTO CODE_STEP_MOTOR_LIMIT_POSITION_HITTED")
                                     else:
                                         print(f"Error GOTO CODE {getErrorCodeValueName(ComResponse_message.code)}")
+                            # CMD_FOCUS_START_ASTRO_AUTO_FOCUS = 15004; // Start astronomical autofocus
+                            elif (WsPacket_message.cmd==protocol.CMD_FOCUS_START_ASTRO_AUTO_FOCUS):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                print("Decoding CMD_FOCUS_START_ASTRO_AUTO_FOCUS")
+                                my_logger.debug(f"receive data >> {ComResponse_message.code}")
+                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                # Signal the ping and receive functions to stop
+                                self.stop_task.set()
+                                self.result = ComResponse_message.code
+                                await asyncio.sleep(5)
+                                if (ComResponse_message.code != protocol.OK):
+                                    print("Error CMD_FOCUS_START_ASTRO_AUTO_FOCUS")
+                                else:
+                                    print("OK CMD_FOCUS_START_ASTRO_AUTO_FOCUS")
+                            # CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS = 11006; // Stop Capture
+                            elif (WsPacket_message.cmd==protocol.CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                print("Decoding CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS")
+                                my_logger.debug(f"receive data >> {ComResponse_message.code}")
+                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                # Signal the ping and receive functions to stop
+                                self.stop_task.set()
+                                self.result = ComResponse_message.code
+                                await asyncio.sleep(5)
+                                if (ComResponse_message.code != protocol.OK):
+                                    print("Error CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS")
+                                else:
+                                    print("OK CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS")
                             # CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING = 11005; // Start Capture
                             elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING):
                                 ComResponse_message = base__pb2.ComResponse()
