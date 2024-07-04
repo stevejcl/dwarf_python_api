@@ -325,6 +325,11 @@ def option_4():
     global local_directory
     global last_directory
 
+    # Reload the config module to ensure the new value is used
+    if not ftp_host:
+        importlib.reload(config)
+        ftp_host = config.DWARF_IP
+
     if (not ftp_host):
         print("The Dwarf IP can't be empty!")
         return 
