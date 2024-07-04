@@ -397,6 +397,40 @@ class WebSocketClient:
                                 else:
                                     print("Continue OK CMD_CAMERA_TELE_OPEN_CAMERA")
 
+                            # CMD_FOCUS_START_ASTRO_AUTO_FOCUS = 15004; // Start astronomical autofocus
+                            elif (WsPacket_message.cmd==protocol.CMD_FOCUS_START_ASTRO_AUTO_FOCUS):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                print("Decoding CMD_FOCUS_START_ASTRO_AUTO_FOCUS")
+                                my_logger.debug(f"receive data >> {ComResponse_message.code}")
+                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                # Signal the ping and receive functions to stop
+                                self.stop_task.set()
+                                self.result = ComResponse_message.code
+                                await asyncio.sleep(5)
+                                if (ComResponse_message.code != protocol.OK):
+                                    print("Error CMD_FOCUS_START_ASTRO_AUTO_FOCUS")
+                                else:
+                                    print("OK CMD_FOCUS_START_ASTRO_AUTO_FOCUS")
+                            # CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS = 15005; // Stop Capture
+                            elif (WsPacket_message.cmd==protocol.CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                print("Decoding CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS")
+                                my_logger.debug(f"receive data >> {ComResponse_message.code}")
+                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                # Signal the ping and receive functions to stop
+                                self.stop_task.set()
+                                self.result = ComResponse_message.code
+                                await asyncio.sleep(5)
+                                if (ComResponse_message.code != protocol.OK):
+                                    print("Error CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS")
+                                else:
+                                    print("OK CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS")
                             # CMD_CAMERA_TELE_PHOTOGRAPH = 10002; // //  Take photos
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_PHOTOGRAPH):
                                 ComResponse_message = base__pb2.ComResponse()
@@ -418,7 +452,7 @@ class WebSocketClient:
                                     print("Continue OK CMD_CAMERA_TELE_PHOTOGRAPH")
 
                             # CMD_CAMERA_TELE_PHOTOGRAPH = 10002; // //  End Take photos
-                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_TELE_FUNCTION_STATE):
+                            elif (self.command==protocol.CMD_CAMERA_TELE_PHOTOGRAPH and WsPacket_message.cmd==protocol.CMD_NOTIFY_TELE_FUNCTION_STATE):
     
                                 ResNotifyCamFunctionState_message = notify.ResNotifyCamFunctionState()
                                 ResNotifyCamFunctionState_message.ParseFromString(WsPacket_message.data)
@@ -585,40 +619,6 @@ class WebSocketClient:
                                         print("Error GOTO CODE_STEP_MOTOR_LIMIT_POSITION_HITTED")
                                     else:
                                         print(f"Error GOTO CODE {getErrorCodeValueName(ComResponse_message.code)}")
-                            # CMD_FOCUS_START_ASTRO_AUTO_FOCUS = 15004; // Start astronomical autofocus
-                            elif (WsPacket_message.cmd==protocol.CMD_FOCUS_START_ASTRO_AUTO_FOCUS):
-                                ComResponse_message = base__pb2.ComResponse()
-                                ComResponse_message.ParseFromString(WsPacket_message.data)
-
-                                print("Decoding CMD_FOCUS_START_ASTRO_AUTO_FOCUS")
-                                my_logger.debug(f"receive data >> {ComResponse_message.code}")
-                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
-
-                                # Signal the ping and receive functions to stop
-                                self.stop_task.set()
-                                self.result = ComResponse_message.code
-                                await asyncio.sleep(5)
-                                if (ComResponse_message.code != protocol.OK):
-                                    print("Error CMD_FOCUS_START_ASTRO_AUTO_FOCUS")
-                                else:
-                                    print("OK CMD_FOCUS_START_ASTRO_AUTO_FOCUS")
-                            # CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS = 11006; // Stop Capture
-                            elif (WsPacket_message.cmd==protocol.CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS):
-                                ComResponse_message = base__pb2.ComResponse()
-                                ComResponse_message.ParseFromString(WsPacket_message.data)
-
-                                print("Decoding CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS")
-                                my_logger.debug(f"receive data >> {ComResponse_message.code}")
-                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
-
-                                # Signal the ping and receive functions to stop
-                                self.stop_task.set()
-                                self.result = ComResponse_message.code
-                                await asyncio.sleep(5)
-                                if (ComResponse_message.code != protocol.OK):
-                                    print("Error CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS")
-                                else:
-                                    print("OK CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS")
                             # CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING = 11005; // Start Capture
                             elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING):
                                 ComResponse_message = base__pb2.ComResponse()

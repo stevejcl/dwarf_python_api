@@ -274,6 +274,11 @@ def save_bluetooth_config_from_ini_file():
         print("Wifi Data not found.")
         return False
  
+    # check value
+    if ble_psd=="" or ble_STA_pwd=="" or ble_STA_ssid=="":
+        print("Wifi infos empty value detected")
+        return False
+ 
     # Specify the path to your HTML file
     html_file_path = 'dwarf_ble_connect/connect_dwarf.html'
 
@@ -631,7 +636,7 @@ def perform_start_autofocus(infinite = False):
 
     if response is not False: 
 
-      if response == "ok":
+      if response == 0:
           log.debug("Autofocus success")
           return True
       else:
@@ -655,7 +660,7 @@ def perform_stop_autofocus():
 
     if response is not False: 
 
-      if response == "ok":
+      if response == "0":
           log.debug("Autofocus Stop success")
           return True
       else:
@@ -923,6 +928,8 @@ def permform_update_camera_setting( type, value):
 
     response = connect_socket(ReqSetFeatureParams_message, command, type_id, module_id)
 
+  return response
+
 def motor_action( action ):
     module_id = 6  # MODULE_MOTOR
     type_id = 0; #REQUEST
@@ -998,3 +1005,5 @@ def motor_action( action ):
 
       command = 14006; #CMD_STEP_MOTOR_SERVICE_JOYSTICK
       response = connect_socket(ReqMotorServiceJoystickFixedAngle_message, command, type_id, module_id)
+
+    return response 

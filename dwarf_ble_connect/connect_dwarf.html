@@ -23,13 +23,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Submit Parameter</title>
     <script>
-        function sendParameter(value = "") {
+        function beforeUnloadHandler(event) {
+            closeAction();
+
+            // Cancel the event
+            event.preventDefault();
+            // Chrome requires returnValue to be set
+            event.returnValue = '';
+        };
+
+        // Function to remove the beforeunload event listener
+        function removeUnloadEvent() {
+            window.removeEventListener('beforeunload', beforeUnloadHandler);
+            console.log('beforeunload event listener removed.');
+        }
+
+        function sendParameter(data="UI", value = "") {
             fetch('/submit', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ parameter: value }),
+                body: JSON.stringify({ interface: data, parameter: value }),
             })
             .then(response => response.json())
             .then(data => {
@@ -46,9 +61,14 @@
 
         function exitAction(){
             exitButton.textContent = "Closing...";
-            sendParameter("Exit");
+            sendParameter("UI", "Exit");
+            removeUnloadEvent();
             setTimeout(sendParameter,3000);
             setTimeout(endAction,4000);
+        }
+
+        function closeAction(){
+            sendParameter("UI", "Close");
         }
 
     </script>
@@ -71,9 +91,9 @@ https://cdn.jsdelivr.net/npm/protobufjs@7.2.6/dist/protobuf.min.js
 // ++++++++++++++++++
 // SET HOME WIFI DATA
 // ++++++++++++++++++
-let BluetoothPWD = "";
-let BleSTASSIDDwarf = "";
-let BleSTAPWDDwarf = "";
+let BluetoothPWD = "DWARF_12345678";
+let BleSTASSIDDwarf = "TP-Link_HomeJiCi";
+let BleSTAPWDDwarf = "WF_Secur99-home!@2022;";
 let deviceDwarfII;
 let characteristicDwarfII;
 
@@ -100,12 +120,15 @@ import { Dwarfii_Api, messageGetconfig, messageWifiSTA, analyzePacketBle} from "
 
 window.addEventListener('DOMContentLoaded', async (event) => {
     const startButton = document.getElementById('startButton');
-    sendParameter("");
+    sendParameter("IP", "");
+    sendParameter("UI", "");
 
     if (startButton) {
         startButton.addEventListener('click', handleClick);
     }
 });
+
+window.addEventListener('beforeunload', beforeUnloadHandler);
 
 async function handleClick(event) {
     try {
@@ -218,12 +241,16 @@ async function handleClick(event) {
                 actionDisconnect("Error set WifiSTA:" + result_data.code + " (" + Dwarfii_Api.DwarfBleErrorCode[result_data.code] + ")" );
               } else {
                 console.log("Connected with IP: ", result_data.ip);
-                sendParameter(result_data.ip);
+                sendParameter("IP", result_data.ip);
+                document.getElementById('startButton').disabled = true;
+                document.getElementById('exitButton').disabled = true;
                 startButton.classList.remove("buttonSearching");
                 startButton.classList.add("buttonOK");
                 startButton.textContent = "Connected to Dwarf II";
                 await characteristicDwarfII.stopNotifications();
                 characteristicDwarfII.removeEventListener("characteristicvaluechanged", handleValueChanged);
+                removeUnloadEvent();
+                setTimeout(endAction,4000);
               }
             }
         }

@@ -17,6 +17,7 @@ class MyHandler(SimpleHTTPRequestHandler):
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
         data = json.loads(post_data.decode('utf-8'))
+        interface = data['interface']
         parameter = data['parameter']
 
         # Read the config file and update the IP address
@@ -25,10 +26,16 @@ class MyHandler(SimpleHTTPRequestHandler):
         
         with open(CONFIG_FILE, 'w') as file:
             for line in lines:
-                if line.startswith('DWARF_IP'):
-                    file.write(f'DWARF_IP = "{parameter}"\n')
-                else:
-                    file.write(line)
+                if (interface == "IP"):
+                  if line.startswith('DWARF_IP'):
+                      file.write(f'DWARF_IP = "{parameter}"\n')
+                  else:
+                      file.write(line)
+                if (interface == "UI"):
+                  if line.startswith('DWARF_UI'):
+                      file.write(f'DWARF_UI = "{parameter}"\n')
+                  else:
+                      file.write(line)
 
         # Reload the config module to ensure the new value is used
         importlib.reload(config)
@@ -64,25 +71,36 @@ def connect_bluetooth():
 
         # Wait for user input to stop the server
         previous_ip = None
+        previous_ui = None
         time.sleep(3)
-        result = False
+        resultIP = False
+        resultUI = False
         exitAsked = False
         
-        while not result:
+        while not resultIP and not resultUI:
             current_ip = config.DWARF_IP
+            current_ui = config.DWARF_UI
 
             if current_ip != previous_ip:
                 previous_ip = current_ip
                 if current_ip == "":
                     print("Info: IP address setting cleared.")
+                else:
+                    print("Info: IP address updated.")
+                    resultIP = True
+            if current_ui != previous_ui:
+                previous_ui = current_ui
+                if current_ui == "":
+                    print("Info: UI address setting cleared.")
                     if exitAsked :
-                      result = True
-                elif current_ip == "Exit":
+                      resultUI = True
+                elif current_ui == "Exit":
                     print("Info: Exit processing.")
                     exitAsked = True
-                else:
-                    result = True
-            time.sleep(1)
+                elif current_ui == "Close":
+                    print("Info: Close processing.")
+                    resultUI = True
+            time.sleep(1.5)
 
     except KeyboardInterrupt:
         # Handle Ctrl+C to stop the server
@@ -94,4 +112,4 @@ def connect_bluetooth():
     # Optional: Add additional delay or cleanup steps if needed
     time.sleep(1)
 
-    return not exitAsked 
+    return resultIP 

@@ -82,7 +82,7 @@ def getLastTelePhoto(history):
         print(f"Connected to {ftp_host}")
     except:
         print("Can't connect to the Dwarf II.")
-        return
+        return False
 
     # Remote directory on the FTP server to monitor
     remote_directory = '/DWARF_II/Normal_Photos'
@@ -102,6 +102,7 @@ def getLastTelePhoto(history):
     sorted_file_list = sorted(remote_telefiles, reverse=True)
 
     # Verify
+    local_path = False
     found_photo = 0
     for remote_file in sorted_file_list:
         if remote_file.endswith(file_extension):
@@ -136,7 +137,6 @@ def getLastTelePhoto(history):
     print(f"File saved: {local_path}")
     print(f"End downloading files")
     return local_path
-
 
 def stacking():
     global ftp_host
@@ -364,14 +364,14 @@ def getGetLastPhoto(history = 0, get_config = False):
 
     if (not ftp_host):
         print("The Dwarf IP can't be empty!")
-        return 
+        return False
 
     if (get_config):
         read_config()
 
     if (not local_photo_directory):
         print("The Current Photo Directory can't be empty!")
-        return 
+        return False
 
     try:
         history = int(history)
