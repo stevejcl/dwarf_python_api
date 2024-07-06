@@ -7,43 +7,106 @@ import time
 import json
 import importlib
 import config # Ensure config is imported
+import os
+import shutil
+from filelock import FileLock
 
 # Global PORT
 PORT = 8000
 CONFIG_FILE = 'config.py'
+CONFIG_FILE_TMP = 'config.tmp'
+LOCK_FILE = 'config.lock'
+
+def copy_file_in_current_directory(source_filename, destination_filename):
+    """
+    Copies a file from source_filename to destination_filename in the current directory.
+    :param source_filename: The name of the source file to copy.
+    :param destination_filename: The name where the file should be copied to.
+    """
+    try:
+        current_directory = os.getcwd()
+        source_path = os.path.join(current_directory, source_filename)
+        destination_path = os.path.join(current_directory, destination_filename)
+        shutil.copy(source_path, destination_path)
+        print(f"File copied from {source_filename} to {destination_filename}")
+        return True
+    except FileNotFoundError:
+        print(f"Source file {source_filename} not found in the current directory.")
+    except PermissionError:
+        print(f"Permission denied. Unable to copy to {destination_filename}.")
+    except Exception as e:
+        print(f"Error copying file: {e}")
+
+    return False
 
 class MyHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
+      try:
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
         data = json.loads(post_data.decode('utf-8'))
         interface = data['interface']
         parameter = data['parameter']
 
-        # Read the config file and update the IP address
-        with open(CONFIG_FILE, 'r') as file:
-            lines = file.readlines()
+        lock = FileLock(LOCK_FILE)  # Lock file with no timeout (wait indefinitely)
+
+        with lock:
+            # Create or clear the temp file
+            open(CONFIG_FILE_TMP, 'w').close()
+
+            # Read the config file and update the IP address
+            with open(CONFIG_FILE, 'r') as file:
+                lines = file.readlines()
         
-        with open(CONFIG_FILE, 'w') as file:
-            for line in lines:
-                if (interface == "IP"):
-                  if line.startswith('DWARF_IP'):
-                      file.write(f'DWARF_IP = "{parameter}"\n')
-                  else:
-                      file.write(line)
-                if (interface == "UI"):
-                  if line.startswith('DWARF_UI'):
-                      file.write(f'DWARF_UI = "{parameter}"\n')
-                  else:
-                      file.write(line)
+            with open(CONFIG_FILE_TMP, 'w') as file:
+                for line in lines:
+                    if (interface == "IP"):
+                      if line.startswith('DWARF_IP'):
+                          file.write(f'DWARF_IP = "{parameter}"\n')
+                      else:
+                          file.write(line)
+                    if (interface == "UI"):
+                      if line.startswith('DWARF_UI'):
+                          file.write(f'DWARF_UI = "{parameter}"\n')
+                      else:
+                          file.write(line)
 
-        # Reload the config module to ensure the new value is used
-        importlib.reload(config)
+            # Copy tmp file
+            nb_try = 0
+            result_copy = copy_file_in_current_directory(CONFIG_FILE_TMP, CONFIG_FILE)
+            while nb_try < 3 and not result_copy:
+                result_copy = copy_file_in_current_directory(CONFIG_FILE_TMP, CONFIG_FILE)
+                nb_try += 1
+                time.sleep(0.25)
 
-        self.send_response(200)
+            if result_copy:
+                # Reload the config module to ensure the new value is used
+                importlib.reload(config)
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'status': 'success'}).encode('utf-8'))
+
+            else: 
+                # Handle file Error
+                self.send_response(204)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'status': 'error', 'message': 'file not updated'}).encode('utf-8'))
+
+            # delay
+            time.sleep(1)
+
+      except ConnectionAbortedError:
+        # Log the error or handle it as needed
+        print("Connection was aborted by the client.")
+      except Exception as e:
+        # Handle other exceptions
+        self.send_response(500)
         self.send_header('Content-type', 'application/json')
         self.end_headers()
-        self.wfile.write(json.dumps({'status': 'success'}).encode('utf-8'))
+        self.wfile.write(json.dumps({'status': 'error', 'message': str(e)}).encode('utf-8'))
 
 class MyServer(threading.Thread):
     def run(self):
@@ -64,7 +127,7 @@ def connect_bluetooth():
     server.start()
 
     time.sleep(2)  # Adjust delay as needed
-    
+
     try:
         # Open the web page in the default web browser
         open_browser(URL)
@@ -76,29 +139,38 @@ def connect_bluetooth():
         resultIP = False
         resultUI = False
         exitAsked = False
-        
-        while not resultIP and not resultUI:
+        # in case of wifi error restart the process
+        if config.DWARF_IP != "":
+          previous_ip = config.DWARF_IP
+        if config.DWARF_UI != "":
+          previous_ui = config.DWARF_UI
+
+        # not((resultIP and resultUI) or (not resultIP and resultUI))
+        while (not resultUI):
+            # Reload the config module to ensure the new value is used
+            importlib.reload(config)
+
             current_ip = config.DWARF_IP
             current_ui = config.DWARF_UI
 
             if current_ip != previous_ip:
                 previous_ip = current_ip
                 if current_ip == "":
-                    print("Info: IP address setting cleared.")
+                    print("(B) Info: IP address setting cleared.")
                 else:
-                    print("Info: IP address updated.")
+                    print("(B) Info: IP address updated.")
                     resultIP = True
             if current_ui != previous_ui:
                 previous_ui = current_ui
                 if current_ui == "":
-                    print("Info: UI address setting cleared.")
+                    print("(B) Info: UI address setting cleared.")
                     if exitAsked :
                       resultUI = True
                 elif current_ui == "Exit":
-                    print("Info: Exit processing.")
+                    print("(B) Info: Exit processing.")
                     exitAsked = True
                 elif current_ui == "Close":
-                    print("Info: Close processing.")
+                    print("(B) Info: Close processing.")
                     resultUI = True
             time.sleep(1.5)
 
@@ -107,6 +179,7 @@ def connect_bluetooth():
         pass
     finally:
         # Stop the server (set server_running flag)
+        print("(B) Info: Server Stops.")
         server.stop()
 
     # Optional: Add additional delay or cleanup steps if needed

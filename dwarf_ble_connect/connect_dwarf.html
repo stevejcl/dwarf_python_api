@@ -64,7 +64,7 @@
             sendParameter("UI", "Exit");
             removeUnloadEvent();
             setTimeout(sendParameter,3000);
-            setTimeout(endAction,4000);
+            setTimeout(endAction,5000);
         }
 
         function closeAction(){
@@ -91,9 +91,9 @@ https://cdn.jsdelivr.net/npm/protobufjs@7.2.6/dist/protobuf.min.js
 // ++++++++++++++++++
 // SET HOME WIFI DATA
 // ++++++++++++++++++
-let BluetoothPWD = "DWARF_12345678";
-let BleSTASSIDDwarf = "TP-Link_HomeJiCi";
-let BleSTAPWDDwarf = "WF_Secur99-home!@2022;";
+let BluetoothPWD = "";
+let BleSTASSIDDwarf = "";
+let BleSTAPWDDwarf = "";
 let deviceDwarfII;
 let characteristicDwarfII;
 
@@ -250,7 +250,7 @@ async function handleClick(event) {
                 await characteristicDwarfII.stopNotifications();
                 characteristicDwarfII.removeEventListener("characteristicvaluechanged", handleValueChanged);
                 removeUnloadEvent();
-                setTimeout(endAction,4000);
+                setTimeout(exitAction,2000);
               }
             }
         }

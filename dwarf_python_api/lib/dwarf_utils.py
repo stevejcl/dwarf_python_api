@@ -444,6 +444,29 @@ def perform_goto_stellar(target_id, target_name):
 
     return False
 
+def perform_open_camera():
+
+    # OPEN TELE PHOTO
+    module_id = 1  # MODULE_CAMERA_TELE
+    type_id = 0; #REQUEST
+
+    ReqPhoto_message = camera.ReqPhoto()
+
+    command = 10000 #CMD_CAMERA_TELE_OPEN_CAMERA
+    response = connect_socket(ReqPhoto_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == 0:
+          log.debug("OPEN TELE PHOTO success")
+          return True
+      else:
+          log.error("Error:", response)
+    else:
+        log.error("Dwarf API:", "Dwarf II not connected")
+
+    return False
+
 def perform_takePhoto():
 
     # START TAKE TELE PHOTO
@@ -660,7 +683,7 @@ def perform_stop_autofocus():
 
     if response is not False: 
 
-      if response == "0":
+      if response == 0:
           log.debug("Autofocus Stop success")
           return True
       else:

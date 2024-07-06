@@ -1,5 +1,5 @@
 import logging
-import websockets
+import websockets.client
 import asyncio
 import json
 import gzip
@@ -376,6 +376,24 @@ class WebSocketClient:
                                     print(f"Error CAMERA_TELE_GET_SYSTEM_WORKING_STATE CODE {getErrorCodeValueName(ComResponse_message.code)}")
                                 else:
                                     print("Continue OK CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE")
+
+                            # CMD_CAMERA_TELE_OPEN_CAMERA = 10000; // // Open the TELE Camera
+                            elif (self.command==protocol.CMD_CAMERA_TELE_OPEN_CAMERA and WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_OPEN_CAMERA):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                print("Decoding CMD_CAMERA_TELE_OPEN_CAMERA")
+                                my_logger.debug(f"receive code data >> {ComResponse_message.code}")
+                                my_logger.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                # Signal the ping and receive functions to stop
+                                self.stop_task.set()
+                                self.result = ComResponse_message.code
+                                await asyncio.sleep(5)
+                                if (ComResponse_message.code != protocol.OK):
+                                    print("Error CMD_CAMERA_TELE_OPEN_CAMERA")
+                                else:
+                                    print("OK CMD_CAMERA_TELE_OPEN_CAMERA")
 
                             # CMD_CAMERA_TELE_OPEN_CAMERA = 10000; // // Open the TELE Camera
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_OPEN_CAMERA):
@@ -1256,7 +1274,7 @@ class WebSocketClient:
             print(f"ping_interval : {self.ping_interval_task}")
             start_client = False
             self.stop_task.clear();
-            async with websockets.connect(self.uri, ping_interval=None, extra_headers=[("Accept-Encoding", "gzip"), ("Sec-WebSocket-Extensions", "permessage-deflate")]) as websocket:
+            async with websockets.client.connect(self.uri, ping_interval=None, extra_headers=[("Accept-Encoding", "gzip"), ("Sec-WebSocket-Extensions", "permessage-deflate")]) as websocket:
                 try:
                     start_client = True
                     self.websocket = websocket
