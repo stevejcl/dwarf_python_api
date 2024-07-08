@@ -9,9 +9,10 @@ import time
 import config
 from .lib.dwarf_utils import perform_takePhoto
 
+CONFIG_FILE = 'config.py'
 # FTP connection details
 global ftp_host
-ftp_host = config.DWARF_IP
+ftp_host = ""
 # Local directory to copy files to
 global local_directory
 local_directory = ''
@@ -24,6 +25,21 @@ local_photo_directory = ''
 # Dwarf directory to copy photo file from
 global last_photo_directory
 last_photo_directory = ''
+
+def read_config_values(config_file):
+    config_values = {}
+    with open(config_file, 'r') as file:
+        for line in file:
+            # Ignore lines starting with '#' (comments) and empty lines
+            if line.strip() and not line.strip().startswith('#'):
+                key, value = line.strip().split('=')
+                config_values[key.strip()] = value.strip().strip('"')  # Remove extra spaces and quotes
+    return config_values
+
+# Function to dynamically import and reload the config module
+def get_current_data():
+    config_values = read_config_values(CONFIG_FILE)
+    return { 'ip' : config_values.get('DWARF_IP','')}
 
 def fn_wait_for_user_input(seconds_to_wait,message):
     #print('waiting for',seconds_to_wait, 'seconds ...' )
@@ -276,8 +292,9 @@ def display_menu():
     global ftp_host
     # Reload the config module to ensure the new value is used
     if not ftp_host:
-        importlib.reload(config)
-        ftp_host = config.DWARF_IP
+        # read at runtime
+        data_config = get_current_data()
+        ftp_host = data_config['ip'] 
 
     print("")
     print("------------------")
@@ -327,8 +344,9 @@ def option_4():
 
     # Reload the config module to ensure the new value is used
     if not ftp_host:
-        importlib.reload(config)
-        ftp_host = config.DWARF_IP
+        # read at runtime
+        data_config = get_current_data()
+        ftp_host = data_config['ip'] 
 
     if (not ftp_host):
         print("The Dwarf IP can't be empty!")
@@ -366,6 +384,12 @@ def option_7():
 def getGetLastPhoto(history = 0, get_config = False):
     global ftp_host
     global local_photo_directory
+
+    # Reload the config module to ensure the new value is used
+    if not ftp_host:
+        # read at runtime
+        data_config = get_current_data()
+        ftp_host = data_config['ip'] 
 
     if (not ftp_host):
         print("The Dwarf IP can't be empty!")

@@ -3,7 +3,6 @@ import websockets.client
 import asyncio
 import json
 import gzip
-import config
 import dwarf_python_api.lib.my_logger as my_logger
 
 import dwarf_python_api.proto.protocol_pb2 as protocol
@@ -14,6 +13,8 @@ import dwarf_python_api.proto.camera_pb2 as camera
 import dwarf_python_api.proto.motor_control_pb2 as motor
 # in notify
 import dwarf_python_api.proto.base_pb2 as base__pb2
+
+CONFIG_FILE = 'config.py'
 
 def ws_uri(dwarf_ip):
     return f"ws://{dwarf_ip}:9900"
@@ -54,6 +55,22 @@ def getOperationStateName(OperationStateCode):
         pass
     return ValueName
 
+def read_config_values(config_file):
+    config_values = {}
+    with open(config_file, 'r') as file:
+        for line in file:
+            # Ignore lines starting with '#' (comments) and empty lines
+            if line.strip() and not line.strip().startswith('#'):
+                key, value = line.strip().split('=')
+                config_values[key.strip()] = value.strip().strip('"')  # Remove extra spaces and quotes
+    return config_values
+
+# Function to dynamically import and reload the config module
+def get_current_data():
+    config_values = read_config_values(CONFIG_FILE)
+    return { 'ip' : config_values.get('DWARF_IP', ''), 'client_id' : config_values.get('CLIENT_ID', ''), 'calibration' : config_values.get('TEST_CALIBRATION', '')}
+
+
 class StopClientException(Exception):
     pass
 
@@ -91,9 +108,9 @@ class WebSocketClient:
         # Production Mode GOTO Packet => TEST_CALIBRATION = False (default)
         self.modeCalibration = False
 
-        if hasattr(config, 'TEST_CALIBRATION'):
-            if(config.TEST_CALIBRATION):
-                self.modeCalibration = True
+        data_config = get_current_data()
+        if data_config['calibration'] != "":
+            self.modeCalibration = True
 
     def initialize_once(self):
         if WebSocketClient.Init_Send_TeleGetSystemWorkingState:
@@ -1375,10 +1392,12 @@ class WebSocketClient:
 
 # Run the client
 def start_socket(message, command, type_id, module_id, uri=None, client_id=None, ping_interval_task=10):
-    if uri is None:
-        uri = config.DWARF_IP
-    if client_id is None:
-        client_id = config.CLIENT_ID
+    if uri is None or client_id is None:
+        data_config = get_current_data()
+        if uri is None:
+            uri = data_config['ip']
+        if client_id is None:
+            client_id = data_config['client_id']
 
     websocket_uri = ws_uri(uri)
 

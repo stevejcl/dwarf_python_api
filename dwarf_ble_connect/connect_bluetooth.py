@@ -6,7 +6,6 @@ import threading
 import time
 import json
 import importlib
-import config # Ensure config is imported
 import os
 import shutil
 from filelock import FileLock
@@ -81,9 +80,6 @@ class MyHandler(SimpleHTTPRequestHandler):
                 time.sleep(0.25)
 
             if result_copy:
-                # Reload the config module to ensure the new value is used
-                importlib.reload(config)
-
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
@@ -95,9 +91,6 @@ class MyHandler(SimpleHTTPRequestHandler):
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps({'status': 'error', 'message': 'file not updated'}).encode('utf-8'))
-
-            # delay
-            time.sleep(1)
   
         print("(B) Lock OFF")
 
@@ -122,6 +115,24 @@ def open_browser(url):
     print(f"Opening web browser to URL: {url}")
     webbrowser.open(url)
 
+def get_file_modification_time(file_path):
+    return os.path.getmtime(file_path)
+
+def read_config_values(config_file):
+    config_values = {}
+    with open(config_file, 'r') as file:
+        for line in file:
+            # Ignore lines starting with '#' (comments) and empty lines
+            if line.strip() and not line.strip().startswith('#'):
+                key, value = line.strip().split('=')
+                config_values[key.strip()] = value.strip().strip('"')  # Remove extra spaces and quotes
+    return config_values
+
+# Function to dynamically import and reload the config module
+def get_current_data():
+    config_values = read_config_values(CONFIG_FILE)
+    return { 'ip' : config_values.get('DWARF_IP',''), 'ui' : config_values.get('DWARF_UI','')}
+
 def connect_bluetooth():
     URL = f"http://127.0.0.1:{PORT}/dwarf_ble_connect/connect_dwarf.html"
     
@@ -142,39 +153,59 @@ def connect_bluetooth():
         resultIP = False
         resultUI = False
         exitAsked = False
+        # read at runtime
+        data_config = get_current_data()
         # in case of wifi error restart the process
-        if config.DWARF_IP != "":
-          previous_ip = config.DWARF_IP
-        if config.DWARF_UI != "":
-          previous_ui = config.DWARF_UI
+        if data_config['ip'] != "":
+          previous_ip = data_config['ip']
+        if data_config['ui'] != "":
+          previous_ui = data_config['ui']
+        check_file = True
+        last_check_time = None
 
         # not((resultIP and resultUI) or (not resultIP and resultUI))
         while (not resultUI):
-            # Reload the config module to ensure the new value is used
-            importlib.reload(config)
 
-            current_ip = config.DWARF_IP
-            current_ui = config.DWARF_UI
+            # Reload the config module when changing to ensure the new value is used
+            current_mod_time = get_file_modification_time(CONFIG_FILE)
+            check_file = (last_check_time is None or last_check_time!= current_mod_time)
+            if check_file :
+              try:
+                lock = FileLock(LOCK_FILE, thread_local=False, timeout=5)
+                with lock:
+                    print("(BC)Lock On")
+                    # read at runtime
+                    data_config = get_current_data()
+                    last_check_time = current_mod_time
 
-            if current_ip != previous_ip:
-                previous_ip = current_ip
-                if current_ip == "":
-                    print("(B) Info: IP address setting cleared.")
-                else:
-                    print("(B) Info: IP address updated.")
-                    resultIP = True
-            if current_ui != previous_ui:
-                previous_ui = current_ui
-                if current_ui == "":
-                    print("(B) Info: UI address setting cleared.")
-                    if exitAsked :
-                      resultUI = True
-                elif current_ui == "Exit":
-                    print("(B) Info: Exit processing.")
-                    exitAsked = True
-                elif current_ui == "Close":
-                    print("(B) Info: Close processing.")
-                    resultUI = True
+                    current_ip = data_config['ip']
+                    print(f"(B) current_ip: {current_ip}")
+                    current_ui = data_config['ui']
+                    print(f"(B) current_ui: {current_ui}")
+                    print("(BC)Lock Off")
+
+                if current_ip != previous_ip:
+                    previous_ip = current_ip
+                    if current_ip == "":
+                        print("(B) Info: IP address setting cleared.")
+                    else:
+                        print("(B) Info: IP address updated.")
+                        resultIP = True
+                if current_ui != previous_ui:
+                    previous_ui = current_ui
+                    if current_ui == "":
+                        print("(B) Info: UI setting cleared.")
+                        if exitAsked :
+                          resultUI = True
+                    elif current_ui == "Exit":
+                        print("(B) Info: Exit processing.")
+                        exitAsked = True
+                    elif current_ui == "Close":
+                        print("(B) Info: Close processing.")
+                        resultUI = True
+              except Timeout:
+                pass 
+                
             time.sleep(1.5)
 
     except KeyboardInterrupt:
