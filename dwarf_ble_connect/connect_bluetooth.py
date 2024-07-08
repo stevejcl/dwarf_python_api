@@ -48,9 +48,10 @@ class MyHandler(SimpleHTTPRequestHandler):
         interface = data['interface']
         parameter = data['parameter']
 
-        lock = FileLock(LOCK_FILE)  # Lock file with no timeout (wait indefinitely)
+        lock = FileLock(LOCK_FILE, thread_local=False)  # Lock file with no timeout (wait indefinitely)
 
         with lock:
+            print("(B) Lock ON")
             # Create or clear the temp file
             open(CONFIG_FILE_TMP, 'w').close()
 
@@ -97,6 +98,8 @@ class MyHandler(SimpleHTTPRequestHandler):
 
             # delay
             time.sleep(1)
+  
+        print("(B) Lock OFF")
 
       except ConnectionAbortedError:
         # Log the error or handle it as needed
