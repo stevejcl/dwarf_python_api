@@ -10,9 +10,11 @@ import os
 import shutil
 from filelock import FileLock
 
+# import data for config.py
+from dwarf_python_api.get_config_data import get_config_data,CONFIG_FILE
+
 # Global PORT
 PORT = 8000
-CONFIG_FILE = 'config.py'
 CONFIG_FILE_TMP = 'config.tmp'
 LOCK_FILE = 'config.lock'
 
@@ -118,21 +120,6 @@ def open_browser(url):
 def get_file_modification_time(file_path):
     return os.path.getmtime(file_path)
 
-def read_config_values(config_file):
-    config_values = {}
-    with open(config_file, 'r') as file:
-        for line in file:
-            # Ignore lines starting with '#' (comments) and empty lines
-            if line.strip() and not line.strip().startswith('#'):
-                key, value = line.strip().split('=')
-                config_values[key.strip()] = value.strip().strip('"')  # Remove extra spaces and quotes
-    return config_values
-
-# Function to dynamically import and reload the config module
-def get_current_data():
-    config_values = read_config_values(CONFIG_FILE)
-    return { 'ip' : config_values.get('DWARF_IP',''), 'ui' : config_values.get('DWARF_UI','')}
-
 def connect_bluetooth():
     URL = f"http://127.0.0.1:{PORT}/dwarf_ble_connect/connect_dwarf.html"
     
@@ -154,7 +141,7 @@ def connect_bluetooth():
         resultUI = False
         exitAsked = False
         # read at runtime
-        data_config = get_current_data()
+        data_config = get_config_data()
         # in case of wifi error restart the process
         if data_config['ip'] != "":
           previous_ip = data_config['ip']
@@ -175,7 +162,7 @@ def connect_bluetooth():
                 with lock:
                     print("(BC)Lock On")
                     # read at runtime
-                    data_config = get_current_data()
+                    data_config = get_config_data()
                     last_check_time = current_mod_time
 
                     current_ip = data_config['ip']

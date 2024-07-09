@@ -1,24 +1,10 @@
-CONFIG_FILE = 'config.py'
-
-def read_config_values(config_file):
-    config_values = {}
-    with open(config_file, 'r') as file:
-        for line in file:
-            # Ignore lines starting with '#' (comments) and empty lines
-            if line.strip() and not line.strip().startswith('#'):
-                key, value = line.strip().split('=')
-                config_values[key.strip()] = value.strip().strip('"')  # Remove extra spaces and quotes
-    return config_values
-
-# Function to dynamically import and reload the config module
-def get_current_data():
-    config_values = read_config_values(CONFIG_FILE)
-    return { 'debug' : config_values.get('DEBUG', '')}
+# import data for config.py
+from dwarf_python_api.get_config_data import get_config_data
 
 def debug(*messages):
-    data_config = get_current_data()
+    data_config = get_config_data()
 
-    if data_config['debug'] != "":
+    if data_config['debug']:
         for message in messages:
             print(message)
 

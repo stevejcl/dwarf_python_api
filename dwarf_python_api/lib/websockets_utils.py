@@ -3,6 +3,7 @@ import websockets.client
 import asyncio
 import json
 import gzip
+import os
 import dwarf_python_api.lib.my_logger as my_logger
 
 import dwarf_python_api.proto.protocol_pb2 as protocol
@@ -13,8 +14,8 @@ import dwarf_python_api.proto.camera_pb2 as camera
 import dwarf_python_api.proto.motor_control_pb2 as motor
 # in notify
 import dwarf_python_api.proto.base_pb2 as base__pb2
-
-CONFIG_FILE = 'config.py'
+# import data for config.py
+from dwarf_python_api.get_config_data import get_config_data
 
 def ws_uri(dwarf_ip):
     return f"ws://{dwarf_ip}:9900"
@@ -55,22 +56,6 @@ def getOperationStateName(OperationStateCode):
         pass
     return ValueName
 
-def read_config_values(config_file):
-    config_values = {}
-    with open(config_file, 'r') as file:
-        for line in file:
-            # Ignore lines starting with '#' (comments) and empty lines
-            if line.strip() and not line.strip().startswith('#'):
-                key, value = line.strip().split('=')
-                config_values[key.strip()] = value.strip().strip('"')  # Remove extra spaces and quotes
-    return config_values
-
-# Function to dynamically import and reload the config module
-def get_current_data():
-    config_values = read_config_values(CONFIG_FILE)
-    return { 'ip' : config_values.get('DWARF_IP', ''), 'client_id' : config_values.get('CLIENT_ID', ''), 'calibration' : config_values.get('TEST_CALIBRATION', '')}
-
-
 class StopClientException(Exception):
     pass
 
@@ -108,8 +93,8 @@ class WebSocketClient:
         # Production Mode GOTO Packet => TEST_CALIBRATION = False (default)
         self.modeCalibration = False
 
-        data_config = get_current_data()
-        if data_config['calibration'] != "":
+        data_config = get_config_data()
+        if data_config['calibration']:
             self.modeCalibration = True
 
     def initialize_once(self):
@@ -1393,34 +1378,35 @@ class WebSocketClient:
 # Run the client
 def start_socket(message, command, type_id, module_id, uri=None, client_id=None, ping_interval_task=10):
     if uri is None or client_id is None:
-        data_config = get_current_data()
+        data_config = get_config_data()
         if uri is None:
             uri = data_config['ip']
         if client_id is None:
             client_id = data_config['client_id']
 
-    websocket_uri = ws_uri(uri)
+    if uri and client_id:
+        websocket_uri = ws_uri(uri)
 
-    print(f"Try Connect to {websocket_uri} for {client_id} with data:")
-    print(f"{message}")
-    print(f"command:{command}")
-    my_logger.debug(f">> {getDwarfCMDName(command)}")
-    print("------------------")
+        print(f"Try Connect to {websocket_uri} for {client_id} with data:")
+        print(f"{message}")
+        print(f"command:{command}")
+        my_logger.debug(f">> {getDwarfCMDName(command)}")
+        print("------------------")
 
-    try:
-        # Create an instance of WebSocketClient
-        client_instance = WebSocketClient(websocket_uri, client_id, message, command, type_id, module_id, ping_interval_task)
-        client_instance.initialize_once()
+        try:
+            # Create an instance of WebSocketClient
+            client_instance = WebSocketClient(websocket_uri, client_id, message, command, type_id, module_id, ping_interval_task)
+            client_instance.initialize_once()
 
-        # Call the start method to initiate the WebSocket connection and tasks
-        asyncio.run(client_instance.start())
-        print("WebSocket Client End.")
-        return client_instance.result;
+            # Call the start method to initiate the WebSocket connection and tasks
+            asyncio.run(client_instance.start())
+            print("WebSocket Client End.")
+            return client_instance.result;
 
-    except Exception as e:
-        # Handle any errors that may occur during the close operation
-        print(f"Unknown Error closing : {e}")
-        pass  # Ignore this exception, it's expected during clean-up
+        except Exception as e:
+            # Handle any errors that may occur during the close operation
+            print(f"Unknown Error closing : {e}")
+            pass  # Ignore this exception, it's expected during clean-up
 
     return False;
 
