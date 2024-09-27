@@ -34,7 +34,7 @@ global client_instance, event_loop, event_loop_thread
 client_instance = None
 event_loop = None
 event_loop_thread = None
-gb_timeout = 240
+gb_timeout = 120 # 240
 ERROR_TIMEOUT = -5
 ERROR_INTERRUPTED = -10
 
@@ -225,6 +225,20 @@ class WebSocketClient:
         finally:
             # Perform cleanup if neede
             log.info("End result_receive_messages.")
+
+    async def result_notification_messages(self, cmd_send, cmd_recv, result, message, code):
+        try:
+            log.info("result_notification_messages.")
+            notification_message = { 'cmd_send' : cmd_send, 'cmd_recv' : cmd_recv, 'result' : result, 'message' : message, 'code': code, 'notification' : True}
+            log.info(notification_message)
+            await self.result_queue.put(notification_message)
+            log.info("end result_notification_messages.")
+        except Exception as e:
+            # Handle other exceptions
+            log.error(f"result_notification_messages: Unhandled exception: {e}")
+        finally:
+            # Perform cleanup if neede
+            log.info("End result_notification_messages.")
 
     async def receive_messages(self):
         if not self.websocket:
@@ -540,6 +554,9 @@ class WebSocketClient:
                                 else:
                                     log.info("Continue Decoding CMD_NOTIFY_STATE_ASTRO_CALIBRATION")
                                     log.notice(f"CALIBRATION: Phase #{ResNotifyStateAstroCalibration_message.plate_solving_times} State:{getAstroStateName(ResNotifyStateAstroCalibration_message.state)}")
+                                    # send a notification
+                                    message = f"CALIBRATION: Phase #{ResNotifyStateAstroCalibration_message.plate_solving_times} State:{getAstroStateName(ResNotifyStateAstroCalibration_message.state)}"
+                                    await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
 
                             # CMD_NOTIFY_STATE_ASTRO_GOTO = 15211; // Astronomical GOTO status
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STATE_ASTRO_GOTO):
@@ -788,6 +805,9 @@ class WebSocketClient:
                                    self.takePhotoStacked = ResNotifyProgressCaptureRawLiveStacking_message.stacked_count
                                 log.notice(f"receive notification current_count >> {self.takePhotoCount}")
                                 log.notice(f"receive notification stacked_count >> {self.takePhotoStacked}")
+                                message = f"current_count >> {self.takePhotoCount} - stacked_count >> {self.takePhotoStacked}"
+                                # send a notification
+                                await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
                             # CMD_CAMERA_TELE_SET_ALL_PARAMS
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_SET_ALL_PARAMS):
                                 ComResponse_message = base__pb2.ComResponse()
@@ -1750,28 +1770,36 @@ async def send_socket_message(message, command, type_id, module_id):
 
             log.debug(f"client_instance {client_instance}")
             if client_instance:
-                log.debug("WebSocket Client wait Queue.")
-                future_cnx = asyncio.run_coroutine_threadsafe(get_result_with_timeout(client_instance.result_queue, gb_timeout), event_loop)
+                notification_result = True
+                while notification_result:
+                    notification_result = False
+                    log.debug("WebSocket Client wait Queue.")
+                    future_cnx = asyncio.run_coroutine_threadsafe(get_result_with_timeout(client_instance.result_queue, gb_timeout), event_loop)
 
-                while not future_cnx.done():
-                    # Check every short interval for task completion or interruption
-                    time.sleep(0.1)  # Small sleep to allow for other tasks
-                    #  client_instance.result_queue.put(result_interrupt)
+                    while not future_cnx.done():
+                        # Check every short interval for task completion or interruption
+                        time.sleep(0.1)  # Small sleep to allow for other tasks
+                        #  client_instance.result_queue.put(result_interrupt)
 
-                result_cnx = future_cnx.result()
+                    result_cnx = future_cnx.result()
 
-                log.debug("WebSocket Client connect Queue.")
-                log.debug(f"Result : send_socket")
-                log.debug(f"Result : {result_cnx}")
-                if isinstance(result_cnx, dict) and 'code' in result_cnx:
-                    if result_cnx['result'] == Dwarf_Result.DISCONNECTED:
-                        log.error("Error WebSocket Disconnected.")
-                        stop_event_loop()
-                        result = False
-                    else:
-                        result = result_cnx['code']
-                elif isinstance(result_cnx, int):
-                    result = result_cnx
+                    log.debug("WebSocket Client connect Queue.")
+                    log.debug(f"Result : send_socket")
+                    log.debug(f"Result : {result_cnx}")
+                    if isinstance(result_cnx, dict) and 'code' in result_cnx:
+                        if result_cnx['result'] == Dwarf_Result.DISCONNECTED:
+                            log.error("Error WebSocket Disconnected.")
+                            stop_event_loop()
+                            result = False
+                        else:
+                            result = result_cnx['code']
+                            # test if it is a notification so we will continue (Astro photo)
+                            if result == 0 and isinstance(result_cnx, dict) and 'notification' in result_cnx:
+                                log.debug("Notification Received : continue loop.")
+                                notification_result = result_cnx['notification']
+                    elif isinstance(result_cnx, int):
+                        result = result_cnx
+
             log.info(f"Result : {result}")
 
     except KeyboardInterrupt:
