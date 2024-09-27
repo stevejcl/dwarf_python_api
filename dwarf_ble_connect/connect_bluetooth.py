@@ -10,8 +10,14 @@ import os
 import shutil
 from filelock import FileLock
 
+import mimetypes
+
 # import data for config.py
 from dwarf_python_api.get_config_data import get_config_data,CONFIG_FILE
+import dwarf_python_api.lib.my_logger as log
+
+# Set the correct MIME type for .js files
+mimetypes.add_type('text/javascript', '.js')
 
 # Global PORT
 PORT = 8000
@@ -29,14 +35,14 @@ def copy_file_in_current_directory(source_filename, destination_filename):
         source_path = os.path.join(current_directory, source_filename)
         destination_path = os.path.join(current_directory, destination_filename)
         shutil.copy(source_path, destination_path)
-        print(f"File copied from {source_filename} to {destination_filename}")
+        log.debug(f"File copied from {source_filename} to {destination_filename}")
         return True
     except FileNotFoundError:
-        print(f"Source file {source_filename} not found in the current directory.")
+        log.error(f"Source file {source_filename} not found in the current directory.")
     except PermissionError:
-        print(f"Permission denied. Unable to copy to {destination_filename}.")
+        log.error(f"Permission denied. Unable to copy to {destination_filename}.")
     except Exception as e:
-        print(f"Error copying file: {e}")
+        log.error(f"Error copying file: {e}")
 
     return False
 
@@ -52,7 +58,7 @@ class MyHandler(SimpleHTTPRequestHandler):
         lock = FileLock(LOCK_FILE, thread_local=False)  # Lock file with no timeout (wait indefinitely)
 
         with lock:
-            print("(B) Lock ON")
+            log.debug("(B) Lock ON")
             # Create or clear the temp file
             open(CONFIG_FILE_TMP, 'w').close()
 
@@ -70,6 +76,11 @@ class MyHandler(SimpleHTTPRequestHandler):
                     if (interface == "UI"):
                       if line.startswith('DWARF_UI'):
                           file.write(f'DWARF_UI = "{parameter}"\n')
+                      else:
+                          file.write(line)
+                    if (interface == "ID"):
+                      if line.startswith('DWARF_ID'):
+                          file.write(f'DWARF_ID = "{parameter}"\n')
                       else:
                           file.write(line)
 
@@ -94,11 +105,11 @@ class MyHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({'status': 'error', 'message': 'file not updated'}).encode('utf-8'))
   
-        print("(B) Lock OFF")
+        log.debug("(B) Lock OFF")
 
       except ConnectionAbortedError:
         # Log the error or handle it as needed
-        print("Connection was aborted by the client.")
+        log.error("Connection was aborted by the client.")
       except Exception as e:
         # Handle other exceptions
         self.send_response(500)
@@ -114,7 +125,7 @@ class MyServer(threading.Thread):
         self.server.shutdown()
 
 def open_browser(url):
-    print(f"Opening web browser to URL: {url}")
+    log.info(f"Opening web browser to URL: {url}")
     webbrowser.open(url)
 
 def get_file_modification_time(file_path):
@@ -127,6 +138,7 @@ def connect_bluetooth():
     server = MyServer()
     server.start()
 
+    resultIP = False
     time.sleep(2)  # Adjust delay as needed
 
     try:
@@ -136,6 +148,7 @@ def connect_bluetooth():
         # Wait for user input to stop the server
         previous_ip = None
         previous_ui = None
+        previous_dwarf_id = None
         time.sleep(3)
         resultIP = False
         resultUI = False
@@ -147,6 +160,8 @@ def connect_bluetooth():
           previous_ip = data_config['ip']
         if data_config['ui'] != "":
           previous_ui = data_config['ui']
+        if data_config['dwarf_id'] != "":
+          previous_dwarf_id = data_config['dwarf_id']
         check_file = True
         last_check_time = None
 
@@ -160,47 +175,60 @@ def connect_bluetooth():
               try:
                 lock = FileLock(LOCK_FILE, thread_local=False, timeout=5)
                 with lock:
-                    print("(BC)Lock On")
+                    log.debug("(BC)Lock On")
                     # read at runtime
                     data_config = get_config_data()
                     last_check_time = current_mod_time
 
                     current_ip = data_config['ip']
-                    print(f"(B) current_ip: {current_ip}")
+                    if current_ip != "":
+                        log.info(f"(B) current_ip: {current_ip}")
+                    else:
+                        log.debug(f"(B) current_ip: {current_ip}")
                     current_ui = data_config['ui']
-                    print(f"(B) current_ui: {current_ui}")
-                    print("(BC)Lock Off")
+                    log.debug(f"(B) current_ui: {current_ui}")
+                    current_dwarf_id = data_config['dwarf_id']
+                    log.debug(f"(B) current_dwarf_id: {current_dwarf_id}")
+                    log.debug("(BC)Lock Off")
 
+                if current_dwarf_id != previous_dwarf_id:
+                    previous_dwarf_id = current_dwarf_id
+                    log.info("(B) Info: Dwarf_ID updated.")
                 if current_ip != previous_ip:
                     previous_ip = current_ip
                     if current_ip == "":
-                        print("(B) Info: IP address setting cleared.")
+                        log.debug("(B) Info: IP address setting cleared.")
                     else:
-                        print("(B) Info: IP address updated.")
+                        log.info("(B) Info: IP address updated.")
                         resultIP = True
                 if current_ui != previous_ui:
                     previous_ui = current_ui
                     if current_ui == "":
-                        print("(B) Info: UI setting cleared.")
+                        log.debug("(B) Info: UI setting cleared.")
                         if exitAsked :
                           resultUI = True
                     elif current_ui == "Exit":
-                        print("(B) Info: Exit processing.")
+                        log.debug("(B) Info: Exit processing.")
                         exitAsked = True
                     elif current_ui == "Close":
-                        print("(B) Info: Close processing.")
+                        log.debug("(B) Info: Close processing.")
                         resultUI = True
               except Timeout:
                 pass 
                 
             time.sleep(1.5)
 
+        if (resultUI and resultIP):
+            log.success(f"Successful Connection to Dwarf {current_dwarf_id}, ip is {current_ip}.")
+        else:
+            log.error("Error connecting to Dwarf Device.")
+
     except KeyboardInterrupt:
         # Handle Ctrl+C to stop the server
         pass
     finally:
         # Stop the server (set server_running flag)
-        print("(B) Info: Server Stops.")
+        log.info("(B) Info: Server Stops.")
         server.stop()
 
     # Optional: Add additional delay or cleanup steps if needed

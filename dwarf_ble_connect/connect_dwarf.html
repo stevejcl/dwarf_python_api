@@ -77,7 +77,7 @@
 <body>
 
 <div align="center">
-<p>Click on the Button to connect to the Dwarf II, and Connect it to your Home Wifi if STA Mode is configured</p>
+<p>Click on the Button to connect to the Dwarf Device, and Connect it to your Home Wifi if STA Mode is configured</p>
 <button id="startButton" class="button buttonSearching">Connect</button>
 <button id="exitButton" class="button buttonError" onClick="exitAction()">Exit</button>
 </div>
@@ -91,11 +91,11 @@ https://cdn.jsdelivr.net/npm/protobufjs@7.2.6/dist/protobuf.min.js
 // ++++++++++++++++++
 // SET HOME WIFI DATA
 // ++++++++++++++++++
-let BluetoothPWD = "";
-let BleSTASSIDDwarf = "";
-let BleSTAPWDDwarf = "";
-let deviceDwarfII;
-let characteristicDwarfII;
+let BluetoothPWD = "DWARF_12345678";
+let BleSTASSIDDwarf = "TP-Link_HomeJiCi";
+let BleSTAPWDDwarf = "WF_Secur99-home!@2022;";
+let deviceDwarf;
+let characteristicDwarf;
 
 </script>
 
@@ -132,19 +132,26 @@ window.addEventListener('beforeunload', beforeUnloadHandler);
 
 async function handleClick(event) {
     try {
+        const Dwarf_Characteristic_String =
+          "00009999-0000-1000-8000-00805f9b34fb";
+        const DwarfII_ID_String = "0000daf2-0000-1000-8000-00805f9b34fb";
+        const Dwarf3_ID_String = "0000daf3-0000-1000-8000-00805f9b34fb";
+        let Dwarf_Name = "Dwarf:";
+        let Dwarf_Type = 2;
+
         const device = await navigator.bluetooth.requestDevice(
             {
                 filters: [
                     { namePrefix: 'DWARF' },
-                    { services: ['0000daf2-0000-1000-8000-00805f9b34fb'] }
+                    { services: [DwarfII_ID_String, Dwarf3_ID_String] }
                 ],
-                optionalServices: ['0000daf2-0000-1000-8000-00805f9b34fb']
+                optionalServices: [DwarfII_ID_String, Dwarf3_ID_String]
             }
         );
         let phase = 0;
 
         // Add the new class
-        startButton.textContent = "Find Dwarf II..." + device.name;
+        startButton.textContent = "Find " + Dwarf_Name + "..." + device.name;
         console.log('Got device:', device.name);
         console.log('id:', device.id);
         console.log('gatt:', device.gatt);
@@ -152,29 +159,41 @@ async function handleClick(event) {
         const server = await device.gatt.connect();
         console.log('server:', server);
 
-        const service = await server.getPrimaryService('0000daf2-0000-1000-8000-00805f9b34fb');
+        let service;
+        try {
+          service = await server.getPrimaryService(DwarfII_ID_String);
+          Dwarf_Name = "Dwarf II";
+          Dwarf_Type = 2;
+        } catch (error) {
+          // If the first service isn't found, try the second one
+          service = await server.getPrimaryService(Dwarf3_ID_String);
+          Dwarf_Name = "Dwarf 3";
+          Dwarf_Type = 3;
+        }
         console.log('Got service:', service.uuid);
+        console.log('Dwarf Type:', Dwarf_Name);
+        sendParameter("ID", Dwarf_Type);
 
-        const characteristic = await service.getCharacteristic('00009999-0000-1000-8000-00805f9b34fb');
+        const characteristic = await service.getCharacteristic(Dwarf_Characteristic_String);
         console.log('Got characteristic:', characteristic.uuid);
         console.log('Got characteristic:', characteristic.service);
         console.log(characteristic);
 
-        let characteristicDwarfII = characteristic;
+        let characteristicDwarf = characteristic;
 
-        characteristicDwarfII.addEventListener('characteristicvaluechanged', handleValueChanged);
+        characteristicDwarf.addEventListener('characteristicvaluechanged', handleValueChanged);
 
-        await characteristicDwarfII.startNotifications();
+        await characteristicDwarf.startNotifications();
 
-        const data_test = await characteristicDwarfII.readValue('00009999-0000-1000-8000-00805f9b34fb');
+        const data_test = await characteristicDwarf.readValue(Dwarf_Characteristic_String);
         console.log('Got detail characteristic:', data_test);
         console.log(data_test);
-        startButton.textContent = "Connecting to Dwarf II..." + device.name;
+        startButton.textContent = "Connecting to " + Dwarf_Name + "..." + device.name;
 
         // get Wifi 
         let bufferGetConfig = messageGetconfig(BluetoothPWD);
 
-        await characteristicDwarfII.writeValue(bufferGetConfig);
+        await characteristicDwarf.writeValue(bufferGetConfig);
         phase = 1;
 
         async function handleValueChanged(event) {
@@ -200,7 +219,7 @@ async function handleClick(event) {
               }
               // check StaMod Not Configured but config saved in memory
               else if (result_data.state == 0 && BleSTASSIDDwarf !== undefined && BleSTAPWDDwarf !== undefined) {
-                startButton.textContent = "Send Wifi config to Dwarf II..." + device.name;
+                startButton.textContent = "Send Wifi config to " + Dwarf_Name + "..." + device.name;
                 console.log("Load WiFi configuration...");
                 phase = 2;
                 // set WifiSTA
@@ -214,13 +233,22 @@ async function handleClick(event) {
                 console.log("Error STA MODE not Configured! Restart it and Use the mobile App.");
                 actionDisconnect("Error STA MODE not Configured! Restart it and Use the mobile App.");
               }
-              // set WifiSTA
+              else if ((result_data.ip == "192.168.88.1" || result_data.ssid.startsWith("DWARF3_3B6B3A")) && BleSTASSIDDwarf !== undefined && BleSTAPWDDwarf !== undefined)
+              { 
+                // set WifiSTA saved in memory
+                startButton.textContent = "Send Wifi config to " + Dwarf_Name + "..." + device.name;
+                console.log("Load WiFi configuration...");
+                phase = 2;
+                // set WifiSTA
+                let bufferSetWifiSta = messageWifiSTA(0, BluetoothPWD, BleSTASSIDDwarf, BleSTAPWDDwarf);
+                await characteristic.writeValue(bufferSetWifiSta);
+              }
               else {
-                startButton.textContent = "Set Wifi config to Dwarf II..." + device.name;
+                startButton.textContent = "Set Wifi config to " + Dwarf_Name + "..." + device.name;
                 console.log("Get correct WiFi configuration...");
                 phase = 2;
                 // set WifiSTA
-                let bufferSetWifiSta = messageWifiSTA(1, BluetoothPWD, result_data.ssid, result_data.psd);
+                let bufferSetWifiSta = messageWifiSTA(0, BluetoothPWD, result_data.ssid, result_data.psd);
                 await characteristic.writeValue(bufferSetWifiSta);
               }
             }
@@ -246,9 +274,9 @@ async function handleClick(event) {
                 document.getElementById('exitButton').disabled = true;
                 startButton.classList.remove("buttonSearching");
                 startButton.classList.add("buttonOK");
-                startButton.textContent = "Connected to Dwarf II";
-                await characteristicDwarfII.stopNotifications();
-                characteristicDwarfII.removeEventListener("characteristicvaluechanged", handleValueChanged);
+                startButton.textContent = "Connected to " + Dwarf_Name;
+                await characteristicDwarf.stopNotifications();
+                characteristicDwarf.removeEventListener("characteristicvaluechanged", handleValueChanged);
                 removeUnloadEvent();
                 setTimeout(exitAction,2000);
               }
@@ -268,19 +296,19 @@ async function handleClick(event) {
             startButton.classList.add("buttonError");
             startButton.textContent = "Disconnected..." + errorText;
             // disconnect Bluetooth
-            if (characteristicDwarfII) {
-              await characteristicDwarfII.stopNotifications();
-              characteristicDwarfII.removeEventListener(
+            if (characteristicDwarf) {
+              await characteristicDwarf.stopNotifications();
+              characteristicDwarf.removeEventListener(
                 "characteristicvaluechanged",
                 handleValueChanged
               );
             }
-            if (deviceDwarfII) {
-              deviceDwarfII.removeEventListener(
+            if (deviceDwarf) {
+              deviceDwarf.removeEventListener(
                 "gattserverdisconnected",
                 onDisconnected
               );
-              if (deviceDwarfII.gatt) await deviceDwarfII.gatt.disconnect();
+              if (deviceDwarf.gatt) await deviceDwarf.gatt.disconnect();
             }
           } catch (error) {
             console.error(error);

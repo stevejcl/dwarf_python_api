@@ -8,7 +8,7 @@ import dwarf_python_api.proto.system_pb2 as system
 # in notify
 import dwarf_python_api.proto.base_pb2 as base__pb2
 
-import dwarf_python_api.lib.my_logger as my_logger
+import dwarf_python_api.lib.my_logger as log
 
 def getErrorCodeValueName(ErrorCode):
 
@@ -38,28 +38,29 @@ def getAstroStateName(AstroStateCode):
     return ValueName
 
 def fct_show_test(show_test = True, show_test1 = False, show_test2 = False):
+
     # TEST
     if (show_test):
       test_data = b'\x08\x01\x10\x01\x18\x01 \x03(\xfaU:\x1b\x09\xda\x01\xac\x95\xd6=\x04@\x11\xf7\x15R\x1b\xe8PV@\x1a\x07PolarisB$ff03aa11-5994-4857-a872-b41e8a3a5e51'
       WsPacket_message = base__pb2.WsPacket()
       WsPacket_message.ParseFromString(test_data)
-      my_logger.debug(">>")
-      my_logger.debug("decode START GOTO PACKET >>")
-      my_logger.debug("decode major_version >>", WsPacket_message.major_version) #1
-      my_logger.debug("decode minor_version >>", WsPacket_message.minor_version) #1
-      my_logger.debug("decode device_id >>", WsPacket_message.device_id) #1
-      my_logger.debug("decode module_id >>", WsPacket_message.module_id) #3
-      my_logger.debug("decode type >>", WsPacket_message.type) #0
-      my_logger.debug("decode cmd >>", WsPacket_message.cmd) #11002
-      my_logger.debug("decode type >>", WsPacket_message.type) #0
-      my_logger.debug("decode client_id >>", WsPacket_message.client_id) # ff03aa11-5994-4857-a872-b41e8a3a5e51
+      log.debug(">>")
+      log.debug("decode START GOTO PACKET >>")
+      log.debug("decode major_version >>", WsPacket_message.major_version) #1
+      log.debug("decode minor_version >>", WsPacket_message.minor_version) #1
+      log.debug("decode device_id >>", WsPacket_message.device_id) #1
+      log.debug("decode module_id >>", WsPacket_message.module_id) #3
+      log.debug("decode type >>", WsPacket_message.type) #0
+      log.debug("decode cmd >>", WsPacket_message.cmd) #11002
+      log.debug("decode type >>", WsPacket_message.type) #0
+      log.debug("decode client_id >>", WsPacket_message.client_id) # ff03aa11-5994-4857-a872-b41e8a3a5e51
 
       ReqGotoDSO_message = astro.ReqGotoDSO()
       ReqGotoDSO_message.ParseFromString(WsPacket_message.data)
-      my_logger.debug("decode ra >>", ReqGotoDSO_message.ra)
-      my_logger.debug("decode dec >>", ReqGotoDSO_message.dec)
-      my_logger.debug("decode target_name >>", ReqGotoDSO_message.target_name)
-      my_logger.debug("<<")
+      log.debug("decode ra >>", ReqGotoDSO_message.ra)
+      log.debug("decode dec >>", ReqGotoDSO_message.dec)
+      log.debug("decode target_name >>", ReqGotoDSO_message.target_name)
+      log.debug("<<")
 
 #    test_response = b'\x00\x1a\x11\x00\x00\x02\x00\x1a\x11\x00\x00\x01\x08\x00E\x00\x00a\x04\xf9@\x00\x10\x06\x99\xf2\xc0\xa8\x00\xfb\x0a\x08\x00\x01&\xac\x96\x02\xc9\x18U\x186\xe7\xbd(P\x18\xff\xff\x8a\xe5\x00\x00\x827\x08\x01\x10\x01\x18\x01 \x09(\xebv0\x02:\x02\x08\x01B$ff03aa11-5994-4857-a872-b41e8a3a5e51'
     test_response = []
@@ -135,63 +136,105 @@ def fct_show_test(show_test = True, show_test1 = False, show_test2 = False):
         print("--3--")
    
     if (show_test1 or show_test2):
-        my_logger.debug("")
-        my_logger.debug("<< START TEST : {start}-{end} >>")
-        my_logger.debug("<< ", start)
-        my_logger.debug("<< ", end)
+        log.debug("")
+        log.debug("<< START TEST : {start}-{end} >>")
+        log.debug("<< ", start)
+        log.debug("<< ", end)
         for i in range(start, end):
             WsPacket_message.ParseFromString(test_response[i])
-            my_logger.debug("") 
-            my_logger.debug("decode  >>", i) #1
-            my_logger.debug("decode major_version >>", WsPacket_message.major_version) #1
-            my_logger.debug("decode minor_version >>", WsPacket_message.minor_version) #1
-            my_logger.debug("decode device_id >>", WsPacket_message.device_id) #1
-            my_logger.debug("decode module_id >>", WsPacket_message.module_id) #9
-            my_logger.debug("decode type >>", WsPacket_message.type) #2
-            my_logger.debug("decode cmd >>", WsPacket_message.cmd) #15211
-            my_logger.debug(f">> {getDwarfCMDName(WsPacket_message.cmd)}")
+            log.debug("") 
+            log.debug("decode  >>", i) #1
+            log.debug("decode major_version >>", WsPacket_message.major_version) #1
+            log.debug("decode minor_version >>", WsPacket_message.minor_version) #1
+            log.debug("decode device_id >>", WsPacket_message.device_id) #1
+            log.debug("decode module_id >>", WsPacket_message.module_id) #9
+            log.debug("decode type >>", WsPacket_message.type) #2
+            log.debug("decode cmd >>", WsPacket_message.cmd) #15211
+            log.debug(f">> {getDwarfCMDName(WsPacket_message.cmd)}")
             if (WsPacket_message.type == 3)or(WsPacket_message.type == 2):
                 if ((WsPacket_message.cmd == protocol.CMD_ASTRO_STOP_CALIBRATION) or (WsPacket_message.cmd == protocol.CMD_NOTIFY_STATE_ASTRO_CALIBRATION)):
                     ResNotifyStateAstroCalibration_message = notify.ResNotifyStateAstroCalibration()
                     ResNotifyStateAstroCalibration_message.ParseFromString(WsPacket_message.data)
-                    my_logger.debug("receive notification data >>", ResNotifyStateAstroCalibration_message.state)
-                    my_logger.debug("receive notification times >>", ResNotifyStateAstroCalibration_message.plate_solving_times)
+                    log.debug("receive notification data >>", ResNotifyStateAstroCalibration_message.state)
+                    log.debug("receive notification times >>", ResNotifyStateAstroCalibration_message.plate_solving_times)
                 elif (WsPacket_message.cmd == protocol.CMD_ASTRO_START_CALIBRATION):
                     ComResponse_message = base__pb2.ComResponse()
                     ComResponse_message.ParseFromString(WsPacket_message.data)
-                    my_logger.debug("receive data >>", ComResponse_message.code)
+                    log.debug("receive data >>", ComResponse_message.code)
                 else :
                     ResNotifyStateAstroGoto_message = notify.ResNotifyStateAstroGoto()
                     ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
-                    my_logger.debug("receive notification data >>", ResNotifyStateAstroGoto_message.state)
+                    log.debug("receive notification data >>", ResNotifyStateAstroGoto_message.state)
 
-            my_logger.debug("decode client_id >>", WsPacket_message.client_id) # ff03aa11-5994-4857-a872-b41e8a3a5e51
+            log.debug("decode client_id >>", WsPacket_message.client_id) # ff03aa11-5994-4857-a872-b41e8a3a5e51
 
             # Result Goto
             if (WsPacket_message.cmd==11002): #CMD_ASTRO_START_GOTO_DSO
                 ComResponse_message = base__pb2.ComResponse()
                 ComResponse_message.ParseFromString(WsPacket_message.data)
 
-                my_logger.debug("receive data >>", ComResponse_message.code)
+                log.debug("receive data >>", ComResponse_message.code)
 
             # Notification Goto State
             if (WsPacket_message.cmd==15211):
                 ResNotifyStateAstroGoto_message = notify.ResNotifyStateAstroGoto()
                 ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
 
-                my_logger.debug("receive data >>", ResNotifyStateAstroGoto_message.state)
+                log.debug("receive data >>", ResNotifyStateAstroGoto_message.state)
 
-        my_logger.debug("<< END TEST >>")
-        my_logger.debug("")
+        log.debug("<< END TEST >>")
+        log.debug("")
 
+def octal_and_special_to_hex(string):
+    # Mapping of special escape characters to their hexadecimal equivalents
+    special_char_map = {
+        r'\a': r'\x07',   # Bell/alert
+        r'\b': r'\x08',   # Backspace
+        r'\t': r'\x09',   # Horizontal tab
+        r'\n': r'\x0a',   # Newline
+        r'\v': r'\x0b',   # Vertical tab
+        r'\f': r'\x0c',   # Form feed
+        r'\r': r'\x0d',   # Carriage return
+        r'\\': r'\x5c',   # Backslash
+        r'\"': r'\x22',   # Double quote
+        r"\'": r'\x27',   # Single quote
+    }
+    
+    # Replace special characters with their hex equivalents
+    for special_char, hex_value in special_char_map.items():
+        string = string.replace(special_char, hex_value)
+
+    # Regular expression to find octal escape sequences like \001 or \020
+    octal_pattern = r'\\([0-3]?[0-7]{1,2})'
+    
+    # Function to replace octal escape sequence with hex equivalent
+    def replace_octal(match):
+        octal_value = match.group(1)
+        # Convert octal to decimal, then to hexadecimal, and format as \xXX
+        hex_value = '\\x{:02x}'.format(int(octal_value, 8))
+        return hex_value
+
+    # Substitute all octal escape sequences with hexadecimal equivalents
+    return re.sub(octal_pattern, replace_octal, string)
 
 def fct_decode_wireshark(user_frame, masked = False, user_maskedcode = ""):
     # Use regular expression to find the desired substring
     start = 0
-    start_pattern = "\\x08\\x01\\x10\\x02\\x18\\x01"
+    start_pattern = "\\x08\\x01\\x10"
+    start_pattern2 = "\\x18"
+
+    # search for
+    # start_pattern = "\\x08\\x01\\x10\\x02\\x18\\x01"
+    # start_pattern = "\\x08\\x01\\x10\\x01\\x18\\x01"
+    # start_pattern = "\\x08\\x01\\x10\\x07\\x18\\x02"
+
     end_pattern = "b41e8a3a5e51"
 
-    extracted_strings = extracted_frames(user_frame, start_pattern, end_pattern)
+    # Test if Octal format : new in Wireshark
+    user_frame_convert = octal_and_special_to_hex(user_frame)
+    print(f"Converted frame: \"{user_frame_convert}\"")
+
+    extracted_strings = extracted_frames(user_frame_convert, start_pattern, start_pattern2, end_pattern)
 
     print("=====================")
     for idx, frame in enumerate(extracted_strings):
@@ -200,19 +243,28 @@ def fct_decode_wireshark(user_frame, masked = False, user_maskedcode = ""):
       decode_packet(python_expression, masked, user_maskedcode)
       print("=====================")
 
-def extracted_frames(user_frame, start_pattern, end_pattern):
-    start_len = len(start_pattern)
+def extracted_frames(user_frame, start_pattern, start_pattern2, end_pattern):
+    start_len = len(start_pattern) + 4
+    start_len_total = start_len + len(start_pattern2) + 4
     end_len = len(end_pattern)
     start_index = 0
     extracted_frames = []
 
+    start_index = 0
+
     while start_index < len(user_frame):
+
         start_index = user_frame.find(start_pattern, start_index)
         if start_index == -1:
             break
+        start_index2 = user_frame.find(start_pattern2, start_index+start_len)
+        if start_index2 == -1:
+            break
+        print(f"start_index: \"{start_index}\"")
+        print(f"start_index2: \"{start_index2}\"")
 
         # Find the end pattern after the current start pattern
-        end_index = user_frame.find(end_pattern, start_index + start_len)
+        end_index = user_frame.find(end_pattern, start_index + start_len_total)
         if end_index == -1:
             break
 
@@ -244,50 +296,50 @@ def decode_packet(python_expression, masked = False, user_maskedcode = ""):
 
     WsPacket_message = base__pb2.WsPacket()
     WsPacket_message.ParseFromString(util_data_frame)
-    my_logger.debug("") 
-    my_logger.debug("decode  >>", data_frame) #1
-    my_logger.debug("decode major_version >>", WsPacket_message.major_version) #1
-    my_logger.debug("decode minor_version >>", WsPacket_message.minor_version) #1
-    my_logger.debug("decode device_id >>", WsPacket_message.device_id) #1
-    my_logger.debug("decode module_id >>", WsPacket_message.module_id) #9
-    my_logger.debug("decode type >>", WsPacket_message.type) #2
-    my_logger.debug("decode cmd >>", WsPacket_message.cmd) #15211
-    my_logger.debug(f">> {getDwarfCMDName(WsPacket_message.cmd)}")
+    log.debug("") 
+    log.debug("decode  >>", data_frame) #1
+    log.debug("decode major_version >>", WsPacket_message.major_version) #1
+    log.debug("decode minor_version >>", WsPacket_message.minor_version) #1
+    log.debug("decode device_id >>", WsPacket_message.device_id) #1
+    log.debug("decode module_id >>", WsPacket_message.module_id) #9
+    log.debug("decode type >>", WsPacket_message.type) #2
+    log.debug("decode cmd >>", WsPacket_message.cmd) #15211
+    log.debug(f">> {getDwarfCMDName(WsPacket_message.cmd)}")
     if (WsPacket_message.type == 0):
         if ((WsPacket_message.cmd == protocol.CMD_SYSTEM_SET_HOSTSLAVE_MODE)):
             ReqSetHostSlaveMode_message = system.ReqSetHostSlaveMode()
             ReqSetHostSlaveMode_message.ParseFromString(WsPacket_message.data)
-            my_logger.debug("receive notification data >>", ReqSetHostSlaveMode_message)
-            my_logger.debug("receive notification mode >>", ReqSetHostSlaveMode_message.mode)
+            log.debug("receive notification data >>", ReqSetHostSlaveMode_message)
+            log.debug("receive notification mode >>", ReqSetHostSlaveMode_message.mode)
     if (WsPacket_message.type == 1):
         ComResponse_message = base__pb2.ComResponse()
         ComResponse_message.ParseFromString(WsPacket_message.data)
-        my_logger.debug("receive data >>", ComResponse_message.code)
+        log.debug("receive data >>", ComResponse_message.code)
     if (WsPacket_message.type == 3)or(WsPacket_message.type == 2):
         if ((WsPacket_message.cmd == protocol.CMD_ASTRO_STOP_CALIBRATION) or (WsPacket_message.cmd == protocol.CMD_NOTIFY_STATE_ASTRO_CALIBRATION)):
             ResNotifyStateAstroCalibration_message = notify.ResNotifyStateAstroCalibration()
             ResNotifyStateAstroCalibration_message.ParseFromString(WsPacket_message.data)
-            my_logger.debug("receive notification data >>", ResNotifyStateAstroCalibration_message.state)
-            my_logger.debug("receive notification times >>", ResNotifyStateAstroCalibration_message.plate_solving_times)
+            log.debug("receive notification data >>", ResNotifyStateAstroCalibration_message.state)
+            log.debug("receive notification times >>", ResNotifyStateAstroCalibration_message.plate_solving_times)
         elif (WsPacket_message.cmd == protocol.CMD_STEP_MOTOR_SERVICE_JOYSTICK):
             ResMotorPosition_message = motor_control.ResMotorPosition()
             ResMotorPosition_message.ParseFromString(WsPacket_message.data)
-            my_logger.debug("receive notification id >>", ResMotorPosition_message.id)
-            my_logger.debug("receive notification code >>", ResMotorPosition_message.code)
-            my_logger.debug("receive notification position >>", ResMotorPosition_message.position)
+            log.debug("receive notification id >>", ResMotorPosition_message.id)
+            log.debug("receive notification code >>", ResMotorPosition_message.code)
+            log.debug("receive notification position >>", ResMotorPosition_message.position)
         elif (WsPacket_message.cmd == protocol.CMD_ASTRO_START_CALIBRATION):
             ComResponse_message = base__pb2.ComResponse()
             ComResponse_message.ParseFromString(WsPacket_message.data)
-            my_logger.debug("receive data >>", ComResponse_message.code)
+            log.debug("receive data >>", ComResponse_message.code)
         elif (WsPacket_message.type == 3):
             ComResWithInt_message = base__pb2.ComResWithInt()
             ComResWithInt_message.ParseFromString(WsPacket_message.data)
-            my_logger.debug("receive data >>", ComResWithInt_message.code)
-            my_logger.debug("receive data >>", ComResWithInt_message.value)
+            log.debug("receive data >>", ComResWithInt_message.code)
+            log.debug("receive data >>", ComResWithInt_message.value)
         else :
             ResNotifyStateAstroGoto_message = notify.ResNotifyStateAstroGoto()
             ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
-            my_logger.debug("receive notification all data >>", ResNotifyStateAstroGoto_message)
-            my_logger.debug("receive notification data >>", ResNotifyStateAstroGoto_message.state)
+            log.debug("receive notification all data >>", ResNotifyStateAstroGoto_message)
+            log.debug("receive notification data >>", ResNotifyStateAstroGoto_message.state)
 
-    my_logger.debug("decode client_id >>", WsPacket_message.client_id) # ff03aa11-5994-4857-a872-b41e8a3a5e51
+    log.debug("decode client_id >>", WsPacket_message.client_id) # ff03aa11-5994-4857-a872-b41e8a3a5e51

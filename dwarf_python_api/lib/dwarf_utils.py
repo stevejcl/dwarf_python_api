@@ -1,4 +1,5 @@
 from .websockets_utils import connect_socket
+from .websockets_utils import disconnect_socket
 from .websockets_testV2 import fct_show_test
 from .websockets_testV2 import fct_decode_wireshark
 
@@ -20,6 +21,9 @@ import time
 from datetime import datetime
 import math
 import re
+
+def perform_disconnect():
+    disconnect_socket()
 
 def read_longitude():
     config = configparser.ConfigParser()
@@ -337,6 +341,7 @@ def parse_dec_to_float(dec_string):
     return dec_decimal
 
 def perform_getstatus():
+
     # GET STATUS
     module_id = 1  # MODULE_TELEPHOTO
     type_id = 0; #REQUEST
@@ -349,16 +354,17 @@ def perform_getstatus():
     if response is not False: 
 
       if response == 0:
-          log.debug("Get Status success")
+          log.success("Get Status success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
 def unset_HostMaster():
+
     # SET Host
     module_id = 4  # MODULE_SYSTEM
     type_id = 0; #REQUEST
@@ -372,13 +378,13 @@ def unset_HostMaster():
     if response is not False: 
 
       if response == 0:
-          log.debug("Unset Host SLAVE success")
-          log.debug("Need to disconnect to take effect")
+          log.success("Unset Host SLAVE success")
+          log.success("Need to disconnect to take effect")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -399,13 +405,13 @@ def perform_goto(ra, dec, target):
 
     if response is not False: 
 
-      if response == "ok":
-          log.debug("Goto success")
+      if response == 0:
+          log.success("Goto success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -434,13 +440,13 @@ def perform_goto_stellar(target_id, target_name):
 
     if response is not False: 
 
-      if response == "ok":
-          log.debug("Goto success")
+      if response == 0:
+          log.success("Goto success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -458,12 +464,12 @@ def perform_open_camera():
     if response is not False: 
 
       if response == 0:
-          log.debug("OPEN TELE PHOTO success")
+          log.success("OPEN TELE PHOTO success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -480,14 +486,33 @@ def perform_takePhoto():
 
     if response is not False: 
 
-      if response == "ok":
-          log.debug("TAKE TELE PHOTO success")
+      if response == 0:
+          log.success("TAKE TELE PHOTO success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
+    return False
+
+def perform_waitEndAstroPhoto():
+
+    # use special message to get end of shooting
+    module_id = 1  # MODULE_CAMERA_TELE
+    type_id = 0; #REQUEST
+
+    response = connect_socket("ASTRO CAPTURE ENDING", None, type_id, module_id)
+
+    if response is not False: 
+
+        if response == 0:
+            log.success("ASTRO CAPTURE ENDING success")
+            return True
+        else:
+            log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
     return False
 
 def perform_takeAstroPhoto():
@@ -504,12 +529,12 @@ def perform_takeAstroPhoto():
     if response is not False: 
 
       if response == 0:
-          log.debug("START CAPTURE RAW LIVE STACKING success")
+          log.success("START CAPTURE RAW LIVE STACKING success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -527,12 +552,12 @@ def perform_stopAstroPhoto():
     if response is not False: 
 
       if response == 0:
-          log.debug("STOP CAPTURE RAW LIVE STACKING success")
+          log.success("STOP CAPTURE RAW LIVE STACKING success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -550,12 +575,12 @@ def perform_GoLive():
     if response is not False: 
 
       if response == 0:
-          log.debug("GO LIVE success")
+          log.success("GO LIVE success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -581,16 +606,17 @@ def perform_time():
 
     command = 13000 #CMD_SYSTEM_SET_TIME
     response = connect_socket(ReqSetTime_message, command, type_id, module_id)
+    #log.success(f"Get Result : {response}")
 
     if response is not False: 
 
       if response == 0:
-          log.debug("Set Time success")
+          log.success("Set Time success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -609,12 +635,12 @@ def perform_timezone():
     if response is not False: 
 
       if response == 0:
-          log.debug("Set TimeZone success")
+          log.success("Set TimeZone success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -632,13 +658,61 @@ def perform_calibration():
 
     if response is not False: 
 
-      if response == "ok":
-          log.debug("Goto success")
+      if response == 0:
+          log.success("Calibration success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
+
+def perform_stop_calibration():
+
+    # STOP CALIBRATION
+    module_id = 3  # MODULE_ASTRO
+    type_id = 0; #REQUEST
+
+    ReqStoptCalibration_message = astro.ReqStopCalibration ()
+
+    command = 11001 #CMD_ASTRO_STOP_CALIBRATION
+
+    response = connect_socket(ReqStoptCalibration_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == 0:
+          log.success("Stop Calibration success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
+
+def perform_stop_goto():
+
+    # STOP GOTO
+    module_id = 3  # MODULE_ASTRO
+    type_id = 0; #REQUEST
+
+    ReqStopGoto_message = astro.ReqStopGoto ()
+
+    command = 11004 #CMD_ASTRO_STOP_GOTO
+
+    response = connect_socket(ReqStopGoto_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == 0:
+          log.success("Stop Goto success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -660,12 +734,12 @@ def perform_start_autofocus(infinite = False):
     if response is not False: 
 
       if response == 0:
-          log.debug("Autofocus success")
+          log.success("Autofocus success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -684,12 +758,12 @@ def perform_stop_autofocus():
     if response is not False: 
 
       if response == 0:
-          log.debug("Autofocus Stop success")
+          log.success("Autofocus Stop success")
           return True
       else:
-          log.error("Error:", response)
+          log.error(f"Error code: {response}")
     else:
-        log.error("Dwarf API:", "Dwarf II not connected")
+        log.error("Dwarf API: Dwarf Device not connected")
 
     return False
 
@@ -853,7 +927,9 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqSetFeatureParams_message, command, type_id, module_id)
 
-def permform_update_camera_setting( type, value):
+  return response
+
+def perform_update_camera_setting( type, value, dwarf_id = "2"):
 
   if (type == "exposure"):
     # exposure_mode
@@ -868,9 +944,8 @@ def permform_update_camera_setting( type, value):
     response = connect_socket(ReqSetExpMode_message, command, type_id, module_id)
 
     # exposure
-
     ReqSetExp_message = camera.ReqSetExp ()
-    ReqSetExp_message.index = get_exposure_index_by_name(str(value))
+    ReqSetExp_message.index = get_exposure_index_by_name(str(value), str(dwarf_id))
 
     command = 10009; #CMD_CAMERA_TELE_SET_EXP
 
@@ -883,7 +958,7 @@ def permform_update_camera_setting( type, value):
     type_id = 0; #REQUEST
 
     ReqSetGain_message = camera.ReqSetGain ()
-    ReqSetGain_message.index = get_gain_index_by_name(str(value))
+    ReqSetGain_message.index = get_gain_index_by_name(str(value),str(dwarf_id))
 
     command = 10013; #CMD_CAMERA_TELE_SET_GAIN
 
@@ -951,9 +1026,20 @@ def permform_update_camera_setting( type, value):
 
     response = connect_socket(ReqSetFeatureParams_message, command, type_id, module_id)
 
-  return response
+  if response is not False: 
+
+      if response == 0:
+          log.success("Update camera setting")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+  else:
+      log.error("Dwarf API: Dwarf Device not connected")
+
+  return False
 
 def motor_action( action ):
+
     module_id = 6  # MODULE_MOTOR
     type_id = 0; #REQUEST
 
@@ -1001,6 +1087,16 @@ def motor_action( action ):
       command = 14001; #CMD_STEP_MOTOR_RUN_TO
       response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
+    if (action == 7):  # For D3
+      ReqMotorRunTo_message = motor.ReqMotorRunTo ()
+      ReqMotorRunTo_message.id= 2;
+      ReqMotorRunTo_message.end_position = 166.5;
+      ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
+      ReqMotorRunTo_message.speed_ramping = 100;
+      ReqMotorRunTo_message.resolution_level = 3;
+      command = 14001; #CMD_STEP_MOTOR_RUN_TO
+      response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
+
     if (action == 4):
       ReqMotorRunTo_message = motor.ReqMotorRunTo ()
       ReqMotorRunTo_message.id= 1;
@@ -1029,4 +1125,14 @@ def motor_action( action ):
       command = 14006; #CMD_STEP_MOTOR_SERVICE_JOYSTICK
       response = connect_socket(ReqMotorServiceJoystickFixedAngle_message, command, type_id, module_id)
 
-    return response 
+    if response is not False: 
+
+      if response == 0:
+          log.success("Motor Action success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False

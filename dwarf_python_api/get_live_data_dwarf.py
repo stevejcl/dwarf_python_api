@@ -1,4 +1,4 @@
-from ftplib import FTP
+from ftplib import FTP, error_perm
 import sys
 import os
 import shutil
@@ -82,16 +82,35 @@ def getLastTelePhoto(history):
         ftp.set_pasv(True)
         print(f"Connected to {ftp_host}")
     except:
-        print("Can't connect to the Dwarf II.")
+        print("Can't connect to the Dwarf Device.")
         return False
 
     # Remote directory on the FTP server to monitor
-    remote_directory = '/DWARF_II/Normal_Photos'
+    remote_directoryD2 = '/DWARF_II/Normal_Photos'
+    start_nameD2 = "DWARF_TELE"
+    remote_directoryD3 = '/Normal_Photos'
+    start_nameD3 = "DWARF3_TELE"
+    remote_directory = remote_directoryD2
+    start_name = start_nameD2
 
     # File extension to filter for (e.g., '.fits')
     file_extension = '.jpg'
 
     # Change to the Photo subdirectory
+    # Try to change to remote_directoryD2, switch to remote_directoryD3 if D2 doesn't exist
+    try:
+        ftp.cwd(remote_directory)
+        print(f"Dwarf 2 connected, Successfully changed to {remote_directoryD2}")
+    except error_perm as e:
+        remote_directory = remote_directoryD3
+        start_name = start_nameD3
+        try:
+            ftp.cwd(remote_directory)
+            print(f"Dwarf 3 connected, Successfully changed to {remote_directory}")
+        except error_perm as e:
+            print(f"Erreur getting files on FTP on the Dwarf, error: {e}")
+            return False
+
     ftp.cwd(remote_directory)
     wait_number = 0
     old_wait_number = 0
@@ -99,7 +118,7 @@ def getLastTelePhoto(history):
     # Get the list of files in the directory
     remote_files = ftp.nlst()
 
-    remote_telefiles = [f for f in remote_files if (f.startswith('DWARF_TELE'))]
+    remote_telefiles = [f for f in remote_files if (f.startswith(start_name))]
     sorted_file_list = sorted(remote_telefiles, reverse=True)
 
     # Verify
@@ -161,7 +180,27 @@ def stacking():
         return
 
     # Remote directory on the FTP server to monitor
-    remote_directory = '/DWARF_II/Astronomy/'
+    remote_directoryD2 = '/DWARF_II/Astronomy/'
+    remote_directoryD3 = '/Astronomy/'
+    remote_directory = remote_directoryD2
+
+    # Try to change to remote_directoryD2, switch to remote_directoryD3 if D2 doesn't exist
+    try:
+        ftp.cwd(remote_directory)
+        print(f"Dwarf 2 connected")
+        # Move back to the parent directory
+        ftp.cwd('/')
+
+    except error_perm as e:
+        remote_directory = remote_directoryD3
+        try:
+            ftp.cwd(remote_directory)
+            print(f"Dwarf 3 connected")
+            # Move back to the parent directory
+            ftp.cwd('/')
+        except error_perm as e:
+            print(f"Erreur getting files on FTP on the Dwarf, error: {e}")
+            return False
 
     # Create Tmp directory if need
     local_path_tmp = os.path.join(local_directory, "tmp")
@@ -176,7 +215,7 @@ def stacking():
     # Set to keep track of downloaded files
     downloaded_files = set()
 
-    files = ftp.mlsd("/DWARF_II/Astronomy/DWARF_RAW_Manual_EXP_13_GAIN_90_2024-01-07-00-40-14-712")
+    #files = ftp.mlsd("/DWARF_II/Astronomy/DWARF_RAW_Manual_EXP_13_GAIN_90_2024-01-07-00-40-14-712")
 
     if (not last_directory):
         print(f"Search the last directory...")
@@ -195,7 +234,14 @@ def stacking():
         #            remote_subdirectories.append(d)
 
         # Get the list of subdirectories in the remote directory
+        print(f"Test if Dwarf is a D2")
         remote_subdirectories = [d for d in ftp.nlst(remote_directory) if (ftp.cwd(d).startswith("250") and d.startswith(remote_directory+'DWARF_RAW'))]
+
+        if (len(remote_subdirectories) == 0):
+            print(f"Test if Dwarf is a D3")
+            remote_directory = remote_directoryD3
+            remote_subdirectories = [d for d in ftp.nlst(remote_directory) if (ftp.cwd(d).startswith("250") and d.startswith(remote_directory+'DWARF_RAW'))]
+
         print(f"Found {len(remote_subdirectories)} directories")
 
         # Sort subdirectories by modification date (most recent first)
@@ -212,66 +258,72 @@ def stacking():
         print(f"Processing files in directory: {most_recent_subdirectory}")
 
         # Change to the most recent subdirectory
-        ftp.cwd(most_recent_subdirectory)
         wait_number = 0
         old_wait_number = 0
         processing = True
 
-        while processing:
+        try:
+            ftp.cwd(most_recent_subdirectory)
 
-            # Get the list of files in the most recent subdirectory
-            remote_files = ftp.nlst()
+            while processing:
 
-            # Sort files by modification date (oldest first)
-            remote_files.sort(key=lambda x: get_file_mtime(ftp, x))
+                # Get the list of files in the most recent subdirectory
+                remote_files = ftp.nlst()
 
-            # Find and download new files with the specified extension
-            for remote_file in remote_files:
-                if remote_file.endswith(file_extension) and remote_file not in downloaded_files:
-                    # Found new files
-                    print ("Found new file")
-                    old_wait_number = wait_number
+                # Sort files by modification date (oldest first)
+                remote_files.sort(key=lambda x: get_file_mtime(ftp, x))
 
-                    print(f"Find File : {remote_file} from directory: {most_recent_subdirectory}")
-                    remote_path = most_recent_subdirectory + "/" + remote_file
-                    local_path = os.path.join(local_directory, remote_file)
+                # Find and download new files with the specified extension
+                for remote_file in remote_files:
+                    if remote_file.endswith(file_extension) and remote_file not in downloaded_files:
+                        # Found new files
+                        print ("Found new file")
+                        old_wait_number = wait_number
 
-                    # use a local tmp in a subdirectory : need for Sirl as the transfert is slow
-                    local_tmp = remote_file.replace(file_extension, ".tmp")
-                    local_file_tmp = os.path.join(local_path_tmp, local_tmp)
+                        print(f"Find File : {remote_file} from directory: {most_recent_subdirectory}")
+                        remote_path = most_recent_subdirectory + "/" + remote_file
+                        local_path = os.path.join(local_directory, remote_file)
 
-                    if (os.path.isfile(local_file_tmp)):
-                        os.remove(local_file_tmp)
-                    if (os.path.isfile(local_path)):
-                        os.remove(local_path)
+                        # use a local tmp in a subdirectory : need for Sirl as the transfert is slow
+                        local_tmp = remote_file.replace(file_extension, ".tmp")
+                        local_file_tmp = os.path.join(local_path_tmp, local_tmp)
 
-                    download_file(ftp, remote_path, local_file_tmp)
-                    print(f"Downloaded file: {remote_file}")
-                    print(f"From directory: {most_recent_subdirectory} to {local_file_tmp}")
-                    # rename tmp file
-                    os.rename(local_file_tmp, local_path)
-                    print(f"New File copied : {remote_file}") 
-                    downloaded_files.add(remote_file)
+                        if (os.path.isfile(local_file_tmp)):
+                            os.remove(local_file_tmp)
+                        if (os.path.isfile(local_path)):
+                            os.remove(local_path)
 
-            wait_number += 15
+                        download_file(ftp, remote_path, local_file_tmp)
+                        print(f"Downloaded file: {remote_file}")
+                        print(f"From directory: {most_recent_subdirectory} to {local_file_tmp}")
+                        # rename tmp file
+                        os.rename(local_file_tmp, local_path)
+                        print(f"New File copied : {remote_file}") 
+                        downloaded_files.add(remote_file)
 
-            if (wait_number - old_wait_number)  > 3:
-                if fn_wait_for_user_input(5, "No more files since 30 seconds, the program will contine if you don't press CTRL-C within 5 seconds:" )  == 1:
-                    old_wait_number = wait_number
-                    print('continuing ....')
-                else:
-                    print('not continuing.')
-                    processing = False
+                wait_number += 15
 
-            if (processing):
-                # Pause before checking again
-                sleep(2)  # You can adjust the frequency of checking
+                if (wait_number - old_wait_number)  > 3:
+                    if fn_wait_for_user_input(5, "No more files since 30 seconds, the program will contine if you don't press CTRL-C within 5 seconds:" )  == 1:
+                        old_wait_number = wait_number
+                        print('continuing ....')
+                    else:
+                        print('not continuing.')
+                        processing = False
 
-        # Move back to the parent directory
-        ftp.cwd('..')
+                if (processing):
+                    # Pause before checking again
+                    sleep(2)  # You can adjust the frequency of checking
+
+            # Move back to the parent directory
+            ftp.cwd('..')
+
+        except error_perm as e:
+            print(f"Erreur getting files on FTP on the Dwarf, error: {e}")
+        except KeyboardInterrupt:
+            print('Keypress detected - exiting.')
 
     print(f"Stacking Finished")
-    display_menu()
 
 def display_menu():
     global ftp_host
@@ -357,14 +409,12 @@ def option_6():
     nb_last_photo = get_user_choice_last_Photo()
 
     getGetLastPhoto(nb_last_photo)
-    display_menu()
 
 def option_7():
     print("You selected Option 7. Take one Photo Only")
     print("")
     # Add your Option 7 functionality here
     perform_takePhoto()
-    display_menu()
 
 def getGetLastPhoto(history = 0, get_config = False):
     global ftp_host

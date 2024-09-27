@@ -5,3 +5,5 @@ protobuf==3.20.*
 bleak
 
 filelock
+
+paramiko
