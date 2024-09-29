@@ -31,7 +31,7 @@ class AllowedExposures:
             {"index": 78, "name": "1/25"},
             {"index": 81, "name": "1/20"},
             {"index": 84, "name": "1/15"},
-            {"index": 87, "name": "1/1320"},
+            {"index": 87, "name": "1/13"},
             {"index": 90, "name": "1/10"},
             {"index": 93, "name": "1/8"},
             {"index": 96, "name": "1/6"},

@@ -6,6 +6,9 @@ from .websockets_testV2 import fct_decode_wireshark
 from .data_utils import get_exposure_index_by_name
 from .data_utils import get_gain_index_by_name
 
+from .data_wide_utils import get_wide_exposure_index_by_name
+from .data_wide_utils import get_wide_gain_index_by_name
+
 import dwarf_python_api.lib.my_logger as log
 
 import dwarf_python_api.proto.astro_pb2 as astro
@@ -146,6 +149,34 @@ def read_camera_count():
         return camera_count
     except configparser.NoOptionError:
         print("Nb of images to take not found.")
+        return False
+    except configparser.NoSectionError:
+        print("Data not found.")
+        return False
+
+def read_camera_wide_exposure():
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+
+    try:
+        camera_wide_exposure = config.get('CONFIG', 'WIDE_EXPOSURE')
+        return camera_wide_exposure
+    except configparser.NoOptionError:
+        print("camera wide exposure not found.")
+        return False
+    except configparser.NoSectionError:
+        print("Data not found.")
+        return False
+
+def read_camera_wide_gain():
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+
+    try:
+        camera_wide_gain = config.get('CONFIG', 'WIDE_GAIN')
+        return camera_wide_gain
+    except configparser.NoOptionError:
+        print("camera wide gain not found.")
         return False
     except configparser.NoSectionError:
         print("Data not found.")
@@ -496,6 +527,52 @@ def perform_takePhoto():
 
     return False
 
+def perform_open_widecamera():
+
+    # OPEN WIDE PHOTO
+    module_id = 2  # MODULE_CAMERA_WIDE
+    type_id = 0; #REQUEST
+
+    ReqPhoto_message = camera.ReqPhoto()
+
+    command = 12000 #CMD_CAMERA_WIDE_OPEN_CAMERA
+    response = connect_socket(ReqPhoto_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == 0:
+          log.success("OPEN WIDE PHOTO success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
+
+def perform_takeWidePhoto():
+
+    # START WIDE TELE PHOTO
+    module_id = 2  # MODULE_CAMERA_WIDE
+    type_id = 0; #REQUEST
+
+    ReqPhoto_message = camera.ReqPhoto()
+
+    command = 12022 #CMD_CAMERA_WIDE_PHOTOGRAPH
+    response = connect_socket(ReqPhoto_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == 0:
+          log.success("TAKE WIDE PHOTO success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
+
 def perform_waitEndAstroPhoto():
 
     # use special message to get end of shooting
@@ -508,6 +585,25 @@ def perform_waitEndAstroPhoto():
 
         if response == 0:
             log.success("ASTRO CAPTURE ENDING success")
+            return True
+        else:
+            log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+    return False
+
+def perform_waitEndAstroWidePhoto():
+
+    # use special message to get end of shooting
+    module_id = 1  # MODULE_CAMERA_TELE
+    type_id = 0; #REQUEST
+
+    response = connect_socket("ASTRO WIDE CAPTURE ENDING", None, type_id, module_id)
+
+    if response is not False: 
+
+        if response == 0:
+            log.success("ASTRO WIDE CAPTURE ENDING success")
             return True
         else:
             log.error(f"Error code: {response}")
@@ -547,6 +643,52 @@ def perform_stopAstroPhoto():
     ReqStopCaptureRawLiveStacking_message = astro.ReqStopCaptureRawLiveStacking()
 
     command = 11006 #CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING
+    response = connect_socket(ReqStopCaptureRawLiveStacking_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == 0:
+          log.success("STOP CAPTURE RAW LIVE STACKING success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
+
+def perform_takeAstroWidePhoto():
+
+    # START CAPTURE WIDE RAW WIDE LIVE STACKING
+    module_id = 3  # MODULE_ASTRO
+    type_id = 0; #REQUEST
+
+    ReqCaptureRawLiveStacking_message = astro.ReqCaptureRawLiveStacking()
+
+    command = 11016 #CMD_ASTRO_START_CAPTURE_WIDE_RAW_LIVE_STACKING ?? Tob confirmed
+    response = connect_socket(ReqCaptureRawLiveStacking_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == 0:
+          log.success("START CAPTURE WIDE RAW LIVE STACKING success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
+
+def perform_stopAstroWidePhoto():
+
+    # STOP CAPTURE RAW LIVE STACKING
+    module_id = 3  # MODULE_ASTRO
+    type_id = 0; #REQUEST
+
+    ReqStopCaptureRawLiveStacking_message = astro.ReqStopCaptureRawLiveStacking()
+
+    command = 11017 #CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING
     response = connect_socket(ReqStopCaptureRawLiveStacking_message, command, type_id, module_id)
 
     if response is not False: 
@@ -805,7 +947,6 @@ def perform_get_all_camera_setting():
   
   return response
 
-
 def perform_get_all_feature_camera_setting():
 
   module_id = 1  # MODULE_TELE_CAMERA
@@ -819,23 +960,38 @@ def perform_get_all_feature_camera_setting():
 
   return response
 
-def perform_get_camera_setting( type):
+def perform_get_all_camera_wide_setting():
 
-  # brightness
-  module_id = 1  # MODULE_TELE_CAMERA
+  module_id = 2  # MODULE_WIDE_CAMERA
   type_id = 0; #REQUEST
 
-  ReqGetBrightness_message = camera.ReqGetBrightness ()
+  ReqGetAllParams_message = camera.ReqGetAllParams ()
 
-  command = 10016; #CMD_CAMERA_TELE_GET_BRIGHTNESS
+  command = 12027; #CMD_CAMERA_WIDE_GET_ALL_PARAMS
 
-  response = connect_socket(ReqGetBrightness_message, command, type_id, module_id)
+  response = connect_socket(ReqGetAllParams_message, command, type_id, module_id)
+  
+  return response
 
-  ReqGetContrast_message = camera.ReqGetContrast ()
+def perform_get_camera_setting( type):
 
-  command = 10018; #CMD_CAMERA_TELE_GET_CONTRAST
+  Test = False
+  if Test:
+    # brightness
+    module_id = 1  # MODULE_TELE_CAMERA
+    type_id = 0; #REQUEST
 
-  response = connect_socket(ReqGetContrast_message, command, type_id, module_id)
+    ReqGetBrightness_message = camera.ReqGetBrightness ()
+
+    command = 10016; #CMD_CAMERA_TELE_GET_BRIGHTNESS
+
+    response = connect_socket(ReqGetBrightness_message, command, type_id, module_id)
+
+    ReqGetContrast_message = camera.ReqGetContrast ()
+
+    command = 10018; #CMD_CAMERA_TELE_GET_CONTRAST
+
+    response = connect_socket(ReqGetContrast_message, command, type_id, module_id)
 
   if (type == "exposure"):
     # exposure
@@ -926,6 +1082,32 @@ def perform_get_camera_setting( type):
     cmd = Dwarfii_Api.DwarfCMD.CMD_CAMERA_TELE_SET_FEATURE_PARAM;
 
     response = connect_socket(ReqSetFeatureParams_message, command, type_id, module_id)
+
+  elif (type == "wide_exposure"):
+    # exposure
+    module_id = 2  # MODULE_WIDE_CAMERA
+    type_id = 0; #REQUEST
+
+    ReqGetExp_message = camera.ReqGetExp ()
+
+    command = 12005; #CMD_CAMERA_WIDE_GET_EXP
+
+    response = connect_socket(ReqGetExp_message, command, type_id, module_id)
+
+    return format_double(response)
+
+  elif (type == "wide_gain"):
+    # gain
+    module_id = 2  # MODULE_WIDE_CAMERA
+    type_id = 0; #REQUEST
+
+    ReqGetGain_message = camera.ReqGetGain ()
+
+    command = 12007; #CMD_CAMERA_WIDE_GET_GAIN
+
+    response = connect_socket(ReqGetGain_message, command, type_id, module_id)
+
+    return response
 
   return response
 
@@ -1025,6 +1207,38 @@ def perform_update_camera_setting( type, value, dwarf_id = "2"):
     command = 10037; #CMD_CAMERA_TELE_SET_FEATURE_PARAM
 
     response = connect_socket(ReqSetFeatureParams_message, command, type_id, module_id)
+
+  elif (type == "wide_exposure"):
+    # exposure_mode
+    module_id = 2  # MODULE_WIDE_CAMERA
+    type_id = 0; #REQUEST
+
+    ReqSetExpMode_message = camera.ReqSetExpMode ()
+    ReqSetExpMode_message.mode = 1
+
+    command = 12002; #CMD_CAMERA_WIDE_SET_EXP_MODE
+
+    response = connect_socket(ReqSetExpMode_message, command, type_id, module_id)
+
+    # exposure
+    ReqSetExp_message = camera.ReqSetExp ()
+    ReqSetExp_message.index = get_wide_exposure_index_by_name(str(value), str(dwarf_id))
+
+    command = 12004; #CMD_CAMERA_WIDE_SET_EXP
+
+    response = connect_socket(ReqSetExp_message, command, type_id, module_id)
+
+  elif (type == "wide_gain"):
+    # gain 
+    module_id = 2  # MODULE_WIDE_CAMERA
+    type_id = 0; #REQUEST
+
+    ReqSetGain_message = camera.ReqSetGain ()
+    ReqSetGain_message.index = get_wide_gain_index_by_name(str(value),str(dwarf_id))
+    print (f"index wide Gain =  {ReqSetGain_message.index}")
+    command = 12006; #CMD_CAMERA_WIDE_SET_GAIN
+
+    response = connect_socket(ReqSetGain_message, command, type_id, module_id)
 
   if response is not False: 
 

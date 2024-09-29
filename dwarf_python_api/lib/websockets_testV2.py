@@ -228,7 +228,8 @@ def fct_decode_wireshark(user_frame, masked = False, user_maskedcode = ""):
     # start_pattern = "\\x08\\x01\\x10\\x01\\x18\\x01"
     # start_pattern = "\\x08\\x01\\x10\\x07\\x18\\x02"
 
-    end_pattern = "b41e8a3a5e51"
+#    end_pattern = "b41e8a3a5e51"
+    end_pattern =  "54975d6e950e"
 
     # Test if Octal format : new in Wireshark
     user_frame_convert = octal_and_special_to_hex(user_frame)

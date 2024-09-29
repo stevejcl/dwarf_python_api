@@ -111,12 +111,19 @@ class WebSocketClient:
         self.wait_pong = False
         self.stopcalibration = False
         self.takePhotoStarted = False
+        self.takeWidePhotoStarted = False
         self.AstroCapture = False
+        self.AstroWideCapture = False
         self.toDoSetExpMode = False
         self.toDoSetExp = False
         self.toDoSetGain = False
+        self.toDoSetWideExpMode = False
+        self.toDoSetWideExp = False
+        self.toDoSetWideGain = False
         self.takePhotoCount = 0
         self.takePhotoStacked = 0
+        self.takeWidePhotoCount = 0
+        self.takeWidePhotoStacked = 0
         self.InitHostReceived = False
         self.ErrorConnection = False
 
@@ -458,6 +465,39 @@ class WebSocketClient:
                                 else:
                                     log.info("Continue OK CMD_CAMERA_TELE_OPEN_CAMERA")
 
+                            # CMD_CAMERA_WIDE_OPEN_CAMERA = 12000; // // Open the Wide Camera
+                            elif (self.command==protocol.CMD_CAMERA_WIDE_OPEN_CAMERA and WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_OPEN_CAMERA):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_CAMERA_WIDE_OPEN_CAMERA")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                await asyncio.sleep(1)
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error("Error CMD_CAMERA_WIDE_OPEN_CAMERA")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_WIDE_OPEN_CAMERA", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_CAMERA_WIDE_OPEN_CAMERA")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Succcess CMD_CAMERA_WIDE_OPEN_CAMERA", ComResponse_message.code)
+
+                            # CMD_CAMERA_WIDE_OPEN_CAMERA = 12000; // // Open the Wide Camera
+                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_OPEN_CAMERA):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_CAMERA_WIDE_OPEN_CAMERA")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                # OK = 0; // No Error
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error GET_CAMERA_WIDE_OPEN_CAMERA {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_WIDE_OPEN_CAMERA", ComResponse_message.code)
+                                else:
+                                    log.info("Continue OK CMD_CAMERA_WIDE_OPEN_CAMERA")
+
                             # CMD_FOCUS_START_ASTRO_AUTO_FOCUS = 15004; // Start astronomical autofocus
                             elif (WsPacket_message.cmd==protocol.CMD_FOCUS_START_ASTRO_AUTO_FOCUS):
                                 ComResponse_message = base__pb2.ComResponse()
@@ -529,6 +569,47 @@ class WebSocketClient:
                                 else:
                                     log.error("Error CMD_CAMERA_TELE_PHOTOGRAPH PROCESS STOP}")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_TELE_PHOTOGRAPH PROCESS STOP", ResNotifyCamFunctionState_message.state)
+                                    await asyncio.sleep(1)
+
+                            # CMD_CAMERA_WIDE_PHOTOGRAPH = 12022; // //  Take photos
+                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_PHOTOGRAPH):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_CAMERA_WIDE_PHOTOGRAPH")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                # OK = 0; // No Error
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error CMD_CAMERA_WIDE_PHOTOGRAPH {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_WIDE_PHOTOGRAPH", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    log.info("Continue OK CMD_CAMERA_WIDE_PHOTOGRAPH")
+
+                            # CMD_CAMERA_WIDE_PHOTOGRAPH = 12022; // //  End Take photos
+                            elif (self.command==protocol.CMD_CAMERA_WIDE_PHOTOGRAPH and WsPacket_message.cmd==protocol.CMD_NOTIFY_WIDE_FUNCTION_STATE):
+    
+                                ResNotifyCamFunctionState_message = notify.ResNotifyCamFunctionState()
+                                ResNotifyCamFunctionState_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_NOTIFY_WIDE_FUNCTION_STATE")
+                                log.debug(f"receive notification data >> {ResNotifyCamFunctionState_message.state}")
+                                log.debug(f">> {getAstroStateName(ResNotifyCamFunctionState_message.state)}")
+
+                                # ASTRO_STATE_IDLE = 0; // Idle => End
+                                if (ResNotifyCamFunctionState_message.state == notify.ASTRO_STATE_IDLE):
+                                    log.info("Success TAKE WIDE PHOTO OK >> EXIT")
+                                    log.success("Success TAKE WIDE PHOTO")
+
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK  TAKE WIDE PHOTO", ResNotifyCamFunctionState_message.state)
+                                    await asyncio.sleep(1)
+                                elif (ResNotifyCamFunctionState_message.state == notify.ASTRO_STATE_RUNNING):
+                                    log.info("Starting CMD_CAMERA_WIDE_PHOTOGRAPH")
+                                else:
+                                    log.error("Error CMD_CAMERA_WIDE_PHOTOGRAPH PROCESS STOP}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_WIDE_PHOTOGRAPH PROCESS STOP", ResNotifyCamFunctionState_message.state)
                                     await asyncio.sleep(1)
 
                             # CMD_NOTIFY_STATE_ASTRO_CALIBRATION = 15210; // Astronomical calibration status
@@ -747,12 +828,58 @@ class WebSocketClient:
                                     await asyncio.sleep(1)
                                 else:
                                     self.takePhotoStarted = True
+                            # CMD_ASTRO_START_CAPTURE_RAW_WIDE_LIVE_STACKING = 11016; // Start WIDE Capture
+                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_CAPTURE_RAW_WIDE_LIVE_STACKING):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_ASTRO_START_CAPTURE_RAW_WIDE_LIVE_STACKING")
+                                log.debug(f"receive data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code == protocol.CODE_ASTRO_NEED_GOTO):
+                                    log.warning("START_CAPTURE : ASTRO_NEED_GOTO message receive")
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
+                                    log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
+                                    if (self.takeWidePhotoStarted):
+                                        log.notice(f"CAPTURE IN PROGRESS Continue ...")
+                                    else:
+                                        log.error(f"Error START_CAPTURE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error START_CAPTURE", ComResponse_message.code)
+                                        await asyncio.sleep(1)
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM):
+                                    log.warning("START_CAPTURE : CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM message receive")
+                                    if (self.takeWidePhotoStarted):
+                                        log.notice(f"CAPTURE IN PROGRESS Continue ...")
+                                    else:
+                                        log.error(f"Error START_CAPTURE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error START_CAPTURE", ComResponse_message.code)
+                                        await asyncio.sleep(1)
+                                elif (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error START_CAPTURE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error START_CAPTURE", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    self.takeWidePhotoStarted = True
                             # CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING = 11006; // Stop Capture
                             elif (WsPacket_message.cmd==protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING):
                                 ComResponse_message = base__pb2.ComResponse()
                                 ComResponse_message.ParseFromString(WsPacket_message.data)
 
                                 log.debug("Decoding CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING")
+                                log.debug(f"receive data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error STOP_CAPTURE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error STOP_CAPTURE", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                            # CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING = 11017; // Stop Capture ??
+                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING")
                                 log.debug(f"receive data >> {ComResponse_message.code}")
                                 log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
 
@@ -790,6 +917,36 @@ class WebSocketClient:
                                     log.success("Success ASTRO CAPTURE ENDING")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE ENDING", 0)
                                     await asyncio.sleep(1)
+                            # CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING = 15236 // Test Capture Ending
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING):
+                                ResNotifyOperationState_message = notify.ResNotifyOperationState()
+                                ResNotifyOperationState_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING")
+                                log.debug(f"receive notification data >> {ResNotifyOperationState_message.state}")
+                                log.debug(f">> {getOperationStateName(ResNotifyOperationState_message.state)}")
+
+                                if ( self.command==protocol.CMD_ASTRO_GO_LIVE and ResNotifyOperationState_message.state == notify.OPERATION_STATE_IDLE):
+                                    log.info("ASTRO WIDE CAPTURE IDLE >> EXIT")
+                                    log.info("Success ASTRO GO LIVE ENDING")
+                                    log.success("Success ASTRO GO LIVE ENDING")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO GO LIVE ENDING", 0)
+                                    await asyncio.sleep(1)
+
+                                if ( ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING):
+                                    log.info("ASTRO WIDE CAPTURE RUNNING")
+                                    log.success("ASTRO WIDE CAPTURE RUNNING")
+                                    self.takeWidePhotoStarted = True
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE RUNNING", 0)
+                                    await asyncio.sleep(1)
+
+                                # OPERATION_STATE_STOPPED = 3; // Stopped
+                                if ( self.AstroWideCapture and ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
+                                    log.debug("ASTRO CAPTURE OK STOPPING >> EXIT")
+                                    log.info("Success ASTRO WIDE CAPTURE ENDING")
+                                    log.success("Success ASTRO WIDE CAPTURE ENDING")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE ENDING", 0)
+                                    await asyncio.sleep(1)
                             # CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING = 15209 // Test Capture Ending
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING):
                                 ResNotifyProgressCaptureRawLiveStacking_message = notify.ResNotifyProgressCaptureRawLiveStacking()
@@ -806,6 +963,24 @@ class WebSocketClient:
                                 log.notice(f"receive notification current_count >> {self.takePhotoCount}")
                                 log.notice(f"receive notification stacked_count >> {self.takePhotoStacked}")
                                 message = f"current_count >> {self.takePhotoCount} - stacked_count >> {self.takePhotoStacked}"
+                                # send a notification
+                                await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
+                            # CMD_NOTIFY_PROGRASS_CAPTURE_RAW_WIDE_LIVE_STACKING = 15237 // Test Capture Ending
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_PROGRASS_CAPTURE_RAW_WIDE_LIVE_STACKING):
+                                ResNotifyProgressCaptureRawLiveStacking_message = notify.ResNotifyProgressCaptureRawLiveStacking()
+                                ResNotifyProgressCaptureRawLiveStacking_message.ParseFromString(WsPacket_message.data)
+                                self.takeWidePhotoStarted = True
+                                log.debug("Decoding CMD_NOTIFY_PROGRASS_CAPTURE_RAW_WIDE_LIVE_STACKING")
+                                log.debug(f"receive notification target_name >> {ResNotifyProgressCaptureRawLiveStacking_message.target_name}")
+                                log.debug(f"receive notification total_count >> {ResNotifyProgressCaptureRawLiveStacking_message.total_count}")
+                                update_count_type = ResNotifyProgressCaptureRawLiveStacking_message.update_count_type
+                                if (update_count_type == 0 or update_count_type == 2):
+                                   self.takeWidePhotoCount = ResNotifyProgressCaptureRawLiveStacking_message.current_count
+                                if (update_count_type == 1 or update_count_type == 2):
+                                   self.takeWidePhotoStacked = ResNotifyProgressCaptureRawLiveStacking_message.stacked_count
+                                log.notice(f"receive notification current_count >> {self.takeWidePhotoCount}")
+                                log.notice(f"receive notification stacked_count >> {self.takeWidePhotoStacked}")
+                                message = f"current_count >> {self.takeWidePhotoCount} - stacked_count >> {self.takeWidePhotoStacked}"
                                 # send a notification
                                 await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
                             # CMD_CAMERA_TELE_SET_ALL_PARAMS
@@ -1164,6 +1339,205 @@ class WebSocketClient:
                                     log.info("CAMERA SET GRCUT OK >> EXIT")
                                     log.success(f"Success CAMERA GET IRCUT:  {getErrorCodeValueName(ComResponse_message.code)}")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA GET IRCUT", ComResponse_message.code)
+                            # CMD_CAMERA_WIDE_GET_ALL_PARAMS
+                            elif (self.command == protocol.CMD_CAMERA_WIDE_GET_ALL_PARAMS and WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_GET_ALL_PARAMS):
+                                common_param_instance = base__pb2.CommonParam()
+                                # Populate fields of common_param_instance
+                                ResGetAllParams_message = camera.ResGetAllParams()
+                                # Add common_param_instance to the repeated field all_params
+                                ResGetAllParams_message.all_params.append(common_param_instance)
+
+                                ResGetAllParams_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_WIDE_GET_ALL_PARAMS")
+                                log.debug(f"receive request response data >> {ResGetAllParams_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ResGetAllParams_message.code)}")
+                                if (ResGetAllParams_message.code != protocol.OK):
+                                    log.error(f"Error CAMERA _WIDE_GET ALL_PARAMS {getErrorCodeValueName(ResGetAllParams_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR CAMERA_WIDE_GET ALL PARAMS", ResGetAllParams_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    # Signal the ping and receive functions to stop
+                                    log.info("Success CAMERA_WIDE_GET ALL_PARAMS OK >> EXIT")
+                                    log.success("Success CAMERA_WIDE_GET ALL_PARAMS")
+                                    # Create a dictionary to store the content
+                                    res_get_all_params_data = {
+                                        "all_params": [],
+                                        "code": ResGetAllParams_message.code
+                                    }
+                                    for common_param_instance in ResGetAllParams_message.all_params:
+                                        common_param_data = {
+                                            "hasAuto": common_param_instance.hasAuto,
+                                            "auto_mode": common_param_instance.auto_mode,
+                                            "id": common_param_instance.id,
+                                            "mode_index": common_param_instance.mode_index,
+                                            "index": common_param_instance.index,
+                                            "continue_value": common_param_instance.continue_value
+                                        }
+                                        res_get_all_params_data["all_params"].append(common_param_data)
+                                    # log.info({res_get_all_params_data})
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA _WIDE_GET ALL_PARAMS", res_get_all_params_data)
+                                    await asyncio.sleep(1)
+                            # CMD_CAMERA_WIDE_SET_EXP_MODE
+                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_SET_EXP_MODE and self.toDoSetWideExpMode == True):
+                                self.toDoSetWideExpMode = False
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_WIDE_SET_EXP_MODE")
+                                log.debug(f"receive request response data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error CAMERA SET WIDE EXP MODE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR CAMERA SET WIDE EXP MODE", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    log.info("CAMERA SET WIDE EXP MODE OK >> EXIT")
+                                    log.success(f"Success CAMERA SET WIDE EXP MODE:  {getErrorCodeValueName(ComResponse_message.code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET WIDE EXP MODE", ComResponse_message.code)
+                            elif (self.command == protocol.CMD_CAMERA_WIDE_SET_EXP_MODE and WsPacket_message.cmd==protocol.CMD_NOTIFY_WIDE_SET_PARAM and self.toDoSetWideExpMode == True):
+                                common_param_instance = base__pb2.CommonParam()
+                                common_param_instance.ParseFromString(WsPacket_message.data)
+                                log.debug(f"receive request response data >> {common_param_instance}")
+                                log.debug("Decoding CMD_NOTIFY_WIDE_SET_PARAM")
+                                common_param_data = {
+                                    "hasAuto": common_param_instance.hasAuto,
+                                    "auto_mode": common_param_instance.auto_mode,
+                                    "id": common_param_instance.id,
+                                    "mode_index": common_param_instance.mode_index,
+                                    "index": common_param_instance.index,
+                                    "continue_value": common_param_instance.continue_value
+                                }
+                                log.debug(f"receive request response data >> {common_param_data}")
+                                if (common_param_instance.id == 0):
+                                    self.toDoSetWideExpMode = False
+                                    log.info("CAMERA SET WIDE EXP MODE OK >> EXIT")
+                                    log.success(f"Success CAMERA SET WIDE EXP MODE:  {common_param_instance.auto_mode}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET WIDE EXP MODE", protocol.OK)
+                            # CMD_CAMERA_WIDE_SET_EXP
+                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_SET_EXP and self.toDoSetWideExp == True):
+                                self.toDoSetWideExp == False
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_WIDE_SET_EXP")
+                                log.debug(f"receive request response data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error CAMERA SET WIDE EXP {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR CAMERA SET WIDE EXP", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    log.info("CAMERA SET WIDE EXP OK >> EXIT")
+                                    log.success(f"Success CAMERA SET WIDE EXP:  {getErrorCodeValueName(ComResponse_message.code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET WIDE EXP", ComResponse_message.code)
+                            elif (self.command == protocol.CMD_CAMERA_WIDE_SET_EXP and WsPacket_message.cmd==protocol.CMD_NOTIFY_WIDE_SET_PARAM and self.toDoSetWideExp == True):
+                                common_param_instance = base__pb2.CommonParam()
+                                common_param_instance.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_NOTIFY_WIDE_SET_PARAM")
+                                common_param_data = {
+                                    "hasAuto": common_param_instance.hasAuto,
+                                    "auto_mode": common_param_instance.auto_mode,
+                                    "id": common_param_instance.id,
+                                    "mode_index": common_param_instance.mode_index,
+                                    "index": common_param_instance.index,
+                                    "continue_value": common_param_instance.continue_value
+                                }
+                                log.debug(f"receive request response data >> {common_param_data}")
+                                if (common_param_instance.id == 0):
+                                    self.toDoSetWideExp = False
+                                    log.info("CAMERA SET WIDE EXP OK >> EXIT")
+                                    log.success(f"Success CAMERA SET WIDE EXP:  {common_param_instance.index}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET WIDE EXP", protocol.OK)
+                            # CMD_CAMERA_WIDE_GET_EXP
+                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_GET_EXP and WsPacket_message.type == 3):
+                                ComResponseWithDouble_message = base__pb2.ComResWithDouble()
+                                ComResponseWithDouble_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_WIDE_GET_EXP")
+                                log.debug(f"receive request response data >> {ComResponseWithDouble_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponseWithDouble_message.code)}")
+                                if (ComResponseWithDouble_message.code != protocol.OK):
+                                    log.error(f"Error CAMERA GET EXP {getErrorCodeValueName(ComResponseWithDouble_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR CAMERA GET WIDE EXP", ComResponseWithDouble_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    log.info("CAMERA GET WIDE EXP OK >> EXIT")
+                                    log.success(f"Success CAMERA GET WIDE EXP:  {ComResponseWithDouble_message.value}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA GET WIDE EXP", ComResponseWithDouble_message.code)
+                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_GET_EXP):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_WIDE_GET_EXP")
+                                log.debug(f"receive request response data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error CAMERA GET WIDE EXP {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR CAMERA GET WIDE EXP", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    log.info("CAMERA GET WIDE EXP OK >> EXIT")
+                                    log.success(f"Success CAMERA GET WIDE EXP:  {getErrorCodeValueName(ComResponse_message.code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA GET WIDE EXP", ComResponse_message.code)
+                            # CMD_CAMERA_WIDE_SET_GAIN
+                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_SET_GAIN and self.toDoSetWideGain == True):
+                                self.toDoSetWideGain == False
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_WIDE_SET_GAIN")
+                                log.debug(f"receive request response data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error CAMERA SET WIDE  GAIN {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR CAMERA SET WIDE  GAIN", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    log.info("CAMERA SET WIDE GAIN OK >> EXIT")
+                                    log.success(f"Success CAMERA SET WIDE  GAIN:  {getErrorCodeValueName(ComResponse_message.code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET WIDE  GAIN", ComResponse_message.code)
+                            elif (self.command == protocol.CMD_CAMERA_WIDE_SET_GAIN and WsPacket_message.cmd==protocol.CMD_NOTIFY_WIDE_SET_PARAM and self.toDoSetWideGain == True):
+                                common_param_instance = base__pb2.CommonParam()
+                                common_param_instance.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_NOTIFY_WIDE_SET_PARAM")
+                                common_param_data = {
+                                    "hasAuto": common_param_instance.hasAuto,
+                                    "auto_mode": common_param_instance.auto_mode,
+                                    "id": common_param_instance.id,
+                                    "mode_index": common_param_instance.mode_index,
+                                    "index": common_param_instance.index,
+                                    "continue_value": common_param_instance.continue_value
+                                }
+                                log.debug(f"receive request response data >> {common_param_data}")
+                                if (common_param_instance.id == 0):
+                                    self.toDoSetWideGain = False
+                                    log.info("CAMERA SET WIDE  GAIN >> EXIT")
+                                    log.success(f"Success CAMERA SET WIDE  GAIN:  {common_param_instance.index}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET WIDE  GAIN", protocol.OK)
+                            # CMD_CAMERA_WIDE_GET_GAIN
+                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_GET_GAIN and WsPacket_message.type == 3):
+                                ComResWithInt_message = base__pb2.ComResWithInt()
+                                ComResWithInt_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_WIDE_GET_GAIN")
+                                log.debug(f"receive request response data >> {ComResWithInt_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResWithInt_message.code)}")
+                                if (ComResWithInt_message.code != protocol.OK):
+                                    log.error(f"Error CAMERA GET WIDE GAIN {getErrorCodeValueName(ComResWithInt_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR CAMERA GET WIDE GAIN", ComResWithInt_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    log.info("CAMERA GET WIDE GAIN OK >> EXIT")
+                                    log.success(f"Success CAMERA GET WIDE GAIN:  {ComResWithInt_message.value}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA GET WIDE GAIN", ComResWithInt_message.code)
+                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_GET_GAIN):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_WIDE_GET_GAIN")
+                                log.debug(f"receive request response data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error CAMERA GET WIDE GAIN {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR CAMERA GET WIDE GAIN", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    log.info("CAMERA SET WIDE  GAIN OK >> EXIT")
+                                    log.success(f"Success CAMERA GET WIDE GAIN:  {getErrorCodeValueName(ComResponse_message.code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA GET WIDE GAIN", ComResponse_message.code)
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_POWER_OFF):
                                 ComResponse_message = base__pb2.ComResponse()
                                 ComResponse_message.ParseFromString(WsPacket_message.data)
@@ -1241,6 +1615,7 @@ class WebSocketClient:
         minor_version = 1
         device_id = 1  # DWARF II
         #self.takePhotoStarted = False
+        #self.takeWidePhotoStarted = False
 
         if not self.websocket:
             log.error("Error No WebSocket in send_message_init")
@@ -1274,6 +1649,19 @@ class WebSocketClient:
         WsPacket_messageCameraTeleOpen.type = 0; #REQUEST
         WsPacket_messageCameraTeleOpen.client_id = self.client_id # "0000DAF2-0000-1000-8000-00805F9B34FB"  # ff03aa11-5994-4857-a872-b411e8a3a5e51
        
+        #CMD_CAMERA_WIDE_OPEN_CAMERA
+        WsPacket_messageCameraWideOpen = base__pb2.WsPacket()
+        ReqOpenCamera_message = camera.ReqOpenCamera()
+        WsPacket_messageCameraWideOpen.data = ReqOpenCamera_message.SerializeToString()
+
+        WsPacket_messageCameraWideOpen.major_version = major_version
+        WsPacket_messageCameraWideOpen.minor_version = minor_version
+        WsPacket_messageCameraWideOpen.device_id = device_id
+        WsPacket_messageCameraWideOpen.module_id = 2  # MODULE_WIDEHOTO
+        WsPacket_messageCameraWideOpen.cmd = 12000 #CMD_CAMERA_WIDE_OPEN_CAMERA
+        WsPacket_messageCameraWideOpen.type = 0; #REQUEST
+        WsPacket_messageCameraWideOpen.client_id = self.client_id # "0000DAF2-0000-1000-8000-00805F9B34FB"  # ff03aa11-5994-4857-a872-b411e8a3a5e51
+
         try:
             # Serialize the message to bytes and send
             # Send Command
@@ -1298,6 +1686,17 @@ class WebSocketClient:
 
                 log.debug(f"Send type >> {WsPacket_messageCameraTeleOpen.type}")
                 log.debug(f"msg data len is >> {len(WsPacket_messageCameraTeleOpen.data)}")
+                log.debug("Sendind End ....");
+
+                await asyncio.sleep(1)
+
+                await self.websocket.send(WsPacket_messageCameraWideOpen.SerializeToString())
+                log.debug("#----------------#")
+                log.debug(f"Send cmd >> {WsPacket_messageCameraWideOpen.cmd}")
+                log.debug(f">> {getDwarfCMDName(WsPacket_messageCameraWideOpen.cmd)}")
+
+                log.debug(f"Send type >> {WsPacket_messageCameraWideOpen.type}")
+                log.debug(f"msg data len is >> {len(WsPacket_messageCameraWideOpen.data)}")
                 log.debug("Sendind End ....");
                 WebSocketClient.Init_Send_TeleGetSystemWorkingState = False
 
@@ -1330,6 +1729,9 @@ class WebSocketClient:
         self.toDoSetExpMode = False
         self.toDoSetExp = False
         self.toDoSetGain = False
+        self.toDoSetWideExpMode = False
+        self.toDoSetWideExp = False
+        self.toDoSetWideGain = False
 
         if not self.websocket:
             log.error("Error No WebSocket in send_message")
@@ -1340,8 +1742,12 @@ class WebSocketClient:
         self.reset_timeout = True
 
         # Special Command ASTRO CAPTURE ENDING
+        # Special Command ASTRO WIDE CAPTURE ENDING
         if isinstance(message, str):
             if message == "ASTRO CAPTURE ENDING" and self.AstroCapture:
+                log.info("TERMINATING Sending empty function.")
+                return
+            if message == "ASTRO WIDE CAPTURE ENDING" and self.AstroWideCapture:
                 log.info("TERMINATING Sending empty function.")
                 return
             else:
@@ -1381,6 +1787,10 @@ class WebSocketClient:
             if ( self.command == protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING or self.command == protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING):
                 self.AstroCapture = True
 
+            # Special ASTRO START or STOP CAPTURE
+            if ( self.command == protocol.CMD_ASTRO_START_CAPTURE_RAW_WIDE_LIVE_STACKING or self.command == protocol.CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING):
+                self.AstroWideCapture = True
+
             # Special CMD_CAMERA_TELE_SET_EXP_MODE
             if (self.command == protocol.CMD_CAMERA_TELE_SET_EXP_MODE):
                 self.toDoSetExpMode = True
@@ -1392,6 +1802,18 @@ class WebSocketClient:
             # Special CMD_CAMERA_TELE_SET_GAIN
             if (self.command == protocol.CMD_CAMERA_TELE_SET_GAIN):
                 self.toDoSetGain = True
+
+            # Special CMD_CAMERA_WIDE_SET_EXP_MODE
+            if (self.command == protocol.CMD_CAMERA_WIDE_SET_EXP_MODE):
+                self.toDoSetWideExpMode = True
+
+            # Special CMD_CAMERA_WIDE_SET_EXP
+            if (self.command == protocol.CMD_CAMERA_WIDE_SET_EXP):
+                self.toDoSetWideExp = True
+
+            # Special CMD_CAMERA_WIDE_SET_GAIN
+            if (self.command == protocol.CMD_CAMERA_WIDE_SET_GAIN):
+                self.toDoSetWideGain = True
 
             log.debug(f"Send type >> {WsPacket_message.type}")
             log.debug(f"Send message >> {self.message}")
