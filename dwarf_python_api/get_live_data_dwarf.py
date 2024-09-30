@@ -9,6 +9,7 @@ import time
 from dwarf_python_api.lib.dwarf_utils import perform_takePhoto
 # import data for config.py
 from dwarf_python_api.get_config_data import get_config_data
+import dwarf_python_api.lib.my_logger as log
 
 # FTP connection details
 global ftp_host
@@ -18,7 +19,7 @@ global local_directory
 local_directory = ''
 # Dwarf directory to copy files from
 global last_directory
-last_directory = 'DWARF_RAW_M42_EXP_6_GAIN_60_2024-01-11-23-37-19-246'
+last_directory = ''
 # Local Photo directory to copy files to
 global local_photo_directory
 local_photo_directory = ''
@@ -28,7 +29,7 @@ last_photo_directory = ''
 
 def fn_wait_for_user_input(seconds_to_wait,message):
     #print('waiting for',seconds_to_wait, 'seconds ...' )
-    print (message, seconds_to_wait)
+    log.notice(message, seconds_to_wait)
     start_time = time.time()
     try:
         while (time.time() - start_time ) < seconds_to_wait:
@@ -38,12 +39,12 @@ def fn_wait_for_user_input(seconds_to_wait,message):
             int ; so we don't count 10 -1,02=8; instead we will count 10-1 = 9, meaning 9 seconds remaining, not 8
             seconds to wait - everything else ; so we get reverse count from 10 to 1, not from 1 to 10
             '''
-            print("%d" %  (  seconds_to_wait -   int(  (time.time() - start_time )   )    )    ) 
+            log.notice("%d" %  (  seconds_to_wait -   int(  (time.time() - start_time )   )    )    ) 
             time.sleep(1)
-        print('No keypress detected.')
+        log.notice('No keypress detected.')
         return 1 #no interrupt after x seconds
     except KeyboardInterrupt:
-        print('Keypress detected - exiting.')
+        log.notice('Keypress detected - exiting.')
         return 0 #interrupted
         
     
@@ -54,8 +55,8 @@ def download_file(ftp, remote_file, local_file):
         with open(local_file, 'wb') as local_file_obj:
             ftp.retrbinary('RETR ' + remote_file, local_file_obj.write)
     except Exception as e:
-        print (f"Exception: {e}")
-        print (f"During copy: {remote_file} -> {local_file}")
+        log.error(f"Exception: {e}")
+        log.error(f"During copy: {remote_file} -> {local_file}")
 
 # Function to get the modification date of a file on the FTP server
 def get_file_mtime(ftp, remote_file):
@@ -73,16 +74,16 @@ def getLastTelePhoto(history):
     ftp = FTP()
 
     # Connect to the FTP server
-    print (f"Try to connect to : {ftp_host}")
+    log.notice (f"Try to connect to : {ftp_host}")
     # Connect to the FTP server
     try:
         ftp.connect(ftp_host)
 
         ftp.login("Anonymous","")
         ftp.set_pasv(True)
-        print(f"Connected to {ftp_host}")
+        log.success(f"Connected to {ftp_host}")
     except:
-        print("Can't connect to the Dwarf Device.")
+        log.error("Can't connect to the Dwarf Device.")
         return False
 
     # Remote directory on the FTP server to monitor
@@ -100,15 +101,15 @@ def getLastTelePhoto(history):
     # Try to change to remote_directoryD2, switch to remote_directoryD3 if D2 doesn't exist
     try:
         ftp.cwd(remote_directory)
-        print(f"Dwarf 2 connected, Successfully changed to {remote_directoryD2}")
+        log.success(f"Dwarf 2 connected, Successfully changed to {remote_directoryD2}")
     except error_perm as e:
         remote_directory = remote_directoryD3
         start_name = start_nameD3
         try:
             ftp.cwd(remote_directory)
-            print(f"Dwarf 3 connected, Successfully changed to {remote_directory}")
+            log.success(f"Dwarf 3 connected, Successfully changed to {remote_directory}")
         except error_perm as e:
-            print(f"Erreur getting files on FTP on the Dwarf, error: {e}")
+            log.error(f"Erreur getting files on FTP on the Dwarf, error: {e}")
             return False
 
     ftp.cwd(remote_directory)
@@ -128,12 +129,12 @@ def getLastTelePhoto(history):
         if remote_file.endswith(file_extension):
             # Found a files
             if (found_photo==0):
-              print (f"Found last photo file")
+              log.notice (f"Found last photo file")
             else:
-              print (f"Found photo file {found_photo}")
+              log.notice (f"Found photo file {found_photo}")
             if (found_photo >= history):
-                print ("Found the requested photo")
-                print(f"Find File : {remote_file} from directory: {remote_directory}")
+                log.notice ("Found the requested photo")
+                log.notice(f"Find File : {remote_file} from directory: {remote_directory}")
                 remote_path = remote_directory + "/" + remote_file
                 # Convert to absolute path
                 local_photo_directory = os.path.abspath(local_photo_directory)
@@ -143,9 +144,9 @@ def getLastTelePhoto(history):
                     os.remove(local_path)
 
                 download_file(ftp, remote_path, local_path)
-                print(f"Downloaded file: {remote_file}")
-                print(f"From directory: {remote_directory} to {local_path}")
-                print(f"New File copied : {remote_file}") 
+                log.notice(f"Downloaded file: {remote_file}")
+                log.notice(f"From directory: {remote_directory} to {local_path}")
+                log.notice(f"New File copied : {remote_file}") 
                 break
 
             else:
@@ -154,8 +155,8 @@ def getLastTelePhoto(history):
     # Move back to the parent directory
     ftp.cwd('..')
 
-    print(f"File saved: {local_path}")
-    print(f"End downloading files")
+    log.notice(f"File saved: {local_path}")
+    log.notice(f"End downloading files")
     return local_path
 
 def stacking():
@@ -167,16 +168,16 @@ def stacking():
     ftp = FTP()
 
     # Connect to the FTP server
-    print (f"Try to connect to : {ftp_host}")
+    log.notice (f"Try to connect to : {ftp_host}")
     # Connect to the FTP server
     try:
         ftp.connect(ftp_host)
 
         ftp.login("Anonymous","")
         ftp.set_pasv(True)
-        print(f"Connected to {ftp_host}")
+        log.success(f"Connected to {ftp_host}")
     except:
-        print("Can't connect to the Dwarf II.")
+        log.error("Can't connect to the Dwarf.")
         return
 
     # Remote directory on the FTP server to monitor
@@ -187,7 +188,7 @@ def stacking():
     # Try to change to remote_directoryD2, switch to remote_directoryD3 if D2 doesn't exist
     try:
         ftp.cwd(remote_directory)
-        print(f"Dwarf 2 connected")
+        log.notice(f"Dwarf 2 connected")
         # Move back to the parent directory
         ftp.cwd('/')
 
@@ -195,11 +196,11 @@ def stacking():
         remote_directory = remote_directoryD3
         try:
             ftp.cwd(remote_directory)
-            print(f"Dwarf 3 connected")
+            log.notice(f"Dwarf 3 connected")
             # Move back to the parent directory
             ftp.cwd('/')
         except error_perm as e:
-            print(f"Erreur getting files on FTP on the Dwarf, error: {e}")
+            log.error(f"Erreur getting files on FTP on the Dwarf, error: {e}")
             return False
 
     # Create Tmp directory if need
@@ -218,7 +219,7 @@ def stacking():
     #files = ftp.mlsd("/DWARF_II/Astronomy/DWARF_RAW_Manual_EXP_13_GAIN_90_2024-01-07-00-40-14-712")
 
     if (not last_directory):
-        print(f"Search the last directory...")
+        log.notice(f"Search the last directory...")
 
         #remote_subdirectories = []
         #for d in ftp.nlst(remote_directory):
@@ -234,15 +235,13 @@ def stacking():
         #            remote_subdirectories.append(d)
 
         # Get the list of subdirectories in the remote directory
-        print(f"Test if Dwarf is a D2")
         remote_subdirectories = [d for d in ftp.nlst(remote_directory) if (ftp.cwd(d).startswith("250") and d.startswith(remote_directory+'DWARF_RAW'))]
 
         if (len(remote_subdirectories) == 0):
-            print(f"Test if Dwarf is a D3")
             remote_directory = remote_directoryD3
             remote_subdirectories = [d for d in ftp.nlst(remote_directory) if (ftp.cwd(d).startswith("250") and d.startswith(remote_directory+'DWARF_RAW'))]
 
-        print(f"Found {len(remote_subdirectories)} directories")
+        log.notice(f"Found {len(remote_subdirectories)} directories")
 
         # Sort subdirectories by modification date (most recent first)
         remote_subdirectories.sort(key=lambda x: get_dir_mtime(x), reverse=True)
@@ -250,12 +249,12 @@ def stacking():
     else:
         remote_subdirectories = []
         remote_subdirectories.append(remote_directory + last_directory)
-        print(f"Using the directory : {remote_subdirectories[0]}")
+        log.notice(f"Using the directory : {remote_subdirectories[0]}")
 
     # Choose the most recent subdirectory
     if remote_subdirectories:
         most_recent_subdirectory = remote_subdirectories[0]
-        print(f"Processing files in directory: {most_recent_subdirectory}")
+        log.notice(f"Processing files in directory: {most_recent_subdirectory}")
 
         # Change to the most recent subdirectory
         wait_number = 0
@@ -277,10 +276,10 @@ def stacking():
                 for remote_file in remote_files:
                     if remote_file.endswith(file_extension) and remote_file not in downloaded_files:
                         # Found new files
-                        print ("Found new file")
+                        log.notice ("Found new file")
                         old_wait_number = wait_number
 
-                        print(f"Find File : {remote_file} from directory: {most_recent_subdirectory}")
+                        log.notice(f"Find File : {remote_file} from directory: {most_recent_subdirectory}")
                         remote_path = most_recent_subdirectory + "/" + remote_file
                         local_path = os.path.join(local_directory, remote_file)
 
@@ -294,11 +293,11 @@ def stacking():
                             os.remove(local_path)
 
                         download_file(ftp, remote_path, local_file_tmp)
-                        print(f"Downloaded file: {remote_file}")
-                        print(f"From directory: {most_recent_subdirectory} to {local_file_tmp}")
+                        log.notice(f"Downloaded file: {remote_file}")
+                        log.notice(f"From directory: {most_recent_subdirectory} to {local_file_tmp}")
                         # rename tmp file
                         os.rename(local_file_tmp, local_path)
-                        print(f"New File copied : {remote_file}") 
+                        log.notice(f"New File copied : {remote_file}") 
                         downloaded_files.add(remote_file)
 
                 wait_number += 15
@@ -306,9 +305,9 @@ def stacking():
                 if (wait_number - old_wait_number)  > 3:
                     if fn_wait_for_user_input(5, "No more files since 30 seconds, the program will contine if you don't press CTRL-C within 5 seconds:" )  == 1:
                         old_wait_number = wait_number
-                        print('continuing ....')
+                        log.notice('continuing ....')
                     else:
-                        print('not continuing.')
+                        log.notice('not continuing.')
                         processing = False
 
                 if (processing):
@@ -319,11 +318,11 @@ def stacking():
             ftp.cwd('..')
 
         except error_perm as e:
-            print(f"Erreur getting files on FTP on the Dwarf, error: {e}")
+            log.error(f"Erreur getting files on FTP on the Dwarf, error: {e}")
         except KeyboardInterrupt:
-            print('Keypress detected - exiting.')
+            log.notice('Keypress detected - exiting.')
 
-    print(f"Stacking Finished")
+    log.notice(f"Stacking Finished")
 
 def display_menu():
     global ftp_host
@@ -333,16 +332,16 @@ def display_menu():
         data_config = get_config_data()
         ftp_host = data_config['ip'] 
 
-    print("")
-    print("------------------")
-    print(f"1. Current Dwarf IP: {ftp_host}")
-    print(f"2. Current Siril Stacking Directory: {local_directory}")
-    print(f"3. Use Last Dwarf Session (empty) or Specify Session Directory: {last_directory}")
-    print(f"4. Launch Live Stacking")
-    print(f"5. Current Photo Directory: {local_photo_directory}")
-    print(f"6. Get Last Tele Photo (Photo Mode)")
-    print(f"7. Take a Tele Photo (Photo Mode)")
-    print("0. Return to main menu")
+    log.notice("")
+    log.notice("------------------")
+    log.notice(f"1. Current Dwarf IP: {ftp_host}")
+    log.notice(f"2. Current Siril Stacking Directory: {local_directory}")
+    log.notice(f"3. Use Last Dwarf Session (empty) or Specify Session Directory: {last_directory}")
+    log.notice(f"4. Launch Live Stacking")
+    log.notice(f"5. Current Photo Directory: {local_photo_directory}")
+    log.notice(f"6. Get Last Tele Photo (Photo Mode)")
+    log.notice(f"7. Take a Tele Photo (Photo Mode)")
+    log.notice("0. Return to main menu")
 
 def get_user_choice():
     choice = input("Enter your choice (1-7) or 0 to return to main menu: ")
@@ -353,26 +352,26 @@ def get_user_choice_last_Photo():
     return choice
 
 def option_1():
-    print("You selected Option 1: Setting Current Dwarf IP")
-    print("")
+    log.notice("You selected Option 1: Setting Current Dwarf IP")
+    log.notice("")
     # Add your Option 1 functionality here
     input_data(1)
 
 def option_2():
-    print("You selected Option 2:  Setting Current Siril Stacking Directory")
-    print("")
+    log.notice("You selected Option 2:  Setting Current Siril Stacking Directory")
+    log.notice("")
     # Add your Option 2 functionality here
     input_data(2)
 
 def option_3():
-    print("You selected Option 3: Setting Use Last Dwarf Session (empty) or Specify Session Directory")
-    print("")
+    log.notice("You selected Option 3: Setting Use Last Dwarf Session (empty) or Specify Session Directory")
+    log.notice("")
     # Add your Option 3 functionality here
     input_data(3)
 
 def option_4():
-    print("You selected Option 4: Launch Live Stacking")
-    print("")
+    log.notice("You selected Option 4: Launch Live Stacking")
+    log.notice("")
     # Add your Option 4 functionality here
 
     global ftp_host
@@ -386,11 +385,11 @@ def option_4():
         ftp_host = data_config['ip'] 
 
     if (not ftp_host):
-        print("The Dwarf IP can't be empty!")
+        log.error("The Dwarf IP can't be empty!")
         return 
 
     if (not local_directory):
-        print("The Siril directory can't be empty!")
+        log.error("The Siril directory can't be empty!")
         return 
 
     update_config(ftp_host=ftp_host, local_directory=local_directory, last_directory=last_directory)
@@ -398,21 +397,21 @@ def option_4():
     stacking()
 
 def option_5():
-    print("You selected Option 5:  Setting Current Photo Directory")
-    print("")
+    log.notice("You selected Option 5:  Setting Current Photo Directory")
+    log.notice("")
     # Add your Option 5 functionality here
     input_data(5)
 
 def option_6():
-    print("You selected Option 6: Get Last Photo (not Astro)")
+    log.notice("You selected Option 6: Get Last Photo (not Astro)")
     # Add your Option 6 functionality here
     nb_last_photo = get_user_choice_last_Photo()
 
     getGetLastPhoto(nb_last_photo)
 
 def option_7():
-    print("You selected Option 7. Take one Photo Only")
-    print("")
+    log.notice("You selected Option 7. Take one Photo Only")
+    log.notice("")
     # Add your Option 7 functionality here
     perform_takePhoto()
 
@@ -427,14 +426,14 @@ def getGetLastPhoto(history = 0, get_config = False):
         ftp_host = data_config['ip'] 
 
     if (not ftp_host):
-        print("The Dwarf IP can't be empty!")
+        log.error("The Dwarf IP can't be empty!")
         return False
 
     if (get_config):
         read_config()
 
     if (not local_photo_directory):
-        print("The Current Photo Directory can't be empty!")
+        log.error("The Current Photo Directory can't be empty!")
         return False
 
     try:
@@ -455,7 +454,7 @@ def update_config(ftp_host=None, local_directory=None, last_directory=None, loca
         config.set('CONFIG','LOCAL_DIRECTORY','')
         config.set('CONFIG','LAST_DIRECTORY','')
         config.set('CONFIG','LOCAL_PHOTO_DIRECTORY','')
-        print("Create the Config file!")
+        log.notice("Create the Config file!")
 
     else: 
         config.read('config.ini')
@@ -481,43 +480,43 @@ def read_config():
 
     config = configparser.ConfigParser()
     config.read('config.ini')
-    print("Read Config File.")
+    log.notice("Read Config File.")
 
     try:
         ftp_host = config.get('CONFIG', 'FTP_HOST') 	
     except configparser.NoSectionError:
-        print("ConfigFile not found.")
+        log.error("ConfigFile not found.")
     except configparser.NoOptionError:
-        print("Data not found.")
+        log.error("Data not found.")
 
     try:
         local_directory = config.get('CONFIG', 'LOCAL_DIRECTORY')
     except configparser.NoSectionError:
-        print("ConfigFile not found.")
+        log.error("ConfigFile not found.")
     except configparser.NoOptionError:
-        print("Data not found.")
+        log.error("Data not found.")
 
     try:
         last_directory = config.get('CONFIG', 'LAST_DIRECTORY')
     except configparser.NoSectionError:
-        print("ConfigFile not found.")
+        log.error("ConfigFile not found.")
     except configparser.NoOptionError:
-        print("Data not found.")
+        log.error("Data not found.")
 
     try:
         local_photo_directory = config.get('CONFIG', 'LOCAL_PHOTO_DIRECTORY')
     except configparser.NoSectionError:
-        print("ConfigFile not found.")
+        log.error("ConfigFile not found.")
     except configparser.NoOptionError:
-        print("Data not found.")
+        log.error("Data not found.")
 
     try:
         if not local_photo_directory:
             local_photo_directory = os.getcwd()
     except configparser.NoSectionError:
-        print("ConfigFile not found.")
+        log.error("ConfigFile not found.")
     except configparser.NoOptionError:
-        print("Data not found.")
+        log.error("Data not found.")
 
 def input_data(type):
     global ftp_host
@@ -527,36 +526,36 @@ def input_data(type):
 
     if (type == 1):
         ftp_host_input = input("Enter the Dwarf IP: ")
-        print("You entered:", ftp_host_input)
+        log.notice("You entered:", ftp_host_input)
         if (ftp_host_input):
-            print("You entered:", ftp_host_input)
+            log.notice("You entered:", ftp_host_input)
             ftp_host = ftp_host_input
             update_config(ftp_host=ftp_host)
         else:
-            print("Can't be empty, no change")
+            log.error("Can't be empty, no change")
 
     if (type == 2):
         local_directory_input = input("Enter the Siril Stacking Directory: ")
-        print("You entered:", local_directory_input)
+        log.notice("You entered:", local_directory_input)
         if (local_directory_input):
             local_directory = local_directory_input
             update_config(local_directory=local_directory)
         else:
-            print("Can't be empty, no change")
+            log.error("Can't be empty, no change")
 
     if (type == 3):
         last_directory = input("Set Last Dwarf Session (empty) or Specify Session Directory: ")
-        print("You entered:", last_directory)
+        log.notice("You entered:", last_directory)
         update_config(last_directory=last_directory)
 
     if (type == 5):
         local_photo_directory_input = input("Enter the Local Photo Directory: (")
         if (local_photo_directory_input):
-            print("You entered:", local_photo_directory_input)
+            log.notice("You entered:", local_photo_directory_input)
             local_photo_directory = local_photo_directory_input
             update_config(local_photo_directory=local_photo_directory)
         else:
-            print("Can't be empty, no change")
+            log.error("Can't be empty, no change")
 
 def get_live_data():
 
@@ -588,9 +587,9 @@ def get_live_data():
             option_7()
 
         elif user_choice == '0':
-            print("return to main menu")
+            log.notice("return to main menu")
             break
 
         else:
-            print("Invalid choice. Please enter a number between 0 and 7.")
+            log.error("Invalid choice. Please enter a number between 0 and 7.")
 

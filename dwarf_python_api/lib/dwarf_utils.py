@@ -36,10 +36,10 @@ def read_longitude():
         longitude = config.getfloat('CONFIG', 'LONGITUDE')
         return longitude
     except configparser.NoOptionError:
-        print("longitude not found.")
+        log.error("longitude not found in config file.")
         return None
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return None
 
 def read_latitude():
@@ -50,10 +50,10 @@ def read_latitude():
         latitude = config.getfloat('CONFIG', 'LATITUDE')
         return latitude
     except configparser.NoOptionError:
-        print("latitude not found.")
+        log.error("latitude not found in config file.")
         return None
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return None
 
 def read_timezone():
@@ -64,10 +64,10 @@ def read_timezone():
         timezone = config.get('CONFIG', 'TIMEZONE')
         return timezone
     except configparser.NoOptionError:
-        print("timezone not found.")
+        log.error("timezone not found in config file.")
         return None
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return None
 
 def read_camera_exposure():
@@ -78,10 +78,10 @@ def read_camera_exposure():
         camera_exposure = config.get('CONFIG', 'EXPOSURE')
         return camera_exposure
     except configparser.NoOptionError:
-        print("camera exposure not found.")
+        log.error("camera exposure not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
 
 def read_camera_gain():
@@ -92,10 +92,10 @@ def read_camera_gain():
         camera_gain = config.get('CONFIG', 'GAIN')
         return camera_gain
     except configparser.NoOptionError:
-        print("camera gain not found.")
+        log.error("camera gain not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
 
 def read_camera_IR():
@@ -106,10 +106,10 @@ def read_camera_IR():
         camera_IR = config.get('CONFIG', 'IRCUT')
         return camera_IR
     except configparser.NoOptionError:
-        print("camera IRCUT value not found.")
+        log.error("camera IRCUT value not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
 
 def read_camera_binning():
@@ -120,10 +120,10 @@ def read_camera_binning():
         camera_binning = config.get('CONFIG', 'BINNING')
         return camera_binning
     except configparser.NoOptionError:
-        print("camera binning not found.")
+        log.error("camera binning not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
 
 def read_camera_format():
@@ -134,10 +134,10 @@ def read_camera_format():
         camera_format = config.get('CONFIG', 'FORMAT')
         return camera_format
     except configparser.NoOptionError:
-        print("camera format of image not found.")
+        log.error("camera format of image not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
 
 def read_camera_count():
@@ -148,10 +148,10 @@ def read_camera_count():
         camera_count = config.get('CONFIG', 'COUNT')
         return camera_count
     except configparser.NoOptionError:
-        print("Nb of images to take not found.")
+        log.error("Nb of images to take not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
 
 def read_camera_wide_exposure():
@@ -162,10 +162,10 @@ def read_camera_wide_exposure():
         camera_wide_exposure = config.get('CONFIG', 'WIDE_EXPOSURE')
         return camera_wide_exposure
     except configparser.NoOptionError:
-        print("camera wide exposure not found.")
+        log.error("camera wide exposure not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
 
 def read_camera_wide_gain():
@@ -176,10 +176,10 @@ def read_camera_wide_gain():
         camera_wide_gain = config.get('CONFIG', 'WIDE_GAIN')
         return camera_wide_gain
     except configparser.NoOptionError:
-        print("camera wide gain not found.")
+        log.error("camera wide gain not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
 
 def read_bluetooth_ble_wifi_type():
@@ -190,10 +190,10 @@ def read_bluetooth_ble_wifi_type():
         ble_wifi_type = config.get('CONFIG', 'BLE_WIFI_TYPE')
         return ble_wifi_type
     except configparser.NoOptionError:
-        print("ble wifi type value not found")
+        log.error("ble wifi type value not found in config file")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
  
 def read_bluetooth_autoAP():
@@ -204,10 +204,10 @@ def read_bluetooth_autoAP():
         ble_autoAP = config.get('CONFIG', 'BLE_AUTO_AP')
         return ble_autoAP
     except configparser.NoOptionError:
-        print("ble autostart AP value not found.")
+        log.error("ble autostart AP value not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
 
 def read_bluetooth_country_list():
@@ -218,10 +218,10 @@ def read_bluetooth_country_list():
         ble_country_list = config.get('CONFIG', 'BLE_COUNTRY_LIST')
         return ble_country_list
     except configparser.NoOptionError:
-        print("ble country list set value not found.")
+        log.error("ble country list set value not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
  
 def read_bluetooth_country():
@@ -232,10 +232,10 @@ def read_bluetooth_country():
         ble_country = config.get('CONFIG', 'BLE_COUNTRY')
         return ble_country
     except configparser.NoOptionError:
-        print("ble country value not found.")
+        log.error("ble country value not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
  
 def read_bluetooth_ble_psd():
@@ -246,10 +246,10 @@ def read_bluetooth_ble_psd():
         ble_psd = config.get('CONFIG', 'BLE_PSD')
         return ble_psd
     except configparser.NoOptionError:
-        print("ble pwd value not found.")
+        log.error("ble pwd value not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
  
 def read_bluetooth_autoSTA():
@@ -260,10 +260,10 @@ def read_bluetooth_autoSTA():
         ble_autoSTA = config.get('CONFIG', 'BLE_AUTO_STA')
         return ble_autoSTA
     except configparser.NoOptionError:
-        print("ble autostart STA value not found.")
+        log.error("ble autostart STA value not found in config file.")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
 
 def read_bluetooth_ble_STA_ssid():
@@ -274,10 +274,10 @@ def read_bluetooth_ble_STA_ssid():
         ble_STA_ssid = config.get('CONFIG', 'BLE_STA_SSID')
         return ble_STA_ssid
     except configparser.NoOptionError:
-        print("STA ssid value not found")
+        log.error("STA ssid value not found in config file")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
  
 def read_bluetooth_ble_STA_pwd():
@@ -288,10 +288,10 @@ def read_bluetooth_ble_STA_pwd():
         ble_STA_pwd = config.get('CONFIG', 'BLE_STA_PWD')
         return ble_STA_pwd
     except configparser.NoOptionError:
-        print("STA pwd value not found")
+        log.error("STA pwd value not found in config file")
         return False
     except configparser.NoSectionError:
-        print("Data not found.")
+        log.error("Data not found in config file.")
         return False
 
 def save_bluetooth_config_from_ini_file():
@@ -303,15 +303,15 @@ def save_bluetooth_config_from_ini_file():
         ble_STA_pwd = config.get('CONFIG', 'BLE_STA_PWD')
         ble_STA_ssid = config.get('CONFIG', 'BLE_STA_SSID')
     except configparser.NoOptionError:
-        print("Wifi infos value not defined")
+        log.error("Wifi infos value not defined in config file.")
         return False
     except configparser.NoSectionError:
-        print("Wifi Data not found.")
+        log.error("Wifi Data not found in config file.")
         return False
  
     # check value
     if ble_psd=="" or ble_STA_pwd=="" or ble_STA_ssid=="":
-        print("Wifi infos empty value detected")
+        log.error("Wifi infos empty value detected")
         return False
  
     # Specify the path to your HTML file
@@ -363,7 +363,7 @@ def parse_dec_to_float(dec_string):
         dec_string = dec_string[1:]
     else:
         sign = 1
-    print(dec_string)
+
     degrees, minutes, seconds = map(float, dec_string.split(':'))
 
     # Convert to decimal degrees
@@ -449,11 +449,11 @@ def perform_goto(ra, dec, target):
 def perform_goto_stellar(target_id, target_name):
 
     if read_longitude() is None:
-        print("Longitude is not defined! ")
+        log.error("Longitude is not defined! ")
         return
 
     if read_latitude() is None:
-        print("Latitude is not defined! ")
+        log.error("Latitude is not defined! ")
         return
 
     # GOTO
@@ -1235,7 +1235,6 @@ def perform_update_camera_setting( type, value, dwarf_id = "2"):
 
     ReqSetGain_message = camera.ReqSetGain ()
     ReqSetGain_message.index = get_wide_gain_index_by_name(str(value),str(dwarf_id))
-    print (f"index wide Gain =  {ReqSetGain_message.index}")
     command = 12006; #CMD_CAMERA_WIDE_SET_GAIN
 
     response = connect_socket(ReqSetGain_message, command, type_id, module_id)

@@ -58,9 +58,6 @@ console_handler.setLevel(console_handle_level)
 
 console_handler.setFormatter(logging.Formatter('%(message)s'))
 
-# Add console handler to the root logger
-logging.getLogger().addHandler(console_handler)
-
 # Add handlers to logger
 logging.getLogger().addHandler(console_handler)
 
