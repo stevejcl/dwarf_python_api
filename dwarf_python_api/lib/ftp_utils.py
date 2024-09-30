@@ -1,9 +1,6 @@
 import paramiko
-import dwarf_python_api.lib.my_logger as my_logger
+import dwarf_python_api.lib.my_logger as log
 from dwarf_python_api.get_config_data import update_config_data, CONFIG_FILE
-
-# Get the logger instance
-log = my_logger.get_logger()
 
 def update_client_id_from_last_session(dwarf_ip, config_file = CONFIG_FILE):
     ssh_port = 22
