@@ -233,6 +233,8 @@ def fct_decode_wireshark(user_frame, masked = False, user_maskedcode = ""):
 
     # Test if Octal format : new in Wireshark
     user_frame_convert = octal_and_special_to_hex(user_frame)
+    # Avoid pb with character '
+    user_frame_convert = user_frame_convert.replace("'", '\\\'')
     print(f"Converted frame: \"{user_frame_convert}\"")
 
     extracted_strings = extracted_frames(user_frame_convert, start_pattern, start_pattern2, end_pattern)
@@ -240,7 +242,7 @@ def fct_decode_wireshark(user_frame, masked = False, user_maskedcode = ""):
     print("=====================")
     for idx, frame in enumerate(extracted_strings):
       print(f"Extracted frame {idx+1}: \"{frame}\"")
-      python_expression = "\""+ frame + "\""
+      python_expression = "\'"+ frame + "\'"
       decode_packet(python_expression, masked, user_maskedcode)
       print("=====================")
 
