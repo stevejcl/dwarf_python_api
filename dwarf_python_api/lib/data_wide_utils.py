@@ -128,6 +128,24 @@ class AllowedWideGains:
         self.default_value_index = 0
         self.values = [
             {"index": 0, "name": "60"},
+            {"index": 18, "name": "60"},
+            {"index": 21, "name": "70"},
+            {"index": 24, "name": "80"},
+            {"index": 27, "name": "90"},
+            {"index": 30, "name": "100"},
+            {"index": 33, "name": "110"},
+            {"index": 36, "name": "120"},
+            {"index": 39, "name": "130"},
+            {"index": 42, "name": "140"},
+            {"index": 45, "name": "150"},
+            {"index": 48, "name": "160"},
+        ]
+
+class AllowedWideGainsOld:
+    def __init__(self):
+        self.default_value_index = 0
+        self.values = [
+            {"index": 0, "name": "60"},
             {"index": 3, "name": "70"},
             {"index": 6, "name": "80"},
             {"index": 9, "name": "90"},

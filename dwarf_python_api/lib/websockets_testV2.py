@@ -5,6 +5,7 @@ import dwarf_python_api.proto.notify_pb2 as notify
 import dwarf_python_api.proto.astro_pb2 as astro
 import dwarf_python_api.proto.motor_control_pb2 as motor_control
 import dwarf_python_api.proto.system_pb2 as system
+import dwarf_python_api.proto.camera_pb2 as camera
 # in notify
 import dwarf_python_api.proto.base_pb2 as base__pb2
 
@@ -314,6 +315,31 @@ def decode_packet(python_expression, masked = False, user_maskedcode = ""):
             ReqSetHostSlaveMode_message.ParseFromString(WsPacket_message.data)
             log.debug("receive notification data >>", ReqSetHostSlaveMode_message)
             log.debug("receive notification mode >>", ReqSetHostSlaveMode_message.mode)
+        if ((WsPacket_message.cmd == protocol.CMD_CAMERA_WIDE_SET_GAIN)):
+            ReqSetGain_message = camera.ReqSetGain()
+            ReqSetGain_message.ParseFromString(WsPacket_message.data)
+            log.debug("receive notification data >>", ReqSetGain_message)
+            log.debug("receive notification index >>", ReqSetGain_message.index)
+        if (WsPacket_message.cmd == protocol.CMD_CAMERA_WIDE_GET_ALL_PARAMS):
+            common_param_instance = base__pb2.CommonParam()
+            ResGetAllParams_message = camera.ResGetAllParams()
+            ResGetAllParams_message.ParseFromString(WsPacket_message.data)
+            res_get_all_params_data = {
+                "all_params": [],
+                "code": ResGetAllParams_message.code
+            }
+            for common_param_instance in ResGetAllParams_message.all_params:
+                common_param_data = {
+                    "hasAuto": common_param_instance.hasAuto,
+                    "auto_mode": common_param_instance.auto_mode,
+                    "id": common_param_instance.id,
+                    "mode_index": common_param_instance.mode_index,
+                    "index": common_param_instance.index,
+                    "continue_value": common_param_instance.continue_value
+                }
+                res_get_all_params_data["all_params"].append(common_param_data)
+            log.info({res_get_all_params_data})
+
     if (WsPacket_message.type == 1):
         ComResponse_message = base__pb2.ComResponse()
         ComResponse_message.ParseFromString(WsPacket_message.data)
@@ -334,6 +360,30 @@ def decode_packet(python_expression, masked = False, user_maskedcode = ""):
             ComResponse_message = base__pb2.ComResponse()
             ComResponse_message.ParseFromString(WsPacket_message.data)
             log.debug("receive data >>", ComResponse_message.code)
+        elif ((WsPacket_message.cmd == protocol.CMD_CAMERA_WIDE_SET_GAIN)):
+            ReqSetGain_message = camera.ReqSetGain()
+            ReqSetGain_message.ParseFromString(WsPacket_message.data)
+            log.info("receive notification data >>", ReqSetGain_message)
+            log.info("receive notification index >>", ReqSetGain_message.index)
+        elif ((WsPacket_message.cmd == protocol.CMD_NOTIFY_WIDE_SET_PARAM)):
+            common_param_instance = base__pb2.CommonParam()
+            ResGetAllParams_message = camera.ResGetAllParams()
+            ResGetAllParams_message.ParseFromString(WsPacket_message.data)
+            res_get_all_params_data = {
+                "all_params": [],
+                "code": ResGetAllParams_message.code
+            }
+            for common_param_instance in ResGetAllParams_message.all_params:
+                common_param_data = {
+                    "hasAuto": common_param_instance.hasAuto,
+                    "auto_mode": common_param_instance.auto_mode,
+                    "id": common_param_instance.id,
+                    "mode_index": common_param_instance.mode_index,
+                    "index": common_param_instance.index,
+                    "continue_value": common_param_instance.continue_value
+                }
+                res_get_all_params_data["all_params"].append(common_param_data)
+            log.info(res_get_all_params_data)
         elif (WsPacket_message.type == 3):
             ComResWithInt_message = base__pb2.ComResWithInt()
             ComResWithInt_message.ParseFromString(WsPacket_message.data)

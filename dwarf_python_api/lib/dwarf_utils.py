@@ -586,6 +586,9 @@ def perform_waitEndAstroPhoto():
         if response == 0:
             log.success("ASTRO CAPTURE ENDING success")
             return True
+        elif response == -1:
+            log.warning("ASTRO CAPTURE NOT STARTED")
+            return True
         else:
             log.error(f"Error code: {response}")
     else:
@@ -604,6 +607,9 @@ def perform_waitEndAstroWidePhoto():
 
         if response == 0:
             log.success("ASTRO WIDE CAPTURE ENDING success")
+            return True
+        elif response == -1:
+            log.warning("ASTRO WIDE CAPTURE NOT STARTED")
             return True
         else:
             log.error(f"Error code: {response}")
@@ -973,6 +979,17 @@ def perform_get_all_camera_wide_setting():
   
   return response
 
+def get_result_value ( result_cnx, is_double = False):
+
+  if isinstance(result_cnx, int):
+    return result_cnx if result_cnx >= 0 else False
+
+  if isinstance(result_cnx, dict) and 'code' in result_cnx:
+    if result_cnx["code"] == 0 and 'value' in result_cnx:
+      return result_cnx["value"] if not is_double else format_double(result_cnx["value"])
+
+  return False
+
 def perform_get_camera_setting( type):
 
   Test = False
@@ -993,6 +1010,8 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetContrast_message, command, type_id, module_id)
 
+    return get_result_value(response)
+
   if (type == "exposure"):
     # exposure
     module_id = 1  # MODULE_TELE_CAMERA
@@ -1004,7 +1023,7 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetExp_message, command, type_id, module_id)
 
-    return format_double(response)
+    return get_result_value(response, true)
 
   elif (type == "gain"):
     # gain
@@ -1017,7 +1036,7 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetGain_message, command, type_id, module_id)
 
-    return response
+    return get_result_value(response)
 
   elif (type == "IR"):
     # IR
@@ -1030,58 +1049,7 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetIrCut_message, command, type_id, module_id)
 
-    return response
-
-  elif (type == "binning"):
-    # binning
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqSetFeatureParams_message = camera.ReqSetFeatureParams ()
-    ReqSetFeatureParams_message.param.hasAuto = False;
-    ReqSetFeatureParams_message.param.auto_mode = 1; # Manual
-    ReqSetFeatureParams_message.param.id = 0; # "Astro binning"
-    ReqSetFeatureParams_message.param.mode_index = 0;
-    ReqSetFeatureParams_message.param.index = int(value);
-    ReqSetFeatureParams_message.param.continue_value = 0;
-
-    command = 10037; #CMD_CAMERA_TELE_SET_FEATURE_PARAM
-
-    response = connect_socket(ReqSetFeatureParams_message, command, type_id, module_id)
-
-  elif (type == "fileFormat"):
-    # fileFormat
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqSetFeatureParams_message = camera.ReqSetFeatureParams ()
-    ReqSetFeatureParams_message.param.hasAuto = False;
-    ReqSetFeatureParams_message.param.auto_mode = 1; # Manual
-    ReqSetFeatureParams_message.param.id = 2; # "Astro format"
-    ReqSetFeatureParams_message.param.mode_index = 0;
-    ReqSetFeatureParams_message.param.index = int(value);
-    ReqSetFeatureParams_message.param.continue_value = 0;
-
-    command = 10037; #CMD_CAMERA_TELE_SET_FEATURE_PARAM
-
-    response = connect_socket(ReqSetFeatureParams_message, command, type_id, module_id)
-
-  elif (type == "count"):
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqSetFeatureParams_message = camera.ReqSetFeatureParams ()
-    ReqSetFeatureParams_message.param.hasAuto = False;
-    ReqSetFeatureParams_message.param.auto_mode = 1; # Manual
-    ReqSetFeatureParams_message.param.id = 1; # "Astro img_to_take"
-    ReqSetFeatureParams_message.param.mode_index = 1;
-    ReqSetFeatureParams_message.param.index = 0;
-    ReqSetFeatureParams_message.param.continue_value = int(value);
-
-    command = 10037; #CMD_CAMERA_TELE_SET_FEATURE_PARAM
-    cmd = Dwarfii_Api.DwarfCMD.CMD_CAMERA_TELE_SET_FEATURE_PARAM;
-
-    response = connect_socket(ReqSetFeatureParams_message, command, type_id, module_id)
+    return get_result_value(response)
 
   elif (type == "wide_exposure"):
     # exposure
@@ -1094,7 +1062,7 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetExp_message, command, type_id, module_id)
 
-    return format_double(response)
+    return get_result_value(response, True)
 
   elif (type == "wide_gain"):
     # gain
@@ -1107,9 +1075,9 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetGain_message, command, type_id, module_id)
 
-    return response
+    return get_result_value(response)
 
-  return response
+  return False
 
 def perform_update_camera_setting( type, value, dwarf_id = "2"):
 
@@ -1235,6 +1203,7 @@ def perform_update_camera_setting( type, value, dwarf_id = "2"):
 
     ReqSetGain_message = camera.ReqSetGain ()
     ReqSetGain_message.index = get_wide_gain_index_by_name(str(value),str(dwarf_id))
+
     command = 12006; #CMD_CAMERA_WIDE_SET_GAIN
 
     response = connect_socket(ReqSetGain_message, command, type_id, module_id)
