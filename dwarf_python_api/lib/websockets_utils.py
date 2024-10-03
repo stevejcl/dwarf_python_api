@@ -239,8 +239,10 @@ class WebSocketClient:
 
         except websockets.ConnectionClosedOK as e:
             log.error(f'Ping: ConnectionClosedOK', e)
+            pass
         except websockets.ConnectionClosedError as e:
             log.error(f'Ping: ConnectionClosedError', e)
+            pass
         except asyncio.CancelledError:
             log.info("Ping Cancelled.")
             pass
@@ -741,7 +743,8 @@ class WebSocketClient:
                                 # CODE_ASTRO_PLATE_SOLVING_FAILED = -11500; // Plate Solving failed
                                 if (ComResponse_message.code == -11500):
                                     log.info("Continue Decoding CMD_ASTRO_START_CALIBRATION")
-                                    log.notice("CALIBRATION: Error Plate solving")
+                                    message = "CALIBRATION: Error Plate solving"
+                                    await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
 
                             # CMD_ASTRO_STOP_CALIBRATION = 11001; // Stop Calibration
                             elif (WsPacket_message.cmd==protocol.CMD_ASTRO_STOP_CALIBRATION):
@@ -1588,7 +1591,7 @@ class WebSocketClient:
                                 log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
                                 log.success("Success CMD_NOTIFY_POWER_OFF >> EXIT")
                                 # disconnect  
-                                await asyncio.sleep(5)
+                                await asyncio.sleep(0.1)
                                 await self.disconnect()
                             # Unknown
                             elif (WsPacket_message.cmd != self.command):
@@ -1626,8 +1629,10 @@ class WebSocketClient:
 
         except websockets.ConnectionClosedOK  as e:
             log.debug(f'Rcv: ConnectionClosedOK', e)
+            pass
         except websockets.ConnectionClosedError as e:
             log.error(f'Rcv: ConnectionClosedError', e)
+            pass
         except asyncio.CancelledError as e:
             log.debug(f'Rcv: Cancelled', e)
             pass
@@ -2020,12 +2025,17 @@ class WebSocketClient:
             if self.websocket: #and self.websocket.open:
                 log.debug("Closing Socket ....")
                 try:
-                    await self.websocket.close()
-                    log.debug("WebSocket connection closed.")
+                    if self.websocket.open:
+                        await self.websocket.close()
+                        log.debug("WebSocket connection closed.")
+                    else:
+                        log.debug("WebSocket was already closed.")
                 except websockets.ConnectionClosedOK  as e:
                     log.error(f'Close: ConnectionClosedOK', e)
+                    pass
                 except websockets.ConnectionClosedError as e:
                     log.error(f'Close: ConnectionClosedError', e)
+                    pass
                 except Exception as e:
                     log.error(f"unknown exception with error: {e}")
 
