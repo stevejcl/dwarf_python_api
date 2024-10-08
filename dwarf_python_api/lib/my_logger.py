@@ -9,10 +9,13 @@ from dwarf_python_api.get_config_data import get_config_data
 # Load configuration data
 data_config = get_config_data()
 
-log_file = data_config.get('log_file', 'app.log')
+if data_config['log_file'] == "False":
+    log_file = None
+else: 
+    log_file = "app.log" if data_config['log_file'] == "" else data_config['log_file']
 
 # Backup old log file if it exists
-if log_file is not None and log_file != "":
+if log_file is not None:
     try:
         old_log_file = log_file + '.old'
         if os.path.exists(log_file):
