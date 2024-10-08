@@ -162,6 +162,9 @@ class WebSocketClient:
         self.takeWidePhotoStacked = 0
         self.InitHostReceived = False
         self.ErrorConnection = False
+        self.BatteryLevelDwarf = None
+        self.availableSizeDwarf = None
+        self.totalSizeDwarf = None
 
         # TEST_CALIBRATION : Test Calibration Packet or Goto Packet
         # Test Mode : Calibration Packet => TEST_CALIBRATION = True
@@ -197,6 +200,8 @@ class WebSocketClient:
                     log.info(f'TIMEOUT: Reset, CMD received')
                     self.reset_timeout = False
                     count = 0
+            if not self.stop_task.is_set() and count > self.abort_timeout:
+                log.warning(f'TIMEOUT: triggered after {self.abort_timeout}s')
         except asyncio.CancelledError as e:
             log.info(f'TIMEOUT: Cancelled {e}')
             pass
@@ -1589,10 +1594,41 @@ class WebSocketClient:
                                 log.debug("Decoding CMD_NOTIFY_POWER_OFF")
                                 log.debug(f"receive request response data >> {ComResponse_message.code}")
                                 log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
-                                log.success("Success CMD_NOTIFY_POWER_OFF >> EXIT")
+                                log.success("CMD_NOTIFY_POWER_OFF received >> EXIT")
                                 # disconnect  
                                 await asyncio.sleep(0.1)
                                 await self.disconnect()
+                            # notify Battery level
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_ELE):
+                                ComResWithInt_message_message = base__pb2.ComResWithInt()
+                                ComResWithInt_message_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_NOTIFY_ELE")
+                                log.debug(f"receive request response value >> {ComResWithInt_message_message.value}")
+                                log.debug(f">> {getErrorCodeValueName(ComResWithInt_message_message.code)}")
+                                value = ComResWithInt_message_message.value
+                                # notify ?
+                                if (self.BatteryLevelDwarf is None or abs(self.BatteryLevelDwarf - value) >= 10 or ((value == 100) and abs(self.BatteryLevelDwarf - value) >= 1) or ((value < 10) and (self.BatteryLevelDwarf - value) >= 1)):
+                                   if value < 10:
+                                       log.warning(f"Battery Level is {value}%")
+                                   else:
+                                       log.notice(f"Battery Level is {value}%")
+                                   self.BatteryLevelDwarf = value
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_SDCARD_INFO):
+                                ResNotifySDcardInfo_message = notify.ResNotifySDcardInfo()
+                                ResNotifySDcardInfo_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_NOTIFY_SDCARD_INFO")
+                                log.debug(f"receive request response code >> {ResNotifySDcardInfo_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ResNotifySDcardInfo_message.code)}")
+                                availableSizeDwarf = ResNotifySDcardInfo_message.available_size
+                                totalSizeDwarf = ResNotifySDcardInfo_message.total_size
+                                # notify ?
+                                if (self.totalSizeDwarf is None or (self.availableSizeDwarf - availableSizeDwarf) >= 10 or ((availableSizeDwarf < 10) and (self.availableSizeDwarf - availableSizeDwarf) >= 1)):
+                                   if availableSizeDwarf < 10:
+                                       log.warning(f"Available Space: {availableSizeDwarf}/{totalSizeDwarf} GB")
+                                   else:
+                                       log.notice(f"Available Space: {availableSizeDwarf}/{totalSizeDwarf} GB")
+                                   self.availableSizeDwarf = availableSizeDwarf
+                                   self.totalSizeDwarf = totalSizeDwarf
                             # Unknown
                             elif (WsPacket_message.cmd != self.command):
                                 log.info(f"Receiving command {WsPacket_message.cmd}")
@@ -1670,6 +1706,9 @@ class WebSocketClient:
             return
 
         self.InitHostReceived = False
+        self.BatteryLevelDwarf = None
+        self.availableSizeDwarf = None
+        self.totalSizeDwarf = None
         #CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE
         WsPacket_messageTeleGetSystemWorkingState = base__pb2.WsPacket()
         ReqGetSystemWorkingState_message = camera.ReqGetSystemWorkingState()
@@ -1756,7 +1795,7 @@ class WebSocketClient:
             pass
         except Exception as e:
             # Handle other exceptions
-            log.error(f"Unhandled exception1: {e}")
+            log.error(f"Unhandled exception 1a: {e}")
             WebSocketClient.Init_Send_TeleGetSystemWorkingState = True
         finally:
             # Perform cleanup if needed
@@ -1877,7 +1916,7 @@ class WebSocketClient:
 
         except Exception as e:
             # Handle other exceptions
-            log.error(f"Unhandled exception1: {e}")
+            log.error(f"Unhandled exception 1b: {e}")
             WebSocketClient.Init_Send_TeleGetSystemWorkingState = True
         finally:
             # Perform cleanup if needed
@@ -1907,7 +1946,7 @@ class WebSocketClient:
             pass
         except Exception as e:
             # Handle other exceptions
-            log.error(f"Unhandled exception1: {e}")
+            log.error(f"Unhandled exception 1c: {e}")
         finally:
             # Perform cleanup if needed
             log.info("TERMINATING message_init function.")
@@ -1927,7 +1966,7 @@ class WebSocketClient:
                 try:
                     self.websocket = websocket
                     if self.websocket:
-                        log.info(f"Connected to {self.uri} with {self.message}command:{self.command}")
+                        log.info(f"Connected to {self.uri}")
                         log.info("------------------")
 
                     # Start the task to receive messages
@@ -1990,9 +2029,13 @@ class WebSocketClient:
             await self.result_receive_messages("Connection", "Connection", Dwarf_Result.ERROR, "Error Connection", -1)
 
         finally:
-            await self.disconnect()
+            if self.start_client:
+                await self.disconnect()
+            else:
+                self.stop_client = True
+                self.websocket = False
             if not self.ErrorConnection:
-               await self.result_receive_messages("Connection", "Connection", Dwarf_Result.DISCONNECTED, "Disconnected", -1)
+                await self.result_notification_messages("Connection", "Connection", Dwarf_Result.DISCONNECTED, "Disconnected", -1)
 
     async def disconnect(self):
         # Signal the ping and receive functions to stop
@@ -2041,9 +2084,10 @@ class WebSocketClient:
 
             self.start_client = False
             self.stop_client = True
+            self.websocket = False
             log.info("WebSocket Terminated.")
 
-        log.info("WebSocketClient Terminated.")
+        log.notice("WebSocketClient Terminated.")
         WebSocketClient.Init_Send_TeleGetSystemWorkingState = True
 
     def run(self):
@@ -2066,7 +2110,7 @@ async def start_socket(uri=None, client_id=None, ping_interval_task=10):
     if uri and client_id:
         websocket_uri = ws_uri(uri)
 
-        log.info(f"Try Connect to {websocket_uri} for {client_id} with data:")
+        log.info(f"Try Connect to {websocket_uri} for {client_id}")
 
         try:
             # Create an instance of WebSocketClient
@@ -2172,10 +2216,13 @@ async def init_socket():
     result = False
 
     try:
-        if not client_instance:
+
+        if not client_instance :
             event_loop = asyncio.new_event_loop()
             event_loop_thread = threading.Thread(target=run_event_loop, args=(event_loop,))
             event_loop_thread.start()
+
+        if not client_instance or not client_instance.start_client:
 
             future = asyncio.run_coroutine_threadsafe(start_socket(), event_loop)
 
@@ -2326,7 +2373,7 @@ def connect_socket(message, command, type_id, module_id):
     asyncio.set_event_loop(loop)  # Set this loop as the current loop
 
     try:
-        if not client_instance:
+        if not client_instance or not client_instance.start_client:
             result = loop.run_until_complete(init_socket()) #asyncio.run(init_socket())
 
         if client_instance and (result is not False):

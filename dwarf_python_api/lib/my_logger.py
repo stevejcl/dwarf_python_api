@@ -12,14 +12,14 @@ data_config = get_config_data()
 log_file = data_config.get('log_file', 'app.log')
 
 # Backup old log file if it exists
-old_log_file = log_file + '.old'
-if os.path.exists(log_file):
+if log_file is not None and log_file != "":
     try:
-        # Rename the old log file to app.log.old (or any other naming convention)
-        shutil.move(log_file, old_log_file)
+        old_log_file = log_file + '.old'
+        if os.path.exists(log_file):
+            # Rename the old log file to app.log.old (or any other naming convention)
+            shutil.move(log_file, old_log_file)
     except Exception as e:
         print(f"Error moving log file: {e}")
-
 
 # Define custom NOTICE and SUCCESS logging level
 NOTICE_LEVEL_NUM = 22

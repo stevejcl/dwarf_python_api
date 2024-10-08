@@ -269,6 +269,7 @@ def extracted_frames(user_frame, start_pattern, start_pattern2, end_pattern):
 
         # Find the end pattern after the current start pattern
         end_index = user_frame.find(end_pattern, start_index + start_len_total)
+        print(f"end_index: \"{end_index}\"")
         if end_index == -1:
             break
 
@@ -338,7 +339,7 @@ def decode_packet(python_expression, masked = False, user_maskedcode = ""):
                     "continue_value": common_param_instance.continue_value
                 }
                 res_get_all_params_data["all_params"].append(common_param_data)
-            log.info({res_get_all_params_data})
+            print(res_get_all_params_data)
 
     if (WsPacket_message.type == 1):
         ComResponse_message = base__pb2.ComResponse()
@@ -383,7 +384,7 @@ def decode_packet(python_expression, masked = False, user_maskedcode = ""):
                     "continue_value": common_param_instance.continue_value
                 }
                 res_get_all_params_data["all_params"].append(common_param_data)
-            log.info(res_get_all_params_data)
+            print(res_get_all_params_data)
         elif (WsPacket_message.type == 3):
             ComResWithInt_message = base__pb2.ComResWithInt()
             ComResWithInt_message.ParseFromString(WsPacket_message.data)
