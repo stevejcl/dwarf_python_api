@@ -1,4 +1,3 @@
-import logging
 import websockets.client
 import asyncio
 import threading
@@ -1950,7 +1949,6 @@ class WebSocketClient:
         finally:
             # Perform cleanup if needed
             log.info("TERMINATING message_init function.")
-            logging.info(f"Result: {result}")
 
     async def start(self):
         try:
@@ -2173,7 +2171,7 @@ async def send_socket(message, command, type_id, module_id):
             result = True
         log.debug("WebSocket Client Send End.")
     except KeyboardInterrupt:
-        logging.info("KeyboardInterrupt received. Stopping gracefully 1.")
+        log.info("KeyboardInterrupt received. Stopping gracefully 1.")
     return result
 
 
