@@ -233,7 +233,17 @@ async function handleClick(event) {
                 console.log("Error STA MODE not Configured! Restart it and Use the mobile App.");
                 actionDisconnect("Error STA MODE not Configured! Restart it and Use the mobile App.");
               }
-              else if ((result_data.ip == "192.168.88.1" || result_data.ssid.startsWith("DWARF3_3B6B3A")) && BleSTASSIDDwarf !== undefined && BleSTAPWDDwarf !== undefined)
+              else if ((result_data.ip == "192.168.88.1" || result_data.ssid.startsWith("DWARF3_")) && BleSTASSIDDwarf !== undefined && BleSTAPWDDwarf !== undefined)
+              { 
+                // set WifiSTA saved in memory
+                startButton.textContent = "Send Wifi config to " + Dwarf_Name + "..." + device.name;
+                console.log("Load WiFi configuration...");
+                phase = 2;
+                // set WifiSTA
+                let bufferSetWifiSta = messageWifiSTA(0, BluetoothPWD, BleSTASSIDDwarf, BleSTAPWDDwarf);
+                await characteristic.writeValue(bufferSetWifiSta);
+              }
+              else if ((result_data.ssid == "" || result_data.psd == "") && BleSTASSIDDwarf !== undefined && BleSTAPWDDwarf !== undefined)
               { 
                 // set WifiSTA saved in memory
                 startButton.textContent = "Send Wifi config to " + Dwarf_Name + "..." + device.name;
