@@ -212,7 +212,6 @@ class WebSocketClient:
             if (not self.stop_task.is_set()):
                 log.info("TIMEOUT function set stop_task.")
                 self.stop_task.set()
-            await asyncio.sleep(0.02)
             log.info("TERMINATING TIMEOUT function.")
 
     async def send_ping_periodically(self):
@@ -2058,6 +2057,16 @@ class WebSocketClient:
             with contextlib.suppress(asyncio.CancelledError):
                 try:
                     await self.receive_task
+                except Exception as e:
+                    log.error(f"unknown exception with error: {e}")
+
+        # Cancel the abort task when the client is done
+        if self.abort_tasks:
+            log.debug("Closing Abort Task ....")
+            self.abort_tasks.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                try:
+                    await self.abort_tasks
                 except Exception as e:
                     log.error(f"unknown exception with error: {e}")
 
