@@ -824,6 +824,27 @@ class WebSocketClient:
                                         log.error(f"Error GOTO CODE {getErrorCodeValueName(ComResponse_message.code)}")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CODE_ASTRO_GOTO_FAILED", ComResponse_message.code)
                                     await asyncio.sleep(1)
+                            # CMD_ASTRO_START_GOTO_SOLAR_SYSTEM = 11003; // Start GOTO SOLAR SYSTEM Object
+                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_GOTO_SOLAR_SYSTEM):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_ASTRO_START_GOTO_SOLAR_SYSTEM")
+                                log.debug(f"receive data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error GOTO {ComResponse_message.code} >> EXIT")
+                                    if (ComResponse_message.code == protocol.CODE_ASTRO_GOTO_FAILED):
+                                        log.error("Error GOTO CODE_ASTRO_GOTO_FAILED")
+                                    elif (ComResponse_message.code == protocol.CODE_STEP_MOTOR_LIMIT_POSITION_WARNING):
+                                        log.error("Error GOTO CODE_STEP_MOTOR_LIMIT_POSITION_WARNING")
+                                    elif (ComResponse_message.code == protocol.CODE_STEP_MOTOR_LIMIT_POSITION_HITTED):
+                                        log.error("Error GOTO CODE_STEP_MOTOR_LIMIT_POSITION_HITTED")
+                                    else:
+                                        log.error(f"Error GOTO CODE {getErrorCodeValueName(ComResponse_message.code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CODE_ASTRO_GOTO_FAILED", ComResponse_message.code)
+                                    await asyncio.sleep(1)
                             # CMD_ASTRO_STOP_GOTO = 11004; // Stop GOTO
                             elif (WsPacket_message.cmd==protocol.CMD_ASTRO_STOP_GOTO):
                                 ComResponse_message = base__pb2.ComResponse()
