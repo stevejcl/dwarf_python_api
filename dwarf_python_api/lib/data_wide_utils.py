@@ -210,7 +210,7 @@ def get_wide_gain_index_by_name(name, dwarf_type = "2"):
 
 # Example usage:
 allowed_wide_exposures = AllowedWideExposures()
-allowed_wide_gains = AllowedWideGains()
+allowed_wide_gains = AllowedWideGainsOld()
 
 allowed_wide_exposuresD3 = AllowedWideExposuresD3()
 allowed_wide_gainsD3 = AllowedWideGainsD3()

@@ -45,47 +45,60 @@ def success(self, message, *args, **kwargs):
 
 logging.Logger.success = success  # Add success method to logger class
 
-# Configure the logger
-logging.basicConfig(
-    filename=log_file,  # Log file name
-    filemode='w',        # Create a new log file
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG if data_config['debug'] else logging.INFO  # Use DEBUG level if in debug mode
-)
+# Set logger level to NOTSET, allowing handlers to filter logs
+logging.getLogger().setLevel(logging.NOTSET)  # Allow handlers to manage levels independently
+
+# Create logger instance
+root_level = logging.DEBUG if data_config.get('debug') else logging.INFO
+logger = logging.getLogger('my_logger')
+logger.setLevel(root_level)
+print(f"root_level: {root_level}")
+
+# Determine file log level based on 'debug' in data_config
+file_log_level = logging.DEBUG if data_config.get('debug') else logging.INFO
+print(f"file_log_level: {file_log_level}")
+
+# File handler for logging to a file
+if log_file is not None:
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(file_log_level)  # Set the file handler level dynamically
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 
 # Add console logging handler separately
-# Only logs NOTICE and Above level messages except if TRACE is Set
+# Only logs NOTICE and Above level messages except if TRACE is Set or file_log_level if no log file
 console_handler = logging.StreamHandler()
 console_handle_level = logging.INFO if data_config.get('trace') else NOTICE_LEVEL_NUM
-console_handler.setLevel(console_handle_level)
+if log_file is None:
+    console_handle_level = file_log_level
 
+console_handler.setLevel(console_handle_level)  # Set the console handler level dynamically
 console_handler.setFormatter(logging.Formatter('%(message)s'))
+print(f"console_handle_level: {console_handle_level}")
 
-# Add handlers to logger
-logging.getLogger().addHandler(console_handler)
+logger.addHandler(console_handler)
+
+if log_file is not None:
+    logger.addHandler(file_handler)
 
 # Bind the notice and success method to the logger
-logger = logging.getLogger('my_logger')
-
 logger.notice = types.MethodType(notice, logger)
 logger.success = types.MethodType(success, logger)
 
 def debug(*messages):
-    if data_config['debug']:
-        for message in messages:
-            logging.debug(message) 
+    for message in messages:
+        logger.debug(message) 
 
 def error(*messages):
     for message in messages:
-        logging.error(message) 
+        logger.error(message) 
 
 def warning(*messages):
     for message in messages:
-        logging.warning(message) 
+        logger.warning(message) 
 
 def info(*messages):
     for message in messages:
-        logging.info(message) 
+        logger.info(message) 
 
 def notice(*messages):
     for message in messages:

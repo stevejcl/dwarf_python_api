@@ -55,6 +55,7 @@ VALID_PAIRS = {
     (protocol.CMD_CAMERA_WIDE_SET_EXP, protocol.CMD_NOTIFY_WIDE_SET_PARAM),
     (protocol.CMD_CAMERA_WIDE_SET_GAIN, protocol.CMD_NOTIFY_WIDE_SET_PARAM),
     (protocol.CMD_ASTRO_GO_LIVE, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
+    (protocol.CMD_ASTRO_GO_LIVE, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING),
     (protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING),
 }
@@ -970,7 +971,7 @@ class WebSocketClient:
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO GO LIVE ENDING", 0)
                                     await asyncio.sleep(1)
 
-                                if ( ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING):
+                                if ( self.command==protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING and ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING):
                                     log.info("ASTRO CAPTURE RUNNING")
                                     log.success("ASTRO CAPTURE RUNNING")
                                     self.takePhotoStarted = True
@@ -978,7 +979,7 @@ class WebSocketClient:
                                     await asyncio.sleep(1)
 
                                 # OPERATION_STATE_STOPPED = 3; // Stopped
-                                if ( self.AstroCapture and ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
+                                if ( self.AstroCapture and self.takePhotoStarted and ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
                                     log.debug("ASTRO CAPTURE OK STOPPING >> EXIT")
                                     log.info("Success ASTRO CAPTURE ENDING")
                                     log.success("Success ASTRO CAPTURE ENDING")
@@ -1002,7 +1003,7 @@ class WebSocketClient:
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO GO LIVE ENDING", 0)
                                     await asyncio.sleep(1)
 
-                                if ( ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING):
+                                if ( self.command==protocol.CMD_ASTRO_START_CAPTURE_RAW_WIDE_LIVE_STACKING and ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING):
                                     log.info("ASTRO WIDE CAPTURE RUNNING")
                                     log.success("ASTRO WIDE CAPTURE RUNNING")
                                     self.takeWidePhotoStarted = True
@@ -1884,9 +1885,10 @@ class WebSocketClient:
             await asyncio.sleep(1)
 
             await self.websocket.send(WsPacket_message.SerializeToString())
-            log.debug("#----------------#")
-            log.debug(f"Send cmd >> {WsPacket_message.cmd}")
-            log.debug(f">> {getDwarfCMDName(WsPacket_message.cmd)}")
+            log.info("#----------------#")
+            log.info(f"Send cmd >> {WsPacket_message.cmd}")
+            log.info(f">> {getDwarfCMDName(WsPacket_message.cmd)}")
+            log.info("#----------------#")
 
             # Special GOTO  DSO or SOLAR save Target Name to verifiy is GOTO is success
             if ((self.command == protocol.CMD_ASTRO_START_GOTO_DSO) or (self.command == protocol.CMD_ASTRO_START_GOTO_SOLAR_SYSTEM)):
