@@ -33,7 +33,7 @@ global client_instance, event_loop, event_loop_thread
 client_instance = None
 event_loop = None
 event_loop_thread = None
-gb_timeout = 120 # 240
+gb_timeout = 150 # 240
 ERROR_TIMEOUT = -5
 ERROR_INTERRUPTED = -10
 ERROR_SLAVEMODE = -15
