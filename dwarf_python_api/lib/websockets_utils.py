@@ -40,6 +40,7 @@ ERROR_SLAVEMODE = -15
 
 # Define the static table of valid command-result pairs
 VALID_PAIRS = {
+    (protocol.CMD_SYSTEM_SET_MASTERLOCK, protocol.CMD_NOTIFY_WS_HOST_SLAVE_MODE),
     (protocol.CMD_CAMERA_TELE_PHOTOGRAPH, protocol.CMD_NOTIFY_TELE_FUNCTION_STATE),
     (protocol.CMD_CAMERA_WIDE_PHOTOGRAPH, protocol.CMD_NOTIFY_WIDE_FUNCTION_STATE),
     (protocol.CMD_ASTRO_START_GOTO_DSO, protocol.CMD_NOTIFY_STATE_ASTRO_TRACKING),
@@ -47,7 +48,7 @@ VALID_PAIRS = {
     (protocol.CMD_ASTRO_START_CALIBRATION,protocol.CMD_ASTRO_STOP_CALIBRATION),
     (protocol.CMD_ASTRO_START_CALIBRATION,protocol.CMD_NOTIFY_STATE_ASTRO_CALIBRATION),
     (protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
-    (protocol.CMD_ASTRO_START_CAPTURE_RAW_WIDE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING),
+    (protocol.CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_CAMERA_TELE_SET_EXP_MODE, protocol.CMD_NOTIFY_TELE_SET_PARAM),
     (protocol.CMD_CAMERA_TELE_SET_EXP, protocol.CMD_NOTIFY_TELE_SET_PARAM),
     (protocol.CMD_CAMERA_TELE_SET_GAIN, protocol.CMD_NOTIFY_TELE_SET_PARAM),
@@ -55,9 +56,10 @@ VALID_PAIRS = {
     (protocol.CMD_CAMERA_WIDE_SET_EXP, protocol.CMD_NOTIFY_WIDE_SET_PARAM),
     (protocol.CMD_CAMERA_WIDE_SET_GAIN, protocol.CMD_NOTIFY_WIDE_SET_PARAM),
     (protocol.CMD_ASTRO_GO_LIVE, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
-    (protocol.CMD_ASTRO_GO_LIVE, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING),
+    (protocol.CMD_ASTRO_GO_LIVE, protocol.CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
-    (protocol.CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING),
+    (protocol.CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING),
+    (protocol.CMD_ASTRO_START_EQ_SOLVING, protocol.CMD_NOTIFY_EQ_SOLVING_STATE),
 }
 
 def process_command(command, result):
@@ -150,6 +152,7 @@ class WebSocketClient:
         self.takeWidePhotoStarted = False
         self.AstroCapture = False
         self.AstroWideCapture = False
+        self.startEQSolving = False
         self.toDoSetExpMode = False
         self.toDoSetExp = False
         self.toDoSetGain = False
@@ -165,6 +168,8 @@ class WebSocketClient:
         self.BatteryLevelDwarf = None
         self.availableSizeDwarf = None
         self.totalSizeDwarf = None
+        self.TemperatureLevelDwarf = None
+        self.StreamTypeDwarf = None
 
         # TEST_CALIBRATION : Test Calibration Packet or Goto Packet
         # Test Mode : Calibration Packet => TEST_CALIBRATION = True
@@ -329,36 +334,40 @@ class WebSocketClient:
                                 ResNotifyHostSlaveMode_message = notify.ResNotifyHostSlaveMode()
                                 ResNotifyHostSlaveMode_message.ParseFromString(WsPacket_message.data)
 
-                                self.InitHostReceived = True
                                 log.info("Decoding CMD_NOTIFY_WS_HOST_SLAVE_MODE")
                                 log.debug(f"receive Host/Slave data >> {ResNotifyHostSlaveMode_message.mode}")
+                                log.debug(f"receive Host/Slave lock >> {ResNotifyHostSlaveMode_message.lock}")
 
                                 # Host = 0 Slave = 1
                                 if (ResNotifyHostSlaveMode_message.mode == 1):
+                                    self.InitHostReceived = False
                                     log.debug("SLAVE_MODE >> EXIT")
                                     log.warning("SLAVE MODE detected")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.WARNING, "Error SLAVE MODE", ERROR_SLAVEMODE)
                                     await asyncio.sleep(1)
                                 else:
-                                    log.info("Continue Decoding CMD_NOTIFY_WS_HOST_SLAVE_MODE")
-                                    log.info("Result Sent for CMD_NOTIFY_WS_HOST_SLAVE_MODE")
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK HOST MODE", ResNotifyHostSlaveMode_message.mode)
+                                    if (WsPacket_message.cmd==protocol.CMD_SYSTEM_SET_MASTERLOCK):
+                                        log.info("Success SET HOST OK >> EXIT")
+                                        log.success("Success SET HOST")
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success SET HOST MODE ", 0)
+                                    else: 
+                                        self.InitHostReceived = True
+                                        log.info("Continue Decoding CMD_NOTIFY_WS_HOST_SLAVE_MODE")
+                                        log.info("Result Sent for CMD_NOTIFY_WS_HOST_SLAVE_MODE")
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK HOST MODE", ResNotifyHostSlaveMode_message.mode)
 
-                            # CMD_SYSTEM_SET_HOSTSLAVE_MODE = 13004; // Set HOST mode
-                            if (WsPacket_message.cmd==protocol.CMD_SYSTEM_SET_HOSTSLAVE_MODE):
-                                ResNotifyHostSlaveMode_message = notify.ResNotifyHostSlaveMode()
-                                ResNotifyHostSlaveMode_message.ParseFromString(WsPacket_message.data)
-
+                            # CMD_SYSTEM_SET_MASTERLOCK = 13004; // Set HOST mode
+                            if (WsPacket_message.cmd==protocol.CMD_SYSTEM_SET_MASTERLOCK):
                                 ComResponse_message = base__pb2.ComResponse()
                                 ComResponse_message.ParseFromString(WsPacket_message.data)
 
-                                log.info("Decoding CMD_SYSTEM_SET_HOSTSLAVE_MODE")
+                                log.info("Decoding CMD_SYSTEM_SET_MASTERLOCK")
                                 log.debug(f"receive code data >> {ComResponse_message.code}")
                                 log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
 
                                 # OK = 0; // No Error
                                 if (ComResponse_message.code != protocol.OK):
-                                    log.error(f"Error CMD_SYSTEM_SET_HOSTSLAVE_MODE CODE {ComResponse_message.code} {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    log.error(f"Error CMD_SYSTEM_SET_MASTERLOCK CODE {ComResponse_message.code} {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error SET HOST MODE", ComResponse_message.code)
                                 else :
                                     log.info("Success SET HOST OK >> EXIT")
@@ -455,6 +464,31 @@ class WebSocketClient:
                                     log.success("Success CMD_STEP_MOTOR_RUN")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CMD_STEP_MOTOR_SERVICE_JOYSTICK", ComResponse_message.code)
 
+                            # CMD_STEP_MOTOR_GET_POSITION = 14010; // Motor Get Position
+                            if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_GET_POSITION):
+                                ResMotorPosition_message = motor.ResMotorPosition()
+                                ResMotorPosition_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_STEP_MOTOR_GET_POSITION")
+                                log.info(f"receive id data >> {ResMotorPosition_message.id}")
+                                log.info(f"receive code data >> {ResMotorPosition_message.code}")
+                                log.info(f"receive position data >> {ResMotorPosition_message.position}")
+                                log.info(f">> {getErrorCodeValueName(ResMotorPosition_message.code)}")
+
+                                # OK = 0; // No Error
+                                if (ResMotorPosition_message.code != protocol.OK):
+                                    if (ResMotorPosition_message.code == protocol.CODE_STEP_MOTOR_POSITION_NEED_RESET):
+                                        log.error(f"Error MOTOR need RESET >> EXIT")
+
+                                    # Signal the ping and receive functions to stop
+                                    log.error(f"Error CMD_STEP_MOTOR_GET_POSITION CODE {getErrorCodeValueName(ResMotorPosition_message.code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_STEP_MOTOR_GET_POSITION", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else :
+                                    log.info("Success CMD_STEP_MOTOR_GET_POSITION OK >> EXIT")
+                                    log.success("Success CMD_STEP_MOTOR_GET_POSITION")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CMD_STEP_MOTOR_GET_POSITION", ComResponse_message.code)
+
                             # CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE = 10039; // // Get the working status of the whole machine
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE):
                                 ComResponse_message = base__pb2.ComResponse()
@@ -468,12 +502,12 @@ class WebSocketClient:
                                 if (ComResponse_message.code != protocol.OK):
                                     log.error(f"Error CAMERA_TELE_GET_SYSTEM_WORKING_STATE CODE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
                                     if not self.InitHostReceived:
-                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE", ComResponse_message.code)
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.WARNING, "Error SLAVE MODE", ERROR_SLAVEMODE)
                                     await asyncio.sleep(1)
                                 else:
                                     log.info("Continue OK CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE")
                                     if not self.InitHostReceived:
-                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Succcess CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE", ComResponse_message.code)
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.WARNING, "Error SLAVE MODE", ERROR_SLAVEMODE)
 
                             # CMD_CAMERA_TELE_OPEN_CAMERA = 10000; // // Open the TELE Camera
                             elif (self.command==protocol.CMD_CAMERA_TELE_OPEN_CAMERA and WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_OPEN_CAMERA):
@@ -896,12 +930,12 @@ class WebSocketClient:
                                     await asyncio.sleep(1)
                                 else:
                                     self.takePhotoStarted = True
-                            # CMD_ASTRO_START_CAPTURE_RAW_WIDE_LIVE_STACKING = 11016; // Start WIDE Capture
-                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_CAPTURE_RAW_WIDE_LIVE_STACKING):
+                            # CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING = 11016; // Start WIDE Capture
+                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING):
                                 ComResponse_message = base__pb2.ComResponse()
                                 ComResponse_message.ParseFromString(WsPacket_message.data)
 
-                                log.debug("Decoding CMD_ASTRO_START_CAPTURE_RAW_WIDE_LIVE_STACKING")
+                                log.debug("Decoding CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING")
                                 log.debug(f"receive data >> {ComResponse_message.code}")
                                 log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
 
@@ -942,12 +976,12 @@ class WebSocketClient:
                                     log.error(f"Error STOP_CAPTURE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error STOP_CAPTURE", ComResponse_message.code)
                                     await asyncio.sleep(1)
-                            # CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING = 11017; // Stop Capture ??
-                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING):
+                            # CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING = 11017; // Stop Capture ??
+                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING):
                                 ComResponse_message = base__pb2.ComResponse()
                                 ComResponse_message.ParseFromString(WsPacket_message.data)
 
-                                log.debug("Decoding CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING")
+                                log.debug("Decoding CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING")
                                 log.debug(f"receive data >> {ComResponse_message.code}")
                                 log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
 
@@ -988,7 +1022,7 @@ class WebSocketClient:
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE ENDING", 0)
                                     await asyncio.sleep(1)
                             # CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING = 15236 // Test Capture Ending
-                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING):
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING):
                                 ResNotifyOperationState_message = notify.ResNotifyOperationState()
                                 ResNotifyOperationState_message.ParseFromString(WsPacket_message.data)
 
@@ -1003,7 +1037,7 @@ class WebSocketClient:
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO GO LIVE ENDING", 0)
                                     await asyncio.sleep(1)
 
-                                if ( self.command==protocol.CMD_ASTRO_START_CAPTURE_RAW_WIDE_LIVE_STACKING and ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING):
+                                if ( self.command==protocol.CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING and ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING):
                                     log.info("ASTRO WIDE CAPTURE RUNNING")
                                     log.success("ASTRO WIDE CAPTURE RUNNING")
                                     self.takeWidePhotoStarted = True
@@ -1037,12 +1071,12 @@ class WebSocketClient:
                                 message = f"current_count >> {self.takePhotoCount} - stacked_count >> {self.takePhotoStacked}"
                                 # send a notification
                                 await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
-                            # CMD_NOTIFY_PROGRASS_CAPTURE_RAW_WIDE_LIVE_STACKING = 15237 // Test Capture Ending
-                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_PROGRASS_CAPTURE_RAW_WIDE_LIVE_STACKING):
+                            # CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING = 15237 // Test Capture Ending
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING):
                                 ResNotifyProgressCaptureRawLiveStacking_message = notify.ResNotifyProgressCaptureRawLiveStacking()
                                 ResNotifyProgressCaptureRawLiveStacking_message.ParseFromString(WsPacket_message.data)
                                 self.takeWidePhotoStarted = True
-                                log.debug("Decoding CMD_NOTIFY_PROGRASS_CAPTURE_RAW_WIDE_LIVE_STACKING")
+                                log.debug("Decoding CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING")
                                 log.debug(f"receive notification target_name >> {ResNotifyProgressCaptureRawLiveStacking_message.target_name}")
                                 log.debug(f"receive notification total_count >> {ResNotifyProgressCaptureRawLiveStacking_message.total_count}")
                                 update_count_type = ResNotifyProgressCaptureRawLiveStacking_message.update_count_type
@@ -1608,6 +1642,61 @@ class WebSocketClient:
                                     log.info("CAMERA GET WIDE GAIN OK >> CONTINUE TO GET VALUE")
                                     #log.success(f"Success CAMERA GET WIDE GAIN:  {getErrorCodeValueName(ComResponse_message.code)}")
                                     #await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA GET WIDE GAIN", ComResponse_message.code)
+                            # CMD_ASTRO_START_EQ_SOLVING
+                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_EQ_SOLVING):
+                                ResStartEqSolving_message = astro.ResStartEqSolving()
+                                ResStartEqSolving_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_ASTRO_START_EQ_SOLVING")
+                                log.debug(f"receive request response data >> {ResStartEqSolving_message}")
+                                log.debug(f" ASTRO START EQ SOLVING azi_err:  {ResStartEqSolving_message.azi_err}")
+                                log.debug(f" ASTRO START EQ SOLVING alt_err:  {ResStartEqSolving_message.alt_err}")
+                                log.debug(f">> {getErrorCodeValueName(ResStartEqSolving_message.code)}")
+                                if (ResStartEqSolving_message.code != protocol.OK):
+                                    log.error(f"Error ASTRO START EQ SOLVING {getErrorCodeValueName(ResStartEqSolving_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR ASTRO START EQ SOLVING", ResStartEqSolving_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    log.info("CMD_ASTRO_START_EQ_SOLVING >> EXIT ")
+                                    log.success(f"Success ASTRO START EQ SOLVING azi_err:  {ResStartEqSolving_message.azi_err}")
+                                    log.success(f"Success ASTRO START EQ SOLVING alt_err:  {ResStartEqSolving_message.alt_err}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA ASTRO START EQ SOLVING", ResStartEqSolving_message.code)
+                            # CMD_ASTRO_STOP_EQ_SOLVING
+                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_STOP_EQ_SOLVING and WsPacket_message.type == 3):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_ASTRO_STOP_EQ_SOLVING")
+                                log.debug(f"receive request response data >> {ComResponse_message}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error ASTRO STOP EQ SOLVING {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR ASTRO STOP EQ SOLVING", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    log.info("CMD_ASTRO_STOP_EQ_SOLVING STOPPING >> EXIT ")
+                                    log.success(f"Success ASTRO STOP EQ SOLVING:  {ComResponse_message.code}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO STOP EQ SOLVING ", ComResponse_message.code)
+                            # CMD_NOTIFY_EQ_SOLVING_STATE = 15239; //EQ check status
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_EQ_SOLVING_STATE):
+                                ResNotifyEqSolvingState_message = notify.ResNotifyEqSolvingState()
+                                ResNotifyEqSolvingState_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_NOTIFY_EQ_SOLVING_STATE")
+                                log.debug(f"receive notification step >> {ResNotifyEqSolvingState_message.step}")
+                                log.debug(f">> {notify.ResNotifyEqSolvingState.Action.Name(ResNotifyEqSolvingState_message.step)}")
+                                log.debug(f"receive notification state >> {ResNotifyEqSolvingState_message.state}")
+                                log.debug(f">> {getAstroStateName(ResNotifyEqSolvingState_message.state)}")
+
+                                if (self.startEQSolving == False):
+                                    self.startEQSolving = True
+                                    log.info("Starting EQ SOLVING")
+                                    message = f"EQ SOLVING: Starting.."
+                                    await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
+
+                                log.info("Continue Decoding CMD_ASTRO_START_EQ_SOLVING")
+                                message = f"EQ SOLVING: Step #{notify.ResNotifyEqSolvingState.Action.Name(ResNotifyEqSolvingState_message.step)} State:{getAstroStateName(ResNotifyEqSolvingState_message.state)}"
+                                await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
+
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_POWER_OFF):
                                 ComResponse_message = base__pb2.ComResponse()
                                 ComResponse_message.ParseFromString(WsPacket_message.data)
@@ -1633,6 +1722,36 @@ class WebSocketClient:
                                    else:
                                        log.notice(f"Battery Level is {value}%")
                                    self.BatteryLevelDwarf = value
+                            # CMD_NOTIFY_TEMPERATURE 15243
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_TEMPERATURE):
+                                ResNotifyTemperature_message = notify.ResNotifyTemperature()
+                                ResNotifyTemperature_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding TEMPERATURE ")
+                                log.debug(f"receive request temperature value >> {ResNotifyTemperature_message.temperature}")
+                                log.debug(f">> {getErrorCodeValueName(ResNotifyTemperature_message.code)}")
+                                value = ResNotifyTemperature_message.temperature
+                                # notify ?
+                                if (self.TemperatureLevelDwarf is None or abs(self.TemperatureLevelDwarf - value) >= 5):
+                                   log.notice(f"Temperature is {value}°C - {(value/5)+32}°F")
+                                   self.TemperatureLevelDwarf = value
+                            # CMD_NOTIFY_STREAM_TYPE 15234
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STREAM_TYPE):
+                                ResNotifyStreamType_message = notify.ResNotifyStreamType()
+                                ResNotifyStreamType_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_NOTIFY_STREAM_TYPE ")
+                                log.debug(f"receive request Stream type (RTSP , JPEG) >> {ResNotifyStreamType_message.stream_type}")
+                                log.debug(f"receive request Camera value >> {ResNotifyStreamType_message.cam_id}")
+                                camera = ResNotifyStreamType_message.cam_id
+                                value = ResNotifyStreamType_message.stream_type
+                                # notify ?
+                                if (self.StreamTypeDwarf is None or (self.StreamTypeDwarf != value)):
+                                  if (value == 1):
+                                    log.notice(f"Dwarf Stream Video Type is RTSP for {'Wide_Angle' if camera == 1 else 'Tele Photo'}.")
+                                  elif (value == 2):
+                                    log.notice(f"Dwarf Stream Video Type is JPEG for {'Wide_Angle' if camera == 1 else 'Tele Photo'}.")
+                                  else :
+                                    log.notice("Dwarf Stream Video Type is unknown!")
+                                  self.StreamTypeDwarf = value
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_SDCARD_INFO):
                                 ResNotifySDcardInfo_message = notify.ResNotifySDcardInfo()
                                 ResNotifySDcardInfo_message.ParseFromString(WsPacket_message.data)
@@ -1729,6 +1848,8 @@ class WebSocketClient:
         self.BatteryLevelDwarf = None
         self.availableSizeDwarf = None
         self.totalSizeDwarf = None
+        self.TemperatureLevelDwarf = None
+        self.StreamTypeDwarf = None
         #CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE
         WsPacket_messageTeleGetSystemWorkingState = base__pb2.WsPacket()
         ReqGetSystemWorkingState_message = camera.ReqGetSystemWorkingState()
@@ -1856,13 +1977,13 @@ class WebSocketClient:
                 return
             if message == "ASTRO WIDE CAPTURE ENDING" and self.AstroWideCapture:
                 log.info("TERMINATING Sending empty function.")
-                self.command = protocol.CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING
+                self.command = protocol.CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING
                 return
             elif ( message == "ASTRO CAPTURE ENDING"):
                 await self.result_receive_messages(protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING, Dwarf_Result.WARNING, "ASTRO CAPTURE NOT STARTED", -1)
                 return
             elif ( message == "ASTRO WIDE CAPTURE ENDING"):
-                await self.result_receive_messages(protocol.CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING, Dwarf_Result.WARNING, "ASTRO WIDE CAPTURE NOT STARTED",-1)
+                await self.result_receive_messages(protocol.CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING, Dwarf_Result.WARNING, "ASTRO WIDE CAPTURE NOT STARTED",-1)
                 return
             else:
                 raise RuntimeError(f"Unknown Message String")
@@ -1898,12 +2019,16 @@ class WebSocketClient:
             if (self.command == protocol.CMD_ASTRO_START_CALIBRATION):
                 self.stopcalibration = False
 
+            # Special EQ Solving
+            if (self.command == protocol.CMD_ASTRO_START_EQ_SOLVING):
+                self.startEQSolving = False
+
             # Special ASTRO START or STOP CAPTURE
             if ( self.command == protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING or self.command == protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING):
                 self.AstroCapture = True
 
             # Special ASTRO START or STOP CAPTURE
-            if ( self.command == protocol.CMD_ASTRO_START_CAPTURE_RAW_WIDE_LIVE_STACKING or self.command == protocol.CMD_ASTRO_STOP_CAPTURE_RAW_WIDE_LIVE_STACKING):
+            if ( self.command == protocol.CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING or self.command == protocol.CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING):
                 self.AstroWideCapture = True
 
             # Special CMD_CAMERA_TELE_SET_EXP_MODE
@@ -2356,6 +2481,9 @@ async def send_socket_message(message, command, type_id, module_id):
                         if result_cnx['result'] == Dwarf_Result.DISCONNECTED:
                             log.error("Error WebSocket Disconnected.")
                             stop_event_loop()
+                            result = False
+                        elif result_cnx['result'] == Dwarf_Result.WARNING:
+                            log.error("Can't send command , SLAVE MODE detected.")
                             result = False
                         else:
                             result = result_cnx['code']

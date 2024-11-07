@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x0epanorama.proto\"4\n\x16ReqStartPanoramaByGrid\x12\x0c\n\x04rows\x18\x01 \x01(\r\x12\x0c\n\x04\x63ols\x18\x02 \x01(\r\"F\n\x1cReqStartPanoramaByEulerRange\x12\x11\n\tyaw_range\x18\x01 \x01(\x02\x12\x13\n\x0bpitch_range\x18\x02 \x01(\x02\"\x11\n\x0fReqStopPanoramab\x06proto3'
+  serialized_pb=b'\n\x0epanorama.proto\"\x18\n\x16ReqStartPanoramaByGrid\"F\n\x1cReqStartPanoramaByEulerRange\x12\x11\n\tyaw_range\x18\x01 \x01(\x02\x12\x13\n\x0bpitch_range\x18\x02 \x01(\x02\"\x94\x01\n\x1cReqStartPanoramaStitchUpload\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x0f\n\x07\x62usi_no\x18\x02 \x01(\t\x12\x14\n\x0c\x61pp_platform\x18\x03 \x01(\x05\x12\x15\n\rpanorama_name\x18\x04 \x01(\t\x12\n\n\x02\x61k\x18\x05 \x01(\t\x12\n\n\x02sk\x18\x06 \x01(\t\x12\r\n\x05token\x18\x07 \x01(\t\"\x11\n\x0fReqStopPanorama\"\x1d\n\x1bReqStopPanoramaStitchUpload\"\x81\x01\n%ResNotifyPanoramaStitchUploadComplete\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x0f\n\x07\x62usi_no\x18\x02 \x01(\t\x12\x15\n\rpanorama_name\x18\x03 \x01(\t\x12\x0b\n\x03mac\x18\x04 \x01(\t\x12\x12\n\nupload_res\x18\x05 \x01(\x08\"\xa3\x01\n$ResNotifyPanoramaCompressionProgress\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x0f\n\x07\x62usi_no\x18\x02 \x01(\t\x12\x15\n\rpanorama_name\x18\x03 \x01(\t\x12\x0b\n\x03mac\x18\x04 \x01(\t\x12\x17\n\x0ftotal_files_num\x18\x05 \x01(\r\x12\x1c\n\x14\x63ompressed_files_num\x18\x06 \x01(\r\"\x92\x01\n\x1fResNotifyPanoramaUploadProgress\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x0f\n\x07\x62usi_no\x18\x02 \x01(\t\x12\x15\n\rpanorama_name\x18\x03 \x01(\t\x12\x0b\n\x03mac\x18\x04 \x01(\t\x12\x12\n\ntotal_size\x18\x05 \x01(\x04\x12\x15\n\ruploaded_size\x18\x06 \x01(\x04\"\xdd\x01\n\x17ResGetStitchUploadState\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x0f\n\x07\x62usi_no\x18\x03 \x01(\t\x12\x15\n\rpanorama_name\x18\x04 \x01(\t\x12\x0b\n\x03mac\x18\x05 \x01(\t\x12\x17\n\x0ftotal_files_num\x18\x06 \x01(\r\x12\x1c\n\x14\x63ompressed_files_num\x18\x07 \x01(\r\x12\x12\n\ntotal_size\x18\x08 \x01(\x04\x12\x15\n\ruploaded_size\x18\t \x01(\x04\x12\x0c\n\x04step\x18\n \x01(\rb\x06proto3'
 )
 
 
@@ -33,20 +33,6 @@ _REQSTARTPANORAMABYGRID = _descriptor.Descriptor(
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
-    _descriptor.FieldDescriptor(
-      name='rows', full_name='ReqStartPanoramaByGrid.rows', index=0,
-      number=1, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='cols', full_name='ReqStartPanoramaByGrid.cols', index=1,
-      number=2, type=13, cpp_type=3, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -60,7 +46,7 @@ _REQSTARTPANORAMABYGRID = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=18,
-  serialized_end=70,
+  serialized_end=42,
 )
 
 
@@ -98,8 +84,82 @@ _REQSTARTPANORAMABYEULERRANGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=72,
-  serialized_end=142,
+  serialized_start=44,
+  serialized_end=114,
+)
+
+
+_REQSTARTPANORAMASTITCHUPLOAD = _descriptor.Descriptor(
+  name='ReqStartPanoramaStitchUpload',
+  full_name='ReqStartPanoramaStitchUpload',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='user_id', full_name='ReqStartPanoramaStitchUpload.user_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='busi_no', full_name='ReqStartPanoramaStitchUpload.busi_no', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='app_platform', full_name='ReqStartPanoramaStitchUpload.app_platform', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='panorama_name', full_name='ReqStartPanoramaStitchUpload.panorama_name', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='ak', full_name='ReqStartPanoramaStitchUpload.ak', index=4,
+      number=5, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='sk', full_name='ReqStartPanoramaStitchUpload.sk', index=5,
+      number=6, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='token', full_name='ReqStartPanoramaStitchUpload.token', index=6,
+      number=7, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=117,
+  serialized_end=265,
 )
 
 
@@ -123,13 +183,333 @@ _REQSTOPPANORAMA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=144,
-  serialized_end=161,
+  serialized_start=267,
+  serialized_end=284,
+)
+
+
+_REQSTOPPANORAMASTITCHUPLOAD = _descriptor.Descriptor(
+  name='ReqStopPanoramaStitchUpload',
+  full_name='ReqStopPanoramaStitchUpload',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=286,
+  serialized_end=315,
+)
+
+
+_RESNOTIFYPANORAMASTITCHUPLOADCOMPLETE = _descriptor.Descriptor(
+  name='ResNotifyPanoramaStitchUploadComplete',
+  full_name='ResNotifyPanoramaStitchUploadComplete',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='user_id', full_name='ResNotifyPanoramaStitchUploadComplete.user_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='busi_no', full_name='ResNotifyPanoramaStitchUploadComplete.busi_no', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='panorama_name', full_name='ResNotifyPanoramaStitchUploadComplete.panorama_name', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='mac', full_name='ResNotifyPanoramaStitchUploadComplete.mac', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='upload_res', full_name='ResNotifyPanoramaStitchUploadComplete.upload_res', index=4,
+      number=5, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=318,
+  serialized_end=447,
+)
+
+
+_RESNOTIFYPANORAMACOMPRESSIONPROGRESS = _descriptor.Descriptor(
+  name='ResNotifyPanoramaCompressionProgress',
+  full_name='ResNotifyPanoramaCompressionProgress',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='user_id', full_name='ResNotifyPanoramaCompressionProgress.user_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='busi_no', full_name='ResNotifyPanoramaCompressionProgress.busi_no', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='panorama_name', full_name='ResNotifyPanoramaCompressionProgress.panorama_name', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='mac', full_name='ResNotifyPanoramaCompressionProgress.mac', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='total_files_num', full_name='ResNotifyPanoramaCompressionProgress.total_files_num', index=4,
+      number=5, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='compressed_files_num', full_name='ResNotifyPanoramaCompressionProgress.compressed_files_num', index=5,
+      number=6, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=450,
+  serialized_end=613,
+)
+
+
+_RESNOTIFYPANORAMAUPLOADPROGRESS = _descriptor.Descriptor(
+  name='ResNotifyPanoramaUploadProgress',
+  full_name='ResNotifyPanoramaUploadProgress',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='user_id', full_name='ResNotifyPanoramaUploadProgress.user_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='busi_no', full_name='ResNotifyPanoramaUploadProgress.busi_no', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='panorama_name', full_name='ResNotifyPanoramaUploadProgress.panorama_name', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='mac', full_name='ResNotifyPanoramaUploadProgress.mac', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='total_size', full_name='ResNotifyPanoramaUploadProgress.total_size', index=4,
+      number=5, type=4, cpp_type=4, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='uploaded_size', full_name='ResNotifyPanoramaUploadProgress.uploaded_size', index=5,
+      number=6, type=4, cpp_type=4, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=616,
+  serialized_end=762,
+)
+
+
+_RESGETSTITCHUPLOADSTATE = _descriptor.Descriptor(
+  name='ResGetStitchUploadState',
+  full_name='ResGetStitchUploadState',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='code', full_name='ResGetStitchUploadState.code', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='user_id', full_name='ResGetStitchUploadState.user_id', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='busi_no', full_name='ResGetStitchUploadState.busi_no', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='panorama_name', full_name='ResGetStitchUploadState.panorama_name', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='mac', full_name='ResGetStitchUploadState.mac', index=4,
+      number=5, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='total_files_num', full_name='ResGetStitchUploadState.total_files_num', index=5,
+      number=6, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='compressed_files_num', full_name='ResGetStitchUploadState.compressed_files_num', index=6,
+      number=7, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='total_size', full_name='ResGetStitchUploadState.total_size', index=7,
+      number=8, type=4, cpp_type=4, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='uploaded_size', full_name='ResGetStitchUploadState.uploaded_size', index=8,
+      number=9, type=4, cpp_type=4, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='step', full_name='ResGetStitchUploadState.step', index=9,
+      number=10, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=765,
+  serialized_end=986,
 )
 
 DESCRIPTOR.message_types_by_name['ReqStartPanoramaByGrid'] = _REQSTARTPANORAMABYGRID
 DESCRIPTOR.message_types_by_name['ReqStartPanoramaByEulerRange'] = _REQSTARTPANORAMABYEULERRANGE
+DESCRIPTOR.message_types_by_name['ReqStartPanoramaStitchUpload'] = _REQSTARTPANORAMASTITCHUPLOAD
 DESCRIPTOR.message_types_by_name['ReqStopPanorama'] = _REQSTOPPANORAMA
+DESCRIPTOR.message_types_by_name['ReqStopPanoramaStitchUpload'] = _REQSTOPPANORAMASTITCHUPLOAD
+DESCRIPTOR.message_types_by_name['ResNotifyPanoramaStitchUploadComplete'] = _RESNOTIFYPANORAMASTITCHUPLOADCOMPLETE
+DESCRIPTOR.message_types_by_name['ResNotifyPanoramaCompressionProgress'] = _RESNOTIFYPANORAMACOMPRESSIONPROGRESS
+DESCRIPTOR.message_types_by_name['ResNotifyPanoramaUploadProgress'] = _RESNOTIFYPANORAMAUPLOADPROGRESS
+DESCRIPTOR.message_types_by_name['ResGetStitchUploadState'] = _RESGETSTITCHUPLOADSTATE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 ReqStartPanoramaByGrid = _reflection.GeneratedProtocolMessageType('ReqStartPanoramaByGrid', (_message.Message,), {
@@ -146,12 +526,54 @@ ReqStartPanoramaByEulerRange = _reflection.GeneratedProtocolMessageType('ReqStar
   })
 _sym_db.RegisterMessage(ReqStartPanoramaByEulerRange)
 
+ReqStartPanoramaStitchUpload = _reflection.GeneratedProtocolMessageType('ReqStartPanoramaStitchUpload', (_message.Message,), {
+  'DESCRIPTOR' : _REQSTARTPANORAMASTITCHUPLOAD,
+  '__module__' : 'panorama_pb2'
+  # @@protoc_insertion_point(class_scope:ReqStartPanoramaStitchUpload)
+  })
+_sym_db.RegisterMessage(ReqStartPanoramaStitchUpload)
+
 ReqStopPanorama = _reflection.GeneratedProtocolMessageType('ReqStopPanorama', (_message.Message,), {
   'DESCRIPTOR' : _REQSTOPPANORAMA,
   '__module__' : 'panorama_pb2'
   # @@protoc_insertion_point(class_scope:ReqStopPanorama)
   })
 _sym_db.RegisterMessage(ReqStopPanorama)
+
+ReqStopPanoramaStitchUpload = _reflection.GeneratedProtocolMessageType('ReqStopPanoramaStitchUpload', (_message.Message,), {
+  'DESCRIPTOR' : _REQSTOPPANORAMASTITCHUPLOAD,
+  '__module__' : 'panorama_pb2'
+  # @@protoc_insertion_point(class_scope:ReqStopPanoramaStitchUpload)
+  })
+_sym_db.RegisterMessage(ReqStopPanoramaStitchUpload)
+
+ResNotifyPanoramaStitchUploadComplete = _reflection.GeneratedProtocolMessageType('ResNotifyPanoramaStitchUploadComplete', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYPANORAMASTITCHUPLOADCOMPLETE,
+  '__module__' : 'panorama_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifyPanoramaStitchUploadComplete)
+  })
+_sym_db.RegisterMessage(ResNotifyPanoramaStitchUploadComplete)
+
+ResNotifyPanoramaCompressionProgress = _reflection.GeneratedProtocolMessageType('ResNotifyPanoramaCompressionProgress', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYPANORAMACOMPRESSIONPROGRESS,
+  '__module__' : 'panorama_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifyPanoramaCompressionProgress)
+  })
+_sym_db.RegisterMessage(ResNotifyPanoramaCompressionProgress)
+
+ResNotifyPanoramaUploadProgress = _reflection.GeneratedProtocolMessageType('ResNotifyPanoramaUploadProgress', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYPANORAMAUPLOADPROGRESS,
+  '__module__' : 'panorama_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifyPanoramaUploadProgress)
+  })
+_sym_db.RegisterMessage(ResNotifyPanoramaUploadProgress)
+
+ResGetStitchUploadState = _reflection.GeneratedProtocolMessageType('ResGetStitchUploadState', (_message.Message,), {
+  'DESCRIPTOR' : _RESGETSTITCHUPLOADSTATE,
+  '__module__' : 'panorama_pb2'
+  # @@protoc_insertion_point(class_scope:ResGetStitchUploadState)
+  })
+_sym_db.RegisterMessage(ResGetStitchUploadState)
 
 
 # @@protoc_insertion_point(module_scope)

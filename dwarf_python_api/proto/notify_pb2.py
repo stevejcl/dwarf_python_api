@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x0cnotify.proto\x1a\nbase.proto\"l\n\x18ResNotifyPictureMatching\x12\t\n\x01x\x18\x01 \x01(\r\x12\t\n\x01y\x18\x02 \x01(\r\x12\r\n\x05width\x18\x03 \x01(\r\x12\x0e\n\x06height\x18\x04 \x01(\r\x12\r\n\x05value\x18\x05 \x01(\x01\x12\x0c\n\x04\x63ode\x18\x06 \x01(\x05\"O\n\x13ResNotifySDcardInfo\x12\x16\n\x0e\x61vailable_size\x18\x01 \x01(\r\x12\x12\n\ntotal_size\x18\x02 \x01(\r\x12\x0c\n\x04\x63ode\x18\x03 \x01(\x05\"*\n\x13ResNotifyRecordTime\x12\x13\n\x0brecord_time\x18\x01 \x01(\x05\"S\n\x19ResNotifyTimeLapseOutTime\x12\x10\n\x08interval\x18\x01 \x01(\x05\x12\x10\n\x08out_time\x18\x02 \x01(\x05\x12\x12\n\ntotal_time\x18\x03 \x01(\x05\"9\n\x17ResNotifyOperationState\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState\"Y\n\x1eResNotifyStateAstroCalibration\x12\x1a\n\x05state\x18\x01 \x01(\x0e\x32\x0b.AstroState\x12\x1b\n\x13plate_solving_times\x18\x02 \x01(\x05\"5\n\x17ResNotifyStateAstroGoto\x12\x1a\n\x05state\x18\x01 \x01(\x0e\x32\x0b.AstroState\"R\n\x1bResNotifyStateAstroTracking\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState\x12\x13\n\x0btarget_name\x18\x02 \x01(\t\"K\n\x1fResNotifyProgressCaptureRawDark\x12\x10\n\x08progress\x18\x01 \x01(\x05\x12\x16\n\x0eremaining_time\x18\x02 \x01(\x05\"\xc3\x01\n\'ResNotifyProgressCaptureRawLiveStacking\x12\x13\n\x0btotal_count\x18\x01 \x01(\x05\x12\x19\n\x11update_count_type\x18\x02 \x01(\x05\x12\x15\n\rcurrent_count\x18\x03 \x01(\x05\x12\x15\n\rstacked_count\x18\x04 \x01(\x05\x12\x11\n\texp_index\x18\x05 \x01(\x05\x12\x12\n\ngain_index\x18\x06 \x01(\x05\x12\x13\n\x0btarget_name\x18\x07 \x01(\t\"-\n\x0eResNotifyParam\x12\x1b\n\x05param\x18\x01 \x03(\x0b\x32\x0c.CommonParam\"P\n\x19ResNotifyCamFunctionState\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState\x12\x13\n\x0b\x66unction_id\x18\x02 \x01(\r\"F\n\x16ResNotifyBurstProgress\x12\x13\n\x0btotal_count\x18\x01 \x01(\r\x12\x17\n\x0f\x63ompleted_count\x18\x02 \x01(\r\"I\n\x19ResNotifyPanoramaProgress\x12\x13\n\x0btotal_count\x18\x01 \x01(\x05\x12\x17\n\x0f\x63ompleted_count\x18\x02 \x01(\x05\"\"\n\x11ResNotifyRgbState\x12\r\n\x05state\x18\x01 \x01(\x05\"\'\n\x16ResNotifyPowerIndState\x12\r\n\x05state\x18\x01 \x01(\x05\"&\n\x16ResNotifyHostSlaveMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"!\n\x11ResNotifyMTPState\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"B\n\x14ResNotifyTrackResult\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\x12\t\n\x01w\x18\x03 \x01(\x05\x12\t\n\x01h\x18\x04 \x01(\x05\" \n\x10ResNotifyCPUMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"h\n\"ResNotifyStateAstroTrackingSpecial\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState\x12\x13\n\x0btarget_name\x18\x02 \x01(\t\x12\r\n\x05index\x18\x03 \x01(\x05\"\x13\n\x11ResNotifyPowerOff\".\n\x18ResNotifyNewMediaCreated\x12\x12\n\nmedia_type\x18\x01 \x01(\x05*\x95\x01\n\x05State\x12\x0e\n\nSTATE_IDLE\x10\x00\x12\x11\n\rSTATE_RUNNING\x10\x01\x12\x12\n\x0eSTATE_STOPPING\x10\x02\x12\x11\n\rSTATE_STOPPED\x10\x03\x12\x11\n\rSTATE_SUCCESS\x10\x04\x12\x10\n\x0cSTATE_FAILED\x10\x05\x12\x1d\n\x19STATE_ASTRO_PLATE_SOLVING\x10\x06*\x82\x01\n\x0eOperationState\x12\x18\n\x14OPERATION_STATE_IDLE\x10\x00\x12\x1b\n\x17OPERATION_STATE_RUNNING\x10\x01\x12\x1c\n\x18OPERATION_STATE_STOPPING\x10\x02\x12\x1b\n\x17OPERATION_STATE_STOPPED\x10\x03*\x8d\x01\n\nAstroState\x12\x14\n\x10\x41STRO_STATE_IDLE\x10\x00\x12\x17\n\x13\x41STRO_STATE_RUNNING\x10\x01\x12\x18\n\x14\x41STRO_STATE_STOPPING\x10\x02\x12\x17\n\x13\x41STRO_STATE_STOPPED\x10\x03\x12\x1d\n\x19\x41STRO_STATE_PLATE_SOLVING\x10\x04\x62\x06proto3'
+  serialized_pb=b'\n\x0cnotify.proto\x1a\nbase.proto\"l\n\x18ResNotifyPictureMatching\x12\t\n\x01x\x18\x01 \x01(\r\x12\t\n\x01y\x18\x02 \x01(\r\x12\r\n\x05width\x18\x03 \x01(\r\x12\x0e\n\x06height\x18\x04 \x01(\r\x12\r\n\x05value\x18\x05 \x01(\x01\x12\x0c\n\x04\x63ode\x18\x06 \x01(\x05\"O\n\x13ResNotifySDcardInfo\x12\x16\n\x0e\x61vailable_size\x18\x01 \x01(\r\x12\x12\n\ntotal_size\x18\x02 \x01(\r\x12\x0c\n\x04\x63ode\x18\x03 \x01(\x05\"9\n\x14ResNotifyTemperature\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x13\n\x0btemperature\x18\x02 \x01(\x05\"*\n\x13ResNotifyRecordTime\x12\x13\n\x0brecord_time\x18\x01 \x01(\x05\"S\n\x19ResNotifyTimeLapseOutTime\x12\x10\n\x08interval\x18\x01 \x01(\x05\x12\x10\n\x08out_time\x18\x02 \x01(\x05\x12\x12\n\ntotal_time\x18\x03 \x01(\x05\"9\n\x17ResNotifyOperationState\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState\"Y\n\x1eResNotifyStateAstroCalibration\x12\x1a\n\x05state\x18\x01 \x01(\x0e\x32\x0b.AstroState\x12\x1b\n\x13plate_solving_times\x18\x02 \x01(\x05\"5\n\x17ResNotifyStateAstroGoto\x12\x1a\n\x05state\x18\x01 \x01(\x0e\x32\x0b.AstroState\"R\n\x1bResNotifyStateAstroTracking\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState\x12\x13\n\x0btarget_name\x18\x02 \x01(\t\"K\n\x1fResNotifyProgressCaptureRawDark\x12\x10\n\x08progress\x18\x01 \x01(\x05\x12\x16\n\x0eremaining_time\x18\x02 \x01(\x05\"\xc3\x01\n\'ResNotifyProgressCaptureRawLiveStacking\x12\x13\n\x0btotal_count\x18\x01 \x01(\x05\x12\x19\n\x11update_count_type\x18\x02 \x01(\x05\x12\x15\n\rcurrent_count\x18\x03 \x01(\x05\x12\x15\n\rstacked_count\x18\x04 \x01(\x05\x12\x11\n\texp_index\x18\x05 \x01(\x05\x12\x12\n\ngain_index\x18\x06 \x01(\x05\x12\x13\n\x0btarget_name\x18\x07 \x01(\t\"-\n\x0eResNotifyParam\x12\x1b\n\x05param\x18\x01 \x03(\x0b\x32\x0c.CommonParam\"P\n\x19ResNotifyCamFunctionState\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState\x12\x13\n\x0b\x66unction_id\x18\x02 \x01(\r\"F\n\x16ResNotifyBurstProgress\x12\x13\n\x0btotal_count\x18\x01 \x01(\r\x12\x17\n\x0f\x63ompleted_count\x18\x02 \x01(\r\"I\n\x19ResNotifyPanoramaProgress\x12\x13\n\x0btotal_count\x18\x01 \x01(\x05\x12\x17\n\x0f\x63ompleted_count\x18\x02 \x01(\x05\"\"\n\x11ResNotifyRgbState\x12\r\n\x05state\x18\x01 \x01(\x05\"\'\n\x16ResNotifyPowerIndState\x12\r\n\x05state\x18\x01 \x01(\x05\"4\n\x16ResNotifyHostSlaveMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\x12\x0c\n\x04lock\x18\x02 \x01(\x08\"!\n\x11ResNotifyMTPState\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"B\n\x14ResNotifyTrackResult\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\x12\t\n\x01w\x18\x03 \x01(\x05\x12\t\n\x01h\x18\x04 \x01(\x05\" \n\x10ResNotifyCPUMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"h\n\"ResNotifyStateAstroTrackingSpecial\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState\x12\x13\n\x0btarget_name\x18\x02 \x01(\t\x12\r\n\x05index\x18\x03 \x01(\x05\"\x13\n\x11ResNotifyPowerOff\"*\n\x14ResNotifyAlbumUpdate\x12\x12\n\nmedia_type\x18\x01 \x01(\x05\";\n\x18ResNotifyStateSentryMode\x12\x1f\n\x05state\x18\x01 \x01(\x0e\x32\x10.SentryModeState\"<\n\x1aResNotifyOneClickGotoState\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState\":\n\x13ResNotifyStreamType\x12\x13\n\x0bstream_type\x18\x01 \x01(\x05\x12\x0e\n\x06\x63\x61m_id\x18\x02 \x01(\x05\"\x9b\x01\n\x17ResNotifyEqSolvingState\x12-\n\x04step\x18\x01 \x01(\x0e\x32\x1f.ResNotifyEqSolvingState.Action\x12\x1e\n\x05state\x18\x02 \x01(\x0e\x32\x0f.OperationState\"1\n\x06\x41\x63tion\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\t\n\x05\x46OCUS\x10\x01\x12\x0b\n\x07SOLVING\x10\x02\"`\n\x1dResNotifyLongExpPhotoProgress\x12\x13\n\x0b\x66unction_id\x18\x01 \x01(\r\x12\x12\n\ntotal_time\x18\x02 \x01(\x01\x12\x16\n\x0e\x65xposured_time\x18\x03 \x01(\x01\"]\n\'ResNotifyShootingScheduleResultAndState\x12\x13\n\x0bschedule_id\x18\x01 \x01(\t\x12\x0e\n\x06result\x18\x02 \x01(\x05\x12\r\n\x05state\x18\x03 \x01(\x05\"S\n\x1aResNotifyShootingTaskState\x12\x18\n\x10schedule_task_id\x18\x01 \x01(\t\x12\r\n\x05state\x18\x02 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x03 \x01(\x05\":\n\x18ResNotifySkySeacherState\x12\x1e\n\x05state\x18\x01 \x01(\x0e\x32\x0f.OperationState*\x95\x01\n\x05State\x12\x0e\n\nSTATE_IDLE\x10\x00\x12\x11\n\rSTATE_RUNNING\x10\x01\x12\x12\n\x0eSTATE_STOPPING\x10\x02\x12\x11\n\rSTATE_STOPPED\x10\x03\x12\x11\n\rSTATE_SUCCESS\x10\x04\x12\x10\n\x0cSTATE_FAILED\x10\x05\x12\x1d\n\x19STATE_ASTRO_PLATE_SOLVING\x10\x06*\x82\x01\n\x0eOperationState\x12\x18\n\x14OPERATION_STATE_IDLE\x10\x00\x12\x1b\n\x17OPERATION_STATE_RUNNING\x10\x01\x12\x1c\n\x18OPERATION_STATE_STOPPING\x10\x02\x12\x1b\n\x17OPERATION_STATE_STOPPED\x10\x03*\x8d\x01\n\nAstroState\x12\x14\n\x10\x41STRO_STATE_IDLE\x10\x00\x12\x17\n\x13\x41STRO_STATE_RUNNING\x10\x01\x12\x18\n\x14\x41STRO_STATE_STOPPING\x10\x02\x12\x17\n\x13\x41STRO_STATE_STOPPED\x10\x03\x12\x1d\n\x19\x41STRO_STATE_PLATE_SOLVING\x10\x04*\xc8\x01\n\x0fSentryModeState\x12\x1a\n\x16SENTRY_MODE_STATE_IDLE\x10\x00\x12\x1a\n\x16SENTRY_MODE_STATE_INIT\x10\x01\x12\x1c\n\x18SENTRY_MODE_STATE_DETECT\x10\x02\x12\x1b\n\x17SENTRY_MODE_STATE_TRACK\x10\x03\x12\"\n\x1eSENTRY_MODE_STATE_TRACK_FINISH\x10\x04\x12\x1e\n\x1aSENTRY_MODE_STATE_STOPPING\x10\x05\x62\x06proto3'
   ,
   dependencies=[base__pb2.DESCRIPTOR,])
 
@@ -70,8 +70,8 @@ _STATE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1618,
-  serialized_end=1767,
+  serialized_start=2366,
+  serialized_end=2515,
 )
 _sym_db.RegisterEnumDescriptor(_STATE)
 
@@ -106,8 +106,8 @@ _OPERATIONSTATE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1770,
-  serialized_end=1900,
+  serialized_start=2518,
+  serialized_end=2648,
 )
 _sym_db.RegisterEnumDescriptor(_OPERATIONSTATE)
 
@@ -147,12 +147,58 @@ _ASTROSTATE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1903,
-  serialized_end=2044,
+  serialized_start=2651,
+  serialized_end=2792,
 )
 _sym_db.RegisterEnumDescriptor(_ASTROSTATE)
 
 AstroState = enum_type_wrapper.EnumTypeWrapper(_ASTROSTATE)
+_SENTRYMODESTATE = _descriptor.EnumDescriptor(
+  name='SentryModeState',
+  full_name='SentryModeState',
+  filename=None,
+  file=DESCRIPTOR,
+  create_key=_descriptor._internal_create_key,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='SENTRY_MODE_STATE_IDLE', index=0, number=0,
+      serialized_options=None,
+      type=None,
+      create_key=_descriptor._internal_create_key),
+    _descriptor.EnumValueDescriptor(
+      name='SENTRY_MODE_STATE_INIT', index=1, number=1,
+      serialized_options=None,
+      type=None,
+      create_key=_descriptor._internal_create_key),
+    _descriptor.EnumValueDescriptor(
+      name='SENTRY_MODE_STATE_DETECT', index=2, number=2,
+      serialized_options=None,
+      type=None,
+      create_key=_descriptor._internal_create_key),
+    _descriptor.EnumValueDescriptor(
+      name='SENTRY_MODE_STATE_TRACK', index=3, number=3,
+      serialized_options=None,
+      type=None,
+      create_key=_descriptor._internal_create_key),
+    _descriptor.EnumValueDescriptor(
+      name='SENTRY_MODE_STATE_TRACK_FINISH', index=4, number=4,
+      serialized_options=None,
+      type=None,
+      create_key=_descriptor._internal_create_key),
+    _descriptor.EnumValueDescriptor(
+      name='SENTRY_MODE_STATE_STOPPING', index=5, number=5,
+      serialized_options=None,
+      type=None,
+      create_key=_descriptor._internal_create_key),
+  ],
+  containing_type=None,
+  serialized_options=None,
+  serialized_start=2795,
+  serialized_end=2995,
+)
+_sym_db.RegisterEnumDescriptor(_SENTRYMODESTATE)
+
+SentryModeState = enum_type_wrapper.EnumTypeWrapper(_SENTRYMODESTATE)
 STATE_IDLE = 0
 STATE_RUNNING = 1
 STATE_STOPPING = 2
@@ -169,7 +215,43 @@ ASTRO_STATE_RUNNING = 1
 ASTRO_STATE_STOPPING = 2
 ASTRO_STATE_STOPPED = 3
 ASTRO_STATE_PLATE_SOLVING = 4
+SENTRY_MODE_STATE_IDLE = 0
+SENTRY_MODE_STATE_INIT = 1
+SENTRY_MODE_STATE_DETECT = 2
+SENTRY_MODE_STATE_TRACK = 3
+SENTRY_MODE_STATE_TRACK_FINISH = 4
+SENTRY_MODE_STATE_STOPPING = 5
 
+
+_RESNOTIFYEQSOLVINGSTATE_ACTION = _descriptor.EnumDescriptor(
+  name='Action',
+  full_name='ResNotifyEqSolvingState.Action',
+  filename=None,
+  file=DESCRIPTOR,
+  create_key=_descriptor._internal_create_key,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='UNSPECIFIED', index=0, number=0,
+      serialized_options=None,
+      type=None,
+      create_key=_descriptor._internal_create_key),
+    _descriptor.EnumValueDescriptor(
+      name='FOCUS', index=1, number=1,
+      serialized_options=None,
+      type=None,
+      create_key=_descriptor._internal_create_key),
+    _descriptor.EnumValueDescriptor(
+      name='SOLVING', index=2, number=2,
+      serialized_options=None,
+      type=None,
+      create_key=_descriptor._internal_create_key),
+  ],
+  containing_type=None,
+  serialized_options=None,
+  serialized_start=1976,
+  serialized_end=2025,
+)
+_sym_db.RegisterEnumDescriptor(_RESNOTIFYEQSOLVINGSTATE_ACTION)
 
 
 _RESNOTIFYPICTUREMATCHING = _descriptor.Descriptor(
@@ -285,6 +367,45 @@ _RESNOTIFYSDCARDINFO = _descriptor.Descriptor(
 )
 
 
+_RESNOTIFYTEMPERATURE = _descriptor.Descriptor(
+  name='ResNotifyTemperature',
+  full_name='ResNotifyTemperature',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='code', full_name='ResNotifyTemperature.code', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='temperature', full_name='ResNotifyTemperature.temperature', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=219,
+  serialized_end=276,
+)
+
+
 _RESNOTIFYRECORDTIME = _descriptor.Descriptor(
   name='ResNotifyRecordTime',
   full_name='ResNotifyRecordTime',
@@ -312,8 +433,8 @@ _RESNOTIFYRECORDTIME = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=219,
-  serialized_end=261,
+  serialized_start=278,
+  serialized_end=320,
 )
 
 
@@ -358,8 +479,8 @@ _RESNOTIFYTIMELAPSEOUTTIME = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=263,
-  serialized_end=346,
+  serialized_start=322,
+  serialized_end=405,
 )
 
 
@@ -390,8 +511,8 @@ _RESNOTIFYOPERATIONSTATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=348,
-  serialized_end=405,
+  serialized_start=407,
+  serialized_end=464,
 )
 
 
@@ -429,8 +550,8 @@ _RESNOTIFYSTATEASTROCALIBRATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=407,
-  serialized_end=496,
+  serialized_start=466,
+  serialized_end=555,
 )
 
 
@@ -461,8 +582,8 @@ _RESNOTIFYSTATEASTROGOTO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=498,
-  serialized_end=551,
+  serialized_start=557,
+  serialized_end=610,
 )
 
 
@@ -500,8 +621,8 @@ _RESNOTIFYSTATEASTROTRACKING = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=553,
-  serialized_end=635,
+  serialized_start=612,
+  serialized_end=694,
 )
 
 
@@ -539,8 +660,8 @@ _RESNOTIFYPROGRESSCAPTURERAWDARK = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=637,
-  serialized_end=712,
+  serialized_start=696,
+  serialized_end=771,
 )
 
 
@@ -613,8 +734,8 @@ _RESNOTIFYPROGRESSCAPTURERAWLIVESTACKING = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=715,
-  serialized_end=910,
+  serialized_start=774,
+  serialized_end=969,
 )
 
 
@@ -645,8 +766,8 @@ _RESNOTIFYPARAM = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=912,
-  serialized_end=957,
+  serialized_start=971,
+  serialized_end=1016,
 )
 
 
@@ -684,8 +805,8 @@ _RESNOTIFYCAMFUNCTIONSTATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=959,
-  serialized_end=1039,
+  serialized_start=1018,
+  serialized_end=1098,
 )
 
 
@@ -723,8 +844,8 @@ _RESNOTIFYBURSTPROGRESS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1041,
-  serialized_end=1111,
+  serialized_start=1100,
+  serialized_end=1170,
 )
 
 
@@ -762,8 +883,8 @@ _RESNOTIFYPANORAMAPROGRESS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1113,
-  serialized_end=1186,
+  serialized_start=1172,
+  serialized_end=1245,
 )
 
 
@@ -794,8 +915,8 @@ _RESNOTIFYRGBSTATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1188,
-  serialized_end=1222,
+  serialized_start=1247,
+  serialized_end=1281,
 )
 
 
@@ -826,8 +947,8 @@ _RESNOTIFYPOWERINDSTATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1224,
-  serialized_end=1263,
+  serialized_start=1283,
+  serialized_end=1322,
 )
 
 
@@ -846,6 +967,13 @@ _RESNOTIFYHOSTSLAVEMODE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='lock', full_name='ResNotifyHostSlaveMode.lock', index=1,
+      number=2, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -858,8 +986,8 @@ _RESNOTIFYHOSTSLAVEMODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1265,
-  serialized_end=1303,
+  serialized_start=1324,
+  serialized_end=1376,
 )
 
 
@@ -890,8 +1018,8 @@ _RESNOTIFYMTPSTATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1305,
-  serialized_end=1338,
+  serialized_start=1378,
+  serialized_end=1411,
 )
 
 
@@ -943,8 +1071,8 @@ _RESNOTIFYTRACKRESULT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1340,
-  serialized_end=1406,
+  serialized_start=1413,
+  serialized_end=1479,
 )
 
 
@@ -975,8 +1103,8 @@ _RESNOTIFYCPUMODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1408,
-  serialized_end=1440,
+  serialized_start=1481,
+  serialized_end=1513,
 )
 
 
@@ -1021,8 +1149,8 @@ _RESNOTIFYSTATEASTROTRACKINGSPECIAL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1442,
-  serialized_end=1546,
+  serialized_start=1515,
+  serialized_end=1619,
 )
 
 
@@ -1046,21 +1174,21 @@ _RESNOTIFYPOWEROFF = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1548,
-  serialized_end=1567,
+  serialized_start=1621,
+  serialized_end=1640,
 )
 
 
-_RESNOTIFYNEWMEDIACREATED = _descriptor.Descriptor(
-  name='ResNotifyNewMediaCreated',
-  full_name='ResNotifyNewMediaCreated',
+_RESNOTIFYALBUMUPDATE = _descriptor.Descriptor(
+  name='ResNotifyAlbumUpdate',
+  full_name='ResNotifyAlbumUpdate',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='media_type', full_name='ResNotifyNewMediaCreated.media_type', index=0,
+      name='media_type', full_name='ResNotifyAlbumUpdate.media_type', index=0,
       number=1, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
@@ -1078,8 +1206,321 @@ _RESNOTIFYNEWMEDIACREATED = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1569,
-  serialized_end=1615,
+  serialized_start=1642,
+  serialized_end=1684,
+)
+
+
+_RESNOTIFYSTATESENTRYMODE = _descriptor.Descriptor(
+  name='ResNotifyStateSentryMode',
+  full_name='ResNotifyStateSentryMode',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='state', full_name='ResNotifyStateSentryMode.state', index=0,
+      number=1, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1686,
+  serialized_end=1745,
+)
+
+
+_RESNOTIFYONECLICKGOTOSTATE = _descriptor.Descriptor(
+  name='ResNotifyOneClickGotoState',
+  full_name='ResNotifyOneClickGotoState',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='state', full_name='ResNotifyOneClickGotoState.state', index=0,
+      number=1, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1747,
+  serialized_end=1807,
+)
+
+
+_RESNOTIFYSTREAMTYPE = _descriptor.Descriptor(
+  name='ResNotifyStreamType',
+  full_name='ResNotifyStreamType',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='stream_type', full_name='ResNotifyStreamType.stream_type', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='cam_id', full_name='ResNotifyStreamType.cam_id', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1809,
+  serialized_end=1867,
+)
+
+
+_RESNOTIFYEQSOLVINGSTATE = _descriptor.Descriptor(
+  name='ResNotifyEqSolvingState',
+  full_name='ResNotifyEqSolvingState',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='step', full_name='ResNotifyEqSolvingState.step', index=0,
+      number=1, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='state', full_name='ResNotifyEqSolvingState.state', index=1,
+      number=2, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+    _RESNOTIFYEQSOLVINGSTATE_ACTION,
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1870,
+  serialized_end=2025,
+)
+
+
+_RESNOTIFYLONGEXPPHOTOPROGRESS = _descriptor.Descriptor(
+  name='ResNotifyLongExpPhotoProgress',
+  full_name='ResNotifyLongExpPhotoProgress',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='function_id', full_name='ResNotifyLongExpPhotoProgress.function_id', index=0,
+      number=1, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='total_time', full_name='ResNotifyLongExpPhotoProgress.total_time', index=1,
+      number=2, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='exposured_time', full_name='ResNotifyLongExpPhotoProgress.exposured_time', index=2,
+      number=3, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=2027,
+  serialized_end=2123,
+)
+
+
+_RESNOTIFYSHOOTINGSCHEDULERESULTANDSTATE = _descriptor.Descriptor(
+  name='ResNotifyShootingScheduleResultAndState',
+  full_name='ResNotifyShootingScheduleResultAndState',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='schedule_id', full_name='ResNotifyShootingScheduleResultAndState.schedule_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='result', full_name='ResNotifyShootingScheduleResultAndState.result', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='state', full_name='ResNotifyShootingScheduleResultAndState.state', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=2125,
+  serialized_end=2218,
+)
+
+
+_RESNOTIFYSHOOTINGTASKSTATE = _descriptor.Descriptor(
+  name='ResNotifyShootingTaskState',
+  full_name='ResNotifyShootingTaskState',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='schedule_task_id', full_name='ResNotifyShootingTaskState.schedule_task_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='state', full_name='ResNotifyShootingTaskState.state', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='code', full_name='ResNotifyShootingTaskState.code', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=2220,
+  serialized_end=2303,
+)
+
+
+_RESNOTIFYSKYSEACHERSTATE = _descriptor.Descriptor(
+  name='ResNotifySkySeacherState',
+  full_name='ResNotifySkySeacherState',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='state', full_name='ResNotifySkySeacherState.state', index=0,
+      number=1, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=2305,
+  serialized_end=2363,
 )
 
 _RESNOTIFYOPERATIONSTATE.fields_by_name['state'].enum_type = _OPERATIONSTATE
@@ -1089,8 +1530,15 @@ _RESNOTIFYSTATEASTROTRACKING.fields_by_name['state'].enum_type = _OPERATIONSTATE
 _RESNOTIFYPARAM.fields_by_name['param'].message_type = base__pb2._COMMONPARAM
 _RESNOTIFYCAMFUNCTIONSTATE.fields_by_name['state'].enum_type = _OPERATIONSTATE
 _RESNOTIFYSTATEASTROTRACKINGSPECIAL.fields_by_name['state'].enum_type = _OPERATIONSTATE
+_RESNOTIFYSTATESENTRYMODE.fields_by_name['state'].enum_type = _SENTRYMODESTATE
+_RESNOTIFYONECLICKGOTOSTATE.fields_by_name['state'].enum_type = _OPERATIONSTATE
+_RESNOTIFYEQSOLVINGSTATE.fields_by_name['step'].enum_type = _RESNOTIFYEQSOLVINGSTATE_ACTION
+_RESNOTIFYEQSOLVINGSTATE.fields_by_name['state'].enum_type = _OPERATIONSTATE
+_RESNOTIFYEQSOLVINGSTATE_ACTION.containing_type = _RESNOTIFYEQSOLVINGSTATE
+_RESNOTIFYSKYSEACHERSTATE.fields_by_name['state'].enum_type = _OPERATIONSTATE
 DESCRIPTOR.message_types_by_name['ResNotifyPictureMatching'] = _RESNOTIFYPICTUREMATCHING
 DESCRIPTOR.message_types_by_name['ResNotifySDcardInfo'] = _RESNOTIFYSDCARDINFO
+DESCRIPTOR.message_types_by_name['ResNotifyTemperature'] = _RESNOTIFYTEMPERATURE
 DESCRIPTOR.message_types_by_name['ResNotifyRecordTime'] = _RESNOTIFYRECORDTIME
 DESCRIPTOR.message_types_by_name['ResNotifyTimeLapseOutTime'] = _RESNOTIFYTIMELAPSEOUTTIME
 DESCRIPTOR.message_types_by_name['ResNotifyOperationState'] = _RESNOTIFYOPERATIONSTATE
@@ -1111,10 +1559,19 @@ DESCRIPTOR.message_types_by_name['ResNotifyTrackResult'] = _RESNOTIFYTRACKRESULT
 DESCRIPTOR.message_types_by_name['ResNotifyCPUMode'] = _RESNOTIFYCPUMODE
 DESCRIPTOR.message_types_by_name['ResNotifyStateAstroTrackingSpecial'] = _RESNOTIFYSTATEASTROTRACKINGSPECIAL
 DESCRIPTOR.message_types_by_name['ResNotifyPowerOff'] = _RESNOTIFYPOWEROFF
-DESCRIPTOR.message_types_by_name['ResNotifyNewMediaCreated'] = _RESNOTIFYNEWMEDIACREATED
+DESCRIPTOR.message_types_by_name['ResNotifyAlbumUpdate'] = _RESNOTIFYALBUMUPDATE
+DESCRIPTOR.message_types_by_name['ResNotifyStateSentryMode'] = _RESNOTIFYSTATESENTRYMODE
+DESCRIPTOR.message_types_by_name['ResNotifyOneClickGotoState'] = _RESNOTIFYONECLICKGOTOSTATE
+DESCRIPTOR.message_types_by_name['ResNotifyStreamType'] = _RESNOTIFYSTREAMTYPE
+DESCRIPTOR.message_types_by_name['ResNotifyEqSolvingState'] = _RESNOTIFYEQSOLVINGSTATE
+DESCRIPTOR.message_types_by_name['ResNotifyLongExpPhotoProgress'] = _RESNOTIFYLONGEXPPHOTOPROGRESS
+DESCRIPTOR.message_types_by_name['ResNotifyShootingScheduleResultAndState'] = _RESNOTIFYSHOOTINGSCHEDULERESULTANDSTATE
+DESCRIPTOR.message_types_by_name['ResNotifyShootingTaskState'] = _RESNOTIFYSHOOTINGTASKSTATE
+DESCRIPTOR.message_types_by_name['ResNotifySkySeacherState'] = _RESNOTIFYSKYSEACHERSTATE
 DESCRIPTOR.enum_types_by_name['State'] = _STATE
 DESCRIPTOR.enum_types_by_name['OperationState'] = _OPERATIONSTATE
 DESCRIPTOR.enum_types_by_name['AstroState'] = _ASTROSTATE
+DESCRIPTOR.enum_types_by_name['SentryModeState'] = _SENTRYMODESTATE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 ResNotifyPictureMatching = _reflection.GeneratedProtocolMessageType('ResNotifyPictureMatching', (_message.Message,), {
@@ -1130,6 +1587,13 @@ ResNotifySDcardInfo = _reflection.GeneratedProtocolMessageType('ResNotifySDcardI
   # @@protoc_insertion_point(class_scope:ResNotifySDcardInfo)
   })
 _sym_db.RegisterMessage(ResNotifySDcardInfo)
+
+ResNotifyTemperature = _reflection.GeneratedProtocolMessageType('ResNotifyTemperature', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYTEMPERATURE,
+  '__module__' : 'notify_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifyTemperature)
+  })
+_sym_db.RegisterMessage(ResNotifyTemperature)
 
 ResNotifyRecordTime = _reflection.GeneratedProtocolMessageType('ResNotifyRecordTime', (_message.Message,), {
   'DESCRIPTOR' : _RESNOTIFYRECORDTIME,
@@ -1271,12 +1735,68 @@ ResNotifyPowerOff = _reflection.GeneratedProtocolMessageType('ResNotifyPowerOff'
   })
 _sym_db.RegisterMessage(ResNotifyPowerOff)
 
-ResNotifyNewMediaCreated = _reflection.GeneratedProtocolMessageType('ResNotifyNewMediaCreated', (_message.Message,), {
-  'DESCRIPTOR' : _RESNOTIFYNEWMEDIACREATED,
+ResNotifyAlbumUpdate = _reflection.GeneratedProtocolMessageType('ResNotifyAlbumUpdate', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYALBUMUPDATE,
   '__module__' : 'notify_pb2'
-  # @@protoc_insertion_point(class_scope:ResNotifyNewMediaCreated)
+  # @@protoc_insertion_point(class_scope:ResNotifyAlbumUpdate)
   })
-_sym_db.RegisterMessage(ResNotifyNewMediaCreated)
+_sym_db.RegisterMessage(ResNotifyAlbumUpdate)
+
+ResNotifyStateSentryMode = _reflection.GeneratedProtocolMessageType('ResNotifyStateSentryMode', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYSTATESENTRYMODE,
+  '__module__' : 'notify_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifyStateSentryMode)
+  })
+_sym_db.RegisterMessage(ResNotifyStateSentryMode)
+
+ResNotifyOneClickGotoState = _reflection.GeneratedProtocolMessageType('ResNotifyOneClickGotoState', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYONECLICKGOTOSTATE,
+  '__module__' : 'notify_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifyOneClickGotoState)
+  })
+_sym_db.RegisterMessage(ResNotifyOneClickGotoState)
+
+ResNotifyStreamType = _reflection.GeneratedProtocolMessageType('ResNotifyStreamType', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYSTREAMTYPE,
+  '__module__' : 'notify_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifyStreamType)
+  })
+_sym_db.RegisterMessage(ResNotifyStreamType)
+
+ResNotifyEqSolvingState = _reflection.GeneratedProtocolMessageType('ResNotifyEqSolvingState', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYEQSOLVINGSTATE,
+  '__module__' : 'notify_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifyEqSolvingState)
+  })
+_sym_db.RegisterMessage(ResNotifyEqSolvingState)
+
+ResNotifyLongExpPhotoProgress = _reflection.GeneratedProtocolMessageType('ResNotifyLongExpPhotoProgress', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYLONGEXPPHOTOPROGRESS,
+  '__module__' : 'notify_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifyLongExpPhotoProgress)
+  })
+_sym_db.RegisterMessage(ResNotifyLongExpPhotoProgress)
+
+ResNotifyShootingScheduleResultAndState = _reflection.GeneratedProtocolMessageType('ResNotifyShootingScheduleResultAndState', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYSHOOTINGSCHEDULERESULTANDSTATE,
+  '__module__' : 'notify_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifyShootingScheduleResultAndState)
+  })
+_sym_db.RegisterMessage(ResNotifyShootingScheduleResultAndState)
+
+ResNotifyShootingTaskState = _reflection.GeneratedProtocolMessageType('ResNotifyShootingTaskState', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYSHOOTINGTASKSTATE,
+  '__module__' : 'notify_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifyShootingTaskState)
+  })
+_sym_db.RegisterMessage(ResNotifyShootingTaskState)
+
+ResNotifySkySeacherState = _reflection.GeneratedProtocolMessageType('ResNotifySkySeacherState', (_message.Message,), {
+  'DESCRIPTOR' : _RESNOTIFYSKYSEACHERSTATE,
+  '__module__' : 'notify_pb2'
+  # @@protoc_insertion_point(class_scope:ResNotifySkySeacherState)
+  })
+_sym_db.RegisterMessage(ResNotifySkySeacherState)
 
 
 # @@protoc_insertion_point(module_scope)

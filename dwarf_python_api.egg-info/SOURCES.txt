@@ -73,7 +73,9 @@ dwarf_python_api.egg-info/dependency_links.txt
 dwarf_python_api.egg-info/top_level.txt
 dwarf_python_api/lib/__init__.py
 dwarf_python_api/lib/data_utils.py
+dwarf_python_api/lib/data_wide_utils.py
 dwarf_python_api/lib/dwarf_utils.py
+dwarf_python_api/lib/ftp_utils.py
 dwarf_python_api/lib/my_logger.py
 dwarf_python_api/lib/websockets_testV2.py
 dwarf_python_api/lib/websockets_utils.py

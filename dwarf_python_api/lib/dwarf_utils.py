@@ -400,16 +400,16 @@ def unset_HostMaster():
     module_id = 4  # MODULE_SYSTEM
     type_id = 0; #REQUEST
 
-    ReqSetHostSlaveMode_message = system.ReqSetHostSlaveMode()
-    ReqSetHostSlaveMode_message.mode = 0
+    ReqsetMasterLock_message = system.ReqsetMasterLock()
+    ReqsetMasterLock_message.lock = False
     
-    command = 13004 #CMD_SYSTEM_SET_HOSTSLAVE_MODE
-    response = connect_socket(ReqSetHostSlaveMode_message, command, type_id, module_id)
+    command = 13004 #CMD_SYSTEM_SET_MASTERLOCK
+    response = connect_socket(ReqsetMasterLock_message, command, type_id, module_id)
 
     if response is not False: 
 
       if response == 0:
-          log.success("Unset Host SLAVE success")
+          log.success("Unset Host Device success")
           log.success("Need to disconnect to take effect")
           return True
       else:
@@ -419,6 +419,29 @@ def unset_HostMaster():
 
     return False
 
+def set_HostMaster():
+
+    # SET Host
+    module_id = 4  # MODULE_SYSTEM
+    type_id = 0; #REQUEST
+
+    ReqsetMasterLock_message = system.ReqsetMasterLock()
+    ReqsetMasterLock_message.lock = True
+    
+    command = 13004 #CMD_SYSTEM_SET_MASTERLOCK
+    response = connect_socket(ReqsetMasterLock_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == 0:
+          log.success("set Host Device success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
 
 def perform_goto(ra, dec, target):
 
@@ -752,6 +775,13 @@ def perform_time():
     # UTC
     ReqSetTime_message.timestamp = math.floor(time.time())
 
+    # Calculate timezone offset in hours
+    local_time = datetime.now()
+    utc_time = datetime.utcnow()
+    timezone_offset = (local_time - utc_time).total_seconds() / 3600  # Offset in hours
+    ReqSetTime_message.timezone_offset = timezone_offset
+    log.notice(f"Timezone offset is : {timezone_offset} H")
+
     command = 13000 #CMD_SYSTEM_SET_TIME
     response = connect_socket(ReqSetTime_message, command, type_id, module_id)
     #log.success(f"Get Result : {response}")
@@ -776,6 +806,7 @@ def perform_timezone():
 
     ReqSetTimezone_message = system.ReqSetTimezone()
     ReqSetTimezone_message.timezone = read_timezone()
+    log.notice(f"Timezone is : {read_timezone()}")
 
     command = 13001 #CMD_SYSTEM_SET_TIME_ZONE
     response = connect_socket(ReqSetTimezone_message, command, type_id, module_id)
@@ -979,14 +1010,30 @@ def perform_get_all_camera_wide_setting():
   
   return response
 
-def get_result_value ( result_cnx, is_double = False):
+def get_result_value ( type, result_cnx, is_double = False):
 
-  if isinstance(result_cnx, int):
-    return result_cnx if result_cnx >= 0 else False
+  if result_cnx is False: 
+    log.error("Dwarf API: Dwarf Device not connected")
 
-  if isinstance(result_cnx, dict) and 'code' in result_cnx:
+  elif isinstance(result_cnx, int):
+    if result_cnx >= 0:
+      log.success(f"{type} value: {result_cnx}")
+      return result_cnx
+    else: 
+      log.error(f"Error code: {result_cnx}")
+
+  elif isinstance(result_cnx, dict) and 'code' in result_cnx:
     if result_cnx["code"] == 0 and 'value' in result_cnx:
+      log.success(f"{type} value: {result_cnx["value"] if not is_double else format_double(result_cnx["value"])}")
       return result_cnx["value"] if not is_double else format_double(result_cnx["value"])
+    else: 
+      if result_cnx["code"] == 0:
+        log.success(f"{type} no value")
+        return result_cnx["code"]
+      else:
+        log.error(f"Error code: {result_cnx["code"]}")
+  else: 
+    log.error(f"Unknown Error ")
 
   return False
 
@@ -1010,7 +1057,7 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetContrast_message, command, type_id, module_id)
 
-    return get_result_value(response)
+    return get_result_value(type, response)
 
   if (type == "exposure"):
     # exposure
@@ -1023,7 +1070,7 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetExp_message, command, type_id, module_id)
 
-    return get_result_value(response, true)
+    return get_result_value(type, response, true)
 
   elif (type == "gain"):
     # gain
@@ -1036,7 +1083,7 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetGain_message, command, type_id, module_id)
 
-    return get_result_value(response)
+    return get_result_value(type, response, type)
 
   elif (type == "IR"):
     # IR
@@ -1049,7 +1096,7 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetIrCut_message, command, type_id, module_id)
 
-    return get_result_value(response)
+    return get_result_value(type, response)
 
   elif (type == "wide_exposure"):
     # exposure
@@ -1062,7 +1109,7 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetExp_message, command, type_id, module_id)
 
-    return get_result_value(response, True)
+    return get_result_value(type, response, True)
 
   elif (type == "wide_gain"):
     # gain
@@ -1075,7 +1122,7 @@ def perform_get_camera_setting( type):
 
     response = connect_socket(ReqGetGain_message, command, type_id, module_id)
 
-    return get_result_value(response)
+    return get_result_value(type, response)
 
   return False
 
@@ -1220,6 +1267,79 @@ def perform_update_camera_setting( type, value, dwarf_id = "2"):
 
   return False
 
+def decimal_to_dms(decimal_degrees):
+    degrees = int(decimal_degrees)
+    minutes_full = abs((decimal_degrees - degrees) * 60)
+    minutes = int(minutes_full)
+    seconds = (minutes_full - minutes) * 60
+
+    return f"{degrees}° {minutes}' {seconds:.1f}\""
+
+def get_result_polar_value ( result_cnx):
+
+  if result_cnx is False: 
+    log.error("Dwarf API: Dwarf Device not connected")
+
+  elif isinstance(result_cnx, int):
+    if result_cnx == 0:
+      log.success("Start Polar Alignement")
+      return result_cnx
+    else:
+      log.error(f"Error code: {result_cnx}")
+
+  elif isinstance(result_cnx, dict) and 'code' in result_cnx:
+    if result_cnx["code"] == 0 and 'azi_err' in result_cnx and 'alt_err' in result_cnx:
+      log.success("Polar Alignement result")
+      log.notice(f"Azimuth error value: {decimal_to_dms(result_cnx["azi_err"])}")
+      log.notice(f"Altitude error value: {decimal_to_dms(result_cnx["alt_err"])}")
+      return {'azi_err' : result_cnx["azi_err"], 'alt_err' : result_cnx["alt_err"]}
+    else:
+      if result_cnx["code"] == 0:
+        log.success(f"Polar Alignement no result value")
+        return result_cnx["code"]
+      else:
+        log.error(f"Error code: {result_cnx["code"]}")
+  else: 
+    log.error(f"Unknown Error ")
+
+  return False
+
+def start_polar_align():
+
+    # start Polar Align
+    module_id = 3  # MODULE_ASTRO
+    type_id = 0; #REQUEST
+
+    ReqStartEqSolving_message = astro.ReqStartEqSolving ()
+    ReqStartEqSolving_message.lon = read_longitude();
+    ReqStartEqSolving_message.lat = read_latitude();
+    command = 11018; #CMD_ASTRO_START_EQ_SOLVING
+    response = connect_socket(ReqStartEqSolving_message, command, type_id, module_id)
+
+    return get_result_polar_value(response)
+
+def stop_polar_align():
+
+    # stop Polar Align
+    module_id = 3  # MODULE_ASTRO
+    type_id = 0; #REQUEST
+
+    ReqStopEqSolving_message = astro.ReqStopEqSolving ()
+    command = 11019; #CMD_ASTRO_STOP_EQ_SOLVING
+    response = connect_socket(ReqStopEqSolving_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == 0:
+          log.success("Stop Polar Alignement success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
+
 def motor_action( action ):
 
     module_id = 6  # MODULE_MOTOR
@@ -1298,6 +1418,16 @@ def motor_action( action ):
       ReqMotorRun_message.resolution_level = 3;
       command = 14000; #CMD_STEP_MOTOR_RUN
       response = connect_socket(ReqMotorRun_message, command, type_id, module_id)
+
+    if (action == 8):
+      ReqMotorGetPosition_message = motor.ReqMotorGetPosition ()
+      ReqMotorGetPosition_message.id= 1;
+      command = 14010; #CMD_STEP_MOTOR_GET_POSITION
+      response = connect_socket(ReqMotorGetPosition_message, command, type_id, module_id)
+
+      ReqMotorGetPosition_message.id= 2;
+      command = 14010; #CMD_STEP_MOTOR_GET_POSITION
+      response = connect_socket(ReqMotorGetPosition_message, command, type_id, module_id)
 
     if (action == 10):
       ReqMotorServiceJoystickFixedAngle_message = motor.ReqMotorServiceJoystickFixedAngle ()

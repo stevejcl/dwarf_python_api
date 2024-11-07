@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x0c\x63\x61mera.proto\x1a\nbase.proto\" \n\rReqOpenCamera\x12\x0f\n\x07\x62inning\x18\x01 \x01(\x08\"\x10\n\x0eReqCloseCamera\"\n\n\x08ReqPhoto\"\x1e\n\rReqBurstPhoto\x12\r\n\x05\x63ount\x18\x01 \x01(\x05\"\x13\n\x11ReqStopBurstPhoto\"\x10\n\x0eReqStartRecord\"\x0f\n\rReqStopRecord\"\x1d\n\rReqSetExpMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\x0f\n\rReqGetExpMode\"\x1a\n\tReqSetExp\x12\r\n\x05index\x18\x01 \x01(\x05\"\x0b\n\tReqGetExp\"\x1e\n\x0eReqSetGainMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\x10\n\x0eReqGetGainMode\"\x1b\n\nReqSetGain\x12\r\n\x05index\x18\x01 \x01(\x05\"\x0c\n\nReqGetGain\"!\n\x10ReqSetBrightness\x12\r\n\x05value\x18\x01 \x01(\x05\"\x12\n\x10ReqGetBrightness\"\x1f\n\x0eReqSetContrast\x12\r\n\x05value\x18\x01 \x01(\x05\"\x10\n\x0eReqGetContrast\"\x1a\n\tReqSetHue\x12\r\n\x05value\x18\x01 \x01(\x05\"\x0b\n\tReqGetHue\"!\n\x10ReqSetSaturation\x12\r\n\x05value\x18\x01 \x01(\x05\"\x12\n\x10ReqGetSaturation\" \n\x0fReqSetSharpness\x12\r\n\x05value\x18\x01 \x01(\x05\"\x11\n\x0fReqGetSharpness\"\x1c\n\x0cReqSetWBMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\x0e\n\x0cReqGetWBMode\"\x1e\n\rReqSetWBSence\x12\r\n\x05value\x18\x01 \x01(\x05\"\x0f\n\rReqGetWBSence\"\x1b\n\nReqSetWBCT\x12\r\n\x05index\x18\x01 \x01(\x05\"\x0c\n\nReqGetWBCT\"\x1c\n\x0bReqSetIrCut\x12\r\n\x05value\x18\x01 \x01(\x05\"\r\n\x0bReqGetIrcut\"\x13\n\x11ReqStartTimeLapse\"\x12\n\x10ReqStopTimeLapse\"\x9b\x02\n\x0fReqSetAllParams\x12\x10\n\x08\x65xp_mode\x18\x01 \x01(\x05\x12\x11\n\texp_index\x18\x02 \x01(\x05\x12\x11\n\tgain_mode\x18\x03 \x01(\x05\x12\x12\n\ngain_index\x18\x04 \x01(\x05\x12\x13\n\x0bircut_value\x18\x05 \x01(\x05\x12\x0f\n\x07wb_mode\x18\x06 \x01(\x05\x12\x15\n\rwb_index_type\x18\x07 \x01(\x05\x12\x10\n\x08wb_index\x18\x08 \x01(\x05\x12\x12\n\nbrightness\x18\t \x01(\x05\x12\x10\n\x08\x63ontrast\x18\n \x01(\x05\x12\x0b\n\x03hue\x18\x0b \x01(\x05\x12\x12\n\nsaturation\x18\x0c \x01(\x05\x12\x11\n\tsharpness\x18\r \x01(\x05\x12\x13\n\x0bjpg_quality\x18\x0e \x01(\x05\"\x11\n\x0fReqGetAllParams\"A\n\x0fResGetAllParams\x12 \n\nall_params\x18\x01 \x03(\x0b\x32\x0c.CommonParam\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"2\n\x13ReqSetFeatureParams\x12\x1b\n\x05param\x18\x01 \x01(\x0b\x32\x0c.CommonParam\"\x18\n\x16ReqGetAllFeatureParams\"P\n\x16ResGetAllFeatureParams\x12(\n\x12\x61ll_feature_params\x18\x01 \x03(\x0b\x32\x0c.CommonParam\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"\x1a\n\x18ReqGetSystemWorkingState\"#\n\x10ReqSetJpgQuality\x12\x0f\n\x07quality\x18\x01 \x01(\x05\"\x12\n\x10ReqGetJpgQualityb\x06proto3'
+  serialized_pb=b'\n\x0c\x63\x61mera.proto\x1a\nbase.proto\":\n\rReqOpenCamera\x12\x0f\n\x07\x62inning\x18\x01 \x01(\x08\x12\x18\n\x10rtsp_encode_type\x18\x02 \x01(\x05\"\x10\n\x0eReqCloseCamera\"\n\n\x08ReqPhoto\"\x1e\n\rReqBurstPhoto\x12\r\n\x05\x63ount\x18\x01 \x01(\x05\"\x13\n\x11ReqStopBurstPhoto\"%\n\x0eReqStartRecord\x12\x13\n\x0b\x65ncode_type\x18\x01 \x01(\x05\"\x0f\n\rReqStopRecord\"\x1d\n\rReqSetExpMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\x0f\n\rReqGetExpMode\"\x1a\n\tReqSetExp\x12\r\n\x05index\x18\x01 \x01(\x05\"\x0b\n\tReqGetExp\"\x1e\n\x0eReqSetGainMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\x10\n\x0eReqGetGainMode\"\x1b\n\nReqSetGain\x12\r\n\x05index\x18\x01 \x01(\x05\"\x0c\n\nReqGetGain\"!\n\x10ReqSetBrightness\x12\r\n\x05value\x18\x01 \x01(\x05\"\x12\n\x10ReqGetBrightness\"\x1f\n\x0eReqSetContrast\x12\r\n\x05value\x18\x01 \x01(\x05\"\x10\n\x0eReqGetContrast\"\x1a\n\tReqSetHue\x12\r\n\x05value\x18\x01 \x01(\x05\"\x0b\n\tReqGetHue\"!\n\x10ReqSetSaturation\x12\r\n\x05value\x18\x01 \x01(\x05\"\x12\n\x10ReqGetSaturation\" \n\x0fReqSetSharpness\x12\r\n\x05value\x18\x01 \x01(\x05\"\x11\n\x0fReqGetSharpness\"\x1c\n\x0cReqSetWBMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\x0e\n\x0cReqGetWBMode\"\x1e\n\rReqSetWBSence\x12\r\n\x05value\x18\x01 \x01(\x05\"\x0f\n\rReqGetWBSence\"\x1b\n\nReqSetWBCT\x12\r\n\x05index\x18\x01 \x01(\x05\"\x0c\n\nReqGetWBCT\"\x1c\n\x0bReqSetIrCut\x12\r\n\x05value\x18\x01 \x01(\x05\"\r\n\x0bReqGetIrcut\"\x13\n\x11ReqStartTimeLapse\"\x12\n\x10ReqStopTimeLapse\"\x9b\x02\n\x0fReqSetAllParams\x12\x10\n\x08\x65xp_mode\x18\x01 \x01(\x05\x12\x11\n\texp_index\x18\x02 \x01(\x05\x12\x11\n\tgain_mode\x18\x03 \x01(\x05\x12\x12\n\ngain_index\x18\x04 \x01(\x05\x12\x13\n\x0bircut_value\x18\x05 \x01(\x05\x12\x0f\n\x07wb_mode\x18\x06 \x01(\x05\x12\x15\n\rwb_index_type\x18\x07 \x01(\x05\x12\x10\n\x08wb_index\x18\x08 \x01(\x05\x12\x12\n\nbrightness\x18\t \x01(\x05\x12\x10\n\x08\x63ontrast\x18\n \x01(\x05\x12\x0b\n\x03hue\x18\x0b \x01(\x05\x12\x12\n\nsaturation\x18\x0c \x01(\x05\x12\x11\n\tsharpness\x18\r \x01(\x05\x12\x13\n\x0bjpg_quality\x18\x0e \x01(\x05\"\x11\n\x0fReqGetAllParams\"A\n\x0fResGetAllParams\x12 \n\nall_params\x18\x01 \x03(\x0b\x32\x0c.CommonParam\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"2\n\x13ReqSetFeatureParams\x12\x1b\n\x05param\x18\x01 \x01(\x0b\x32\x0c.CommonParam\"\x18\n\x16ReqGetAllFeatureParams\"P\n\x16ResGetAllFeatureParams\x12(\n\x12\x61ll_feature_params\x18\x01 \x03(\x0b\x32\x0c.CommonParam\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"\x1a\n\x18ReqGetSystemWorkingState\"#\n\x10ReqSetJpgQuality\x12\x0f\n\x07quality\x18\x01 \x01(\x05\"\x12\n\x10ReqGetJpgQuality\"\r\n\x0bReqPhotoRaw\"-\n\x15ReqSetRtspBitRateType\x12\x14\n\x0c\x62itrate_type\x18\x01 \x01(\x05\"\x1c\n\x1aReqDisableAllIspProcessing\"\x1b\n\x19ReqEnableAllIspProcessingb\x06proto3'
   ,
   dependencies=[base__pb2.DESCRIPTOR,])
 
@@ -42,6 +42,13 @@ _REQOPENCAMERA = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='rtsp_encode_type', full_name='ReqOpenCamera.rtsp_encode_type', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -55,7 +62,7 @@ _REQOPENCAMERA = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=28,
-  serialized_end=60,
+  serialized_end=86,
 )
 
 
@@ -79,8 +86,8 @@ _REQCLOSECAMERA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=62,
-  serialized_end=78,
+  serialized_start=88,
+  serialized_end=104,
 )
 
 
@@ -104,8 +111,8 @@ _REQPHOTO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=80,
-  serialized_end=90,
+  serialized_start=106,
+  serialized_end=116,
 )
 
 
@@ -136,8 +143,8 @@ _REQBURSTPHOTO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=92,
-  serialized_end=122,
+  serialized_start=118,
+  serialized_end=148,
 )
 
 
@@ -161,8 +168,8 @@ _REQSTOPBURSTPHOTO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=124,
-  serialized_end=143,
+  serialized_start=150,
+  serialized_end=169,
 )
 
 
@@ -174,6 +181,13 @@ _REQSTARTRECORD = _descriptor.Descriptor(
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
+    _descriptor.FieldDescriptor(
+      name='encode_type', full_name='ReqStartRecord.encode_type', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -186,8 +200,8 @@ _REQSTARTRECORD = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=145,
-  serialized_end=161,
+  serialized_start=171,
+  serialized_end=208,
 )
 
 
@@ -211,8 +225,8 @@ _REQSTOPRECORD = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=163,
-  serialized_end=178,
+  serialized_start=210,
+  serialized_end=225,
 )
 
 
@@ -243,8 +257,8 @@ _REQSETEXPMODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=180,
-  serialized_end=209,
+  serialized_start=227,
+  serialized_end=256,
 )
 
 
@@ -268,8 +282,8 @@ _REQGETEXPMODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=211,
-  serialized_end=226,
+  serialized_start=258,
+  serialized_end=273,
 )
 
 
@@ -300,8 +314,8 @@ _REQSETEXP = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=228,
-  serialized_end=254,
+  serialized_start=275,
+  serialized_end=301,
 )
 
 
@@ -325,8 +339,8 @@ _REQGETEXP = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=256,
-  serialized_end=267,
+  serialized_start=303,
+  serialized_end=314,
 )
 
 
@@ -357,8 +371,8 @@ _REQSETGAINMODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=269,
-  serialized_end=299,
+  serialized_start=316,
+  serialized_end=346,
 )
 
 
@@ -382,8 +396,8 @@ _REQGETGAINMODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=301,
-  serialized_end=317,
+  serialized_start=348,
+  serialized_end=364,
 )
 
 
@@ -414,8 +428,8 @@ _REQSETGAIN = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=319,
-  serialized_end=346,
+  serialized_start=366,
+  serialized_end=393,
 )
 
 
@@ -439,8 +453,8 @@ _REQGETGAIN = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=348,
-  serialized_end=360,
+  serialized_start=395,
+  serialized_end=407,
 )
 
 
@@ -471,8 +485,8 @@ _REQSETBRIGHTNESS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=362,
-  serialized_end=395,
+  serialized_start=409,
+  serialized_end=442,
 )
 
 
@@ -496,8 +510,8 @@ _REQGETBRIGHTNESS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=397,
-  serialized_end=415,
+  serialized_start=444,
+  serialized_end=462,
 )
 
 
@@ -528,8 +542,8 @@ _REQSETCONTRAST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=417,
-  serialized_end=448,
+  serialized_start=464,
+  serialized_end=495,
 )
 
 
@@ -553,8 +567,8 @@ _REQGETCONTRAST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=450,
-  serialized_end=466,
+  serialized_start=497,
+  serialized_end=513,
 )
 
 
@@ -585,8 +599,8 @@ _REQSETHUE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=468,
-  serialized_end=494,
+  serialized_start=515,
+  serialized_end=541,
 )
 
 
@@ -610,8 +624,8 @@ _REQGETHUE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=496,
-  serialized_end=507,
+  serialized_start=543,
+  serialized_end=554,
 )
 
 
@@ -642,8 +656,8 @@ _REQSETSATURATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=509,
-  serialized_end=542,
+  serialized_start=556,
+  serialized_end=589,
 )
 
 
@@ -667,8 +681,8 @@ _REQGETSATURATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=544,
-  serialized_end=562,
+  serialized_start=591,
+  serialized_end=609,
 )
 
 
@@ -699,8 +713,8 @@ _REQSETSHARPNESS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=564,
-  serialized_end=596,
+  serialized_start=611,
+  serialized_end=643,
 )
 
 
@@ -724,8 +738,8 @@ _REQGETSHARPNESS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=598,
-  serialized_end=615,
+  serialized_start=645,
+  serialized_end=662,
 )
 
 
@@ -756,8 +770,8 @@ _REQSETWBMODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=617,
-  serialized_end=645,
+  serialized_start=664,
+  serialized_end=692,
 )
 
 
@@ -781,8 +795,8 @@ _REQGETWBMODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=647,
-  serialized_end=661,
+  serialized_start=694,
+  serialized_end=708,
 )
 
 
@@ -813,8 +827,8 @@ _REQSETWBSENCE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=663,
-  serialized_end=693,
+  serialized_start=710,
+  serialized_end=740,
 )
 
 
@@ -838,8 +852,8 @@ _REQGETWBSENCE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=695,
-  serialized_end=710,
+  serialized_start=742,
+  serialized_end=757,
 )
 
 
@@ -870,8 +884,8 @@ _REQSETWBCT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=712,
-  serialized_end=739,
+  serialized_start=759,
+  serialized_end=786,
 )
 
 
@@ -895,8 +909,8 @@ _REQGETWBCT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=741,
-  serialized_end=753,
+  serialized_start=788,
+  serialized_end=800,
 )
 
 
@@ -927,8 +941,8 @@ _REQSETIRCUT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=755,
-  serialized_end=783,
+  serialized_start=802,
+  serialized_end=830,
 )
 
 
@@ -952,8 +966,8 @@ _REQGETIRCUT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=785,
-  serialized_end=798,
+  serialized_start=832,
+  serialized_end=845,
 )
 
 
@@ -977,8 +991,8 @@ _REQSTARTTIMELAPSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=800,
-  serialized_end=819,
+  serialized_start=847,
+  serialized_end=866,
 )
 
 
@@ -1002,8 +1016,8 @@ _REQSTOPTIMELAPSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=821,
-  serialized_end=839,
+  serialized_start=868,
+  serialized_end=886,
 )
 
 
@@ -1125,8 +1139,8 @@ _REQSETALLPARAMS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=842,
-  serialized_end=1125,
+  serialized_start=889,
+  serialized_end=1172,
 )
 
 
@@ -1150,8 +1164,8 @@ _REQGETALLPARAMS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1127,
-  serialized_end=1144,
+  serialized_start=1174,
+  serialized_end=1191,
 )
 
 
@@ -1189,8 +1203,8 @@ _RESGETALLPARAMS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1146,
-  serialized_end=1211,
+  serialized_start=1193,
+  serialized_end=1258,
 )
 
 
@@ -1221,8 +1235,8 @@ _REQSETFEATUREPARAMS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1213,
-  serialized_end=1263,
+  serialized_start=1260,
+  serialized_end=1310,
 )
 
 
@@ -1246,8 +1260,8 @@ _REQGETALLFEATUREPARAMS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1265,
-  serialized_end=1289,
+  serialized_start=1312,
+  serialized_end=1336,
 )
 
 
@@ -1285,8 +1299,8 @@ _RESGETALLFEATUREPARAMS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1291,
-  serialized_end=1371,
+  serialized_start=1338,
+  serialized_end=1418,
 )
 
 
@@ -1310,8 +1324,8 @@ _REQGETSYSTEMWORKINGSTATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1373,
-  serialized_end=1399,
+  serialized_start=1420,
+  serialized_end=1446,
 )
 
 
@@ -1342,8 +1356,8 @@ _REQSETJPGQUALITY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1401,
-  serialized_end=1436,
+  serialized_start=1448,
+  serialized_end=1483,
 )
 
 
@@ -1367,8 +1381,115 @@ _REQGETJPGQUALITY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1438,
-  serialized_end=1456,
+  serialized_start=1485,
+  serialized_end=1503,
+)
+
+
+_REQPHOTORAW = _descriptor.Descriptor(
+  name='ReqPhotoRaw',
+  full_name='ReqPhotoRaw',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1505,
+  serialized_end=1518,
+)
+
+
+_REQSETRTSPBITRATETYPE = _descriptor.Descriptor(
+  name='ReqSetRtspBitRateType',
+  full_name='ReqSetRtspBitRateType',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='bitrate_type', full_name='ReqSetRtspBitRateType.bitrate_type', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1520,
+  serialized_end=1565,
+)
+
+
+_REQDISABLEALLISPPROCESSING = _descriptor.Descriptor(
+  name='ReqDisableAllIspProcessing',
+  full_name='ReqDisableAllIspProcessing',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1567,
+  serialized_end=1595,
+)
+
+
+_REQENABLEALLISPPROCESSING = _descriptor.Descriptor(
+  name='ReqEnableAllIspProcessing',
+  full_name='ReqEnableAllIspProcessing',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1597,
+  serialized_end=1624,
 )
 
 _RESGETALLPARAMS.fields_by_name['all_params'].message_type = base__pb2._COMMONPARAM
@@ -1418,6 +1539,10 @@ DESCRIPTOR.message_types_by_name['ResGetAllFeatureParams'] = _RESGETALLFEATUREPA
 DESCRIPTOR.message_types_by_name['ReqGetSystemWorkingState'] = _REQGETSYSTEMWORKINGSTATE
 DESCRIPTOR.message_types_by_name['ReqSetJpgQuality'] = _REQSETJPGQUALITY
 DESCRIPTOR.message_types_by_name['ReqGetJpgQuality'] = _REQGETJPGQUALITY
+DESCRIPTOR.message_types_by_name['ReqPhotoRaw'] = _REQPHOTORAW
+DESCRIPTOR.message_types_by_name['ReqSetRtspBitRateType'] = _REQSETRTSPBITRATETYPE
+DESCRIPTOR.message_types_by_name['ReqDisableAllIspProcessing'] = _REQDISABLEALLISPPROCESSING
+DESCRIPTOR.message_types_by_name['ReqEnableAllIspProcessing'] = _REQENABLEALLISPPROCESSING
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 ReqOpenCamera = _reflection.GeneratedProtocolMessageType('ReqOpenCamera', (_message.Message,), {
@@ -1727,6 +1852,34 @@ ReqGetJpgQuality = _reflection.GeneratedProtocolMessageType('ReqGetJpgQuality', 
   # @@protoc_insertion_point(class_scope:ReqGetJpgQuality)
   })
 _sym_db.RegisterMessage(ReqGetJpgQuality)
+
+ReqPhotoRaw = _reflection.GeneratedProtocolMessageType('ReqPhotoRaw', (_message.Message,), {
+  'DESCRIPTOR' : _REQPHOTORAW,
+  '__module__' : 'camera_pb2'
+  # @@protoc_insertion_point(class_scope:ReqPhotoRaw)
+  })
+_sym_db.RegisterMessage(ReqPhotoRaw)
+
+ReqSetRtspBitRateType = _reflection.GeneratedProtocolMessageType('ReqSetRtspBitRateType', (_message.Message,), {
+  'DESCRIPTOR' : _REQSETRTSPBITRATETYPE,
+  '__module__' : 'camera_pb2'
+  # @@protoc_insertion_point(class_scope:ReqSetRtspBitRateType)
+  })
+_sym_db.RegisterMessage(ReqSetRtspBitRateType)
+
+ReqDisableAllIspProcessing = _reflection.GeneratedProtocolMessageType('ReqDisableAllIspProcessing', (_message.Message,), {
+  'DESCRIPTOR' : _REQDISABLEALLISPPROCESSING,
+  '__module__' : 'camera_pb2'
+  # @@protoc_insertion_point(class_scope:ReqDisableAllIspProcessing)
+  })
+_sym_db.RegisterMessage(ReqDisableAllIspProcessing)
+
+ReqEnableAllIspProcessing = _reflection.GeneratedProtocolMessageType('ReqEnableAllIspProcessing', (_message.Message,), {
+  'DESCRIPTOR' : _REQENABLEALLISPPROCESSING,
+  '__module__' : 'camera_pb2'
+  # @@protoc_insertion_point(class_scope:ReqEnableAllIspProcessing)
+  })
+_sym_db.RegisterMessage(ReqEnableAllIspProcessing)
 
 
 # @@protoc_insertion_point(module_scope)

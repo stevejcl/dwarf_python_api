@@ -229,8 +229,9 @@ def fct_decode_wireshark(user_frame, masked = False, user_maskedcode = ""):
     # start_pattern = "\\x08\\x01\\x10\\x01\\x18\\x01"
     # start_pattern = "\\x08\\x01\\x10\\x07\\x18\\x02"
 
-#    end_pattern = "b41e8a3a5e51"
-    end_pattern =  "54975d6e950e"
+    end_pattern1 = "b41e8a3a5e51"
+    end_pattern2 =  "54975d6e950e"
+    end_pattern2 =  "bf19d82b5462"
 
     # Test if Octal format : new in Wireshark
     user_frame_convert = octal_and_special_to_hex(user_frame)
@@ -238,7 +239,12 @@ def fct_decode_wireshark(user_frame, masked = False, user_maskedcode = ""):
     user_frame_convert = user_frame_convert.replace("'", '\\\'')
     print(f"Converted frame: \"{user_frame_convert}\"")
 
-    extracted_strings = extracted_frames(user_frame_convert, start_pattern, start_pattern2, end_pattern)
+    end_index , extracted_strings = extracted_frames(user_frame_convert, start_pattern, start_pattern2, end_pattern1)
+
+    if end_index == -1:
+      end_index , extracted_strings = extracted_frames(user_frame_convert, start_pattern, start_pattern2, end_pattern2)
+      if end_index == -1:
+        end_index , extracted_strings = extracted_frames(user_frame_convert, start_pattern, start_pattern2, end_pattern3)
 
     print("=====================")
     for idx, frame in enumerate(extracted_strings):
@@ -283,7 +289,7 @@ def extracted_frames(user_frame, start_pattern, start_pattern2, end_pattern):
         # Move the start index to continue searching
         start_index = end_index
 
-    return extracted_frames
+    return end_index, extracted_frames
 
 def decode_packet(python_expression, masked = False, user_maskedcode = ""):
 
@@ -301,26 +307,26 @@ def decode_packet(python_expression, masked = False, user_maskedcode = ""):
 
     WsPacket_message = base__pb2.WsPacket()
     WsPacket_message.ParseFromString(util_data_frame)
-    log.debug("") 
-    log.debug("decode  >>", data_frame) #1
-    log.debug("decode major_version >>", WsPacket_message.major_version) #1
-    log.debug("decode minor_version >>", WsPacket_message.minor_version) #1
-    log.debug("decode device_id >>", WsPacket_message.device_id) #1
-    log.debug("decode module_id >>", WsPacket_message.module_id) #9
-    log.debug("decode type >>", WsPacket_message.type) #2
-    log.debug("decode cmd >>", WsPacket_message.cmd) #15211
-    log.debug(f">> {getDwarfCMDName(WsPacket_message.cmd)}")
+    log.info("") 
+    log.info("decode  >>", data_frame) #1
+    log.info("decode major_version >>", WsPacket_message.major_version) #1
+    log.info("decode minor_version >>", WsPacket_message.minor_version) #1
+    log.info("decode device_id >>", WsPacket_message.device_id) #1
+    log.info("decode module_id >>", WsPacket_message.module_id) #9
+    log.info("decode type >>", WsPacket_message.type) #2
+    log.info("decode cmd >>", WsPacket_message.cmd) #15211
+    log.info(f">> {getDwarfCMDName(WsPacket_message.cmd)}")
     if (WsPacket_message.type == 0):
-        if ((WsPacket_message.cmd == protocol.CMD_SYSTEM_SET_HOSTSLAVE_MODE)):
+        if ((WsPacket_message.cmd == protocol.CMD_SYSTEM_SET_MASTERLOCK)):
             ReqSetHostSlaveMode_message = system.ReqSetHostSlaveMode()
             ReqSetHostSlaveMode_message.ParseFromString(WsPacket_message.data)
-            log.debug("receive notification data >>", ReqSetHostSlaveMode_message)
-            log.debug("receive notification mode >>", ReqSetHostSlaveMode_message.mode)
+            log.info("receive notification data >>", ReqSetHostSlaveMode_message)
+            log.info("receive notification mode >>", ReqSetHostSlaveMode_message.mode)
         if ((WsPacket_message.cmd == protocol.CMD_CAMERA_WIDE_SET_GAIN)):
             ReqSetGain_message = camera.ReqSetGain()
             ReqSetGain_message.ParseFromString(WsPacket_message.data)
-            log.debug("receive notification data >>", ReqSetGain_message)
-            log.debug("receive notification index >>", ReqSetGain_message.index)
+            log.info("receive notification data >>", ReqSetGain_message)
+            log.info("receive notification index >>", ReqSetGain_message.index)
         if (WsPacket_message.cmd == protocol.CMD_CAMERA_WIDE_GET_ALL_PARAMS):
             common_param_instance = base__pb2.CommonParam()
             ResGetAllParams_message = camera.ResGetAllParams()
@@ -344,28 +350,40 @@ def decode_packet(python_expression, masked = False, user_maskedcode = ""):
     if (WsPacket_message.type == 1):
         ComResponse_message = base__pb2.ComResponse()
         ComResponse_message.ParseFromString(WsPacket_message.data)
-        log.debug("receive data >>", ComResponse_message.code)
+        log.info("receive data >>", ComResponse_message.code)
     if (WsPacket_message.type == 3)or(WsPacket_message.type == 2):
         if ((WsPacket_message.cmd == protocol.CMD_ASTRO_STOP_CALIBRATION) or (WsPacket_message.cmd == protocol.CMD_NOTIFY_STATE_ASTRO_CALIBRATION)):
             ResNotifyStateAstroCalibration_message = notify.ResNotifyStateAstroCalibration()
             ResNotifyStateAstroCalibration_message.ParseFromString(WsPacket_message.data)
-            log.debug("receive notification data >>", ResNotifyStateAstroCalibration_message.state)
-            log.debug("receive notification times >>", ResNotifyStateAstroCalibration_message.plate_solving_times)
+            log.info("receive notification data >>", ResNotifyStateAstroCalibration_message.state)
+            log.info("receive notification times >>", ResNotifyStateAstroCalibration_message.plate_solving_times)
         elif (WsPacket_message.cmd == protocol.CMD_STEP_MOTOR_SERVICE_JOYSTICK):
             ResMotorPosition_message = motor_control.ResMotorPosition()
             ResMotorPosition_message.ParseFromString(WsPacket_message.data)
-            log.debug("receive notification id >>", ResMotorPosition_message.id)
-            log.debug("receive notification code >>", ResMotorPosition_message.code)
-            log.debug("receive notification position >>", ResMotorPosition_message.position)
+            log.info("receive notification id >>", ResMotorPosition_message.id)
+            log.info("receive notification code >>", ResMotorPosition_message.code)
+            log.info("receive notification position >>", ResMotorPosition_message.position)
         elif (WsPacket_message.cmd == protocol.CMD_ASTRO_START_CALIBRATION):
             ComResponse_message = base__pb2.ComResponse()
             ComResponse_message.ParseFromString(WsPacket_message.data)
-            log.debug("receive data >>", ComResponse_message.code)
+            log.info("receive data >>", ComResponse_message.code)
         elif ((WsPacket_message.cmd == protocol.CMD_CAMERA_WIDE_SET_GAIN)):
             ReqSetGain_message = camera.ReqSetGain()
             ReqSetGain_message.ParseFromString(WsPacket_message.data)
             log.info("receive notification data >>", ReqSetGain_message)
             log.info("receive notification index >>", ReqSetGain_message.index)
+        elif ((WsPacket_message.cmd == 15234)):
+            ComResWithInt_message = base__pb2.ComResWithInt()
+            ComResWithInt_message.ParseFromString(WsPacket_message.data)
+            log.info("receive data >>", ComResWithInt_message.code)
+            log.info("receive data >>", ComResWithInt_message.value)
+            ComResWithDouble_message_message = base__pb2.ComResWithDouble()
+            ComResWithDouble_message_message.ParseFromString(WsPacket_message.data)
+            log.info("receive data >>", ComResWithDouble_message_message.value)
+            ComResTest_message = notify.ResNotifyTimeLapseOutTime()  
+            log.info("receive data >>", ComResTest_message.interval)
+            log.info("receive data >>", ComResTest_message.out_time)
+            log.info("receive data >>", ComResTest_message.total_time)
         elif ((WsPacket_message.cmd == protocol.CMD_NOTIFY_WIDE_SET_PARAM)):
             common_param_instance = base__pb2.CommonParam()
             ResGetAllParams_message = camera.ResGetAllParams()
@@ -388,12 +406,12 @@ def decode_packet(python_expression, masked = False, user_maskedcode = ""):
         elif (WsPacket_message.type == 3):
             ComResWithInt_message = base__pb2.ComResWithInt()
             ComResWithInt_message.ParseFromString(WsPacket_message.data)
-            log.debug("receive data >>", ComResWithInt_message.code)
-            log.debug("receive data >>", ComResWithInt_message.value)
+            log.info("receive data >>", ComResWithInt_message.code)
+            log.info("receive data >>", ComResWithInt_message.value)
         else :
             ResNotifyStateAstroGoto_message = notify.ResNotifyStateAstroGoto()
             ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
-            log.debug("receive notification all data >>", ResNotifyStateAstroGoto_message)
-            log.debug("receive notification data >>", ResNotifyStateAstroGoto_message.state)
+            log.info("receive notification all data >>", ResNotifyStateAstroGoto_message)
+            log.info("receive notification data >>", ResNotifyStateAstroGoto_message.state)
 
-    log.debug("decode client_id >>", WsPacket_message.client_id) # ff03aa11-5994-4857-a872-b41e8a3a5e51
+    log.info("decode client_id >>", WsPacket_message.client_id) # ff03aa11-5994-4857-a872-b41e8a3a5e51

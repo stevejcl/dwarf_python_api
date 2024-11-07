@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x13motor_control.proto\"U\n\x17ReqMotorServiceJoystick\x12\x14\n\x0cvector_angle\x18\x01 \x01(\x01\x12\x15\n\rvector_length\x18\x02 \x01(\x01\x12\r\n\x05speed\x18\x03 \x01(\x01\"_\n!ReqMotorServiceJoystickFixedAngle\x12\x14\n\x0cvector_angle\x18\x01 \x01(\x01\x12\x15\n\rvector_length\x18\x02 \x01(\x01\x12\r\n\x05speed\x18\x03 \x01(\x01\"\x1d\n\x1bReqMotorServiceJoystickStop\"l\n\x0bReqMotorRun\x12\n\n\x02id\x18\x01 \x01(\x05\x12\r\n\x05speed\x18\x02 \x01(\x01\x12\x11\n\tdirection\x18\x03 \x01(\x08\x12\x15\n\rspeed_ramping\x18\x04 \x01(\x05\x12\x18\n\x10resolution_level\x18\x05 \x01(\x05\"q\n\rReqMotorRunTo\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x14\n\x0c\x65nd_position\x18\x02 \x01(\x01\x12\r\n\x05speed\x18\x03 \x01(\x01\x12\x15\n\rspeed_ramping\x18\x04 \x01(\x05\x12\x18\n\x10resolution_level\x18\x05 \x01(\x05\"\x1a\n\x0cReqMotorStop\x12\n\n\x02id\x18\x01 \x01(\x05\".\n\rReqMotorReset\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tdirection\x18\x02 \x01(\x08\"0\n\x13ReqMotorChangeSpeed\x12\n\n\x02id\x18\x01 \x01(\x05\x12\r\n\x05speed\x18\x02 \x01(\x01\"8\n\x17ReqMotorChangeDirection\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tdirection\x18\x02 \x01(\x08\"$\n\x08ResMotor\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\">\n\x10ResMotorPosition\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\x12\x10\n\x08position\x18\x03 \x01(\x01\",\n\x14ReqDualCameraLinkage\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\x62\x06proto3'
+  serialized_pb=b'\n\x13motor_control.proto\"U\n\x17ReqMotorServiceJoystick\x12\x14\n\x0cvector_angle\x18\x01 \x01(\x01\x12\x15\n\rvector_length\x18\x02 \x01(\x01\x12\r\n\x05speed\x18\x03 \x01(\x01\"_\n!ReqMotorServiceJoystickFixedAngle\x12\x14\n\x0cvector_angle\x18\x01 \x01(\x01\x12\x15\n\rvector_length\x18\x02 \x01(\x01\x12\r\n\x05speed\x18\x03 \x01(\x01\"\x1d\n\x1bReqMotorServiceJoystickStop\"l\n\x0bReqMotorRun\x12\n\n\x02id\x18\x01 \x01(\x05\x12\r\n\x05speed\x18\x02 \x01(\x01\x12\x11\n\tdirection\x18\x03 \x01(\x08\x12\x15\n\rspeed_ramping\x18\x04 \x01(\x05\x12\x18\n\x10resolution_level\x18\x05 \x01(\x05\"\x8e\x01\n\x12ReqMotorRunInPulse\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tfrequency\x18\x02 \x01(\x05\x12\x11\n\tdirection\x18\x03 \x01(\x08\x12\x15\n\rspeed_ramping\x18\x04 \x01(\x05\x12\x12\n\nresolution\x18\x05 \x01(\x05\x12\r\n\x05pulse\x18\x06 \x01(\x05\x12\x0c\n\x04mode\x18\x07 \x01(\x08\"q\n\rReqMotorRunTo\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x14\n\x0c\x65nd_position\x18\x02 \x01(\x01\x12\r\n\x05speed\x18\x03 \x01(\x01\x12\x15\n\rspeed_ramping\x18\x04 \x01(\x05\x12\x18\n\x10resolution_level\x18\x05 \x01(\x05\"!\n\x13ReqMotorGetPosition\x12\n\n\x02id\x18\x01 \x01(\x05\"\x1a\n\x0cReqMotorStop\x12\n\n\x02id\x18\x01 \x01(\x05\".\n\rReqMotorReset\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tdirection\x18\x02 \x01(\x08\"0\n\x13ReqMotorChangeSpeed\x12\n\n\x02id\x18\x01 \x01(\x05\x12\r\n\x05speed\x18\x02 \x01(\x01\"8\n\x17ReqMotorChangeDirection\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tdirection\x18\x02 \x01(\x08\"$\n\x08ResMotor\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\">\n\x10ResMotorPosition\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\x12\x10\n\x08position\x18\x03 \x01(\x01\",\n\x14ReqDualCameraLinkage\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\x62\x06proto3'
 )
 
 
@@ -202,6 +202,80 @@ _REQMOTORRUN = _descriptor.Descriptor(
 )
 
 
+_REQMOTORRUNINPULSE = _descriptor.Descriptor(
+  name='ReqMotorRunInPulse',
+  full_name='ReqMotorRunInPulse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='id', full_name='ReqMotorRunInPulse.id', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='frequency', full_name='ReqMotorRunInPulse.frequency', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='direction', full_name='ReqMotorRunInPulse.direction', index=2,
+      number=3, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='speed_ramping', full_name='ReqMotorRunInPulse.speed_ramping', index=3,
+      number=4, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='resolution', full_name='ReqMotorRunInPulse.resolution', index=4,
+      number=5, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='pulse', full_name='ReqMotorRunInPulse.pulse', index=5,
+      number=6, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='mode', full_name='ReqMotorRunInPulse.mode', index=6,
+      number=7, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=349,
+  serialized_end=491,
+)
+
+
 _REQMOTORRUNTO = _descriptor.Descriptor(
   name='ReqMotorRunTo',
   full_name='ReqMotorRunTo',
@@ -257,8 +331,40 @@ _REQMOTORRUNTO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=348,
-  serialized_end=461,
+  serialized_start=493,
+  serialized_end=606,
+)
+
+
+_REQMOTORGETPOSITION = _descriptor.Descriptor(
+  name='ReqMotorGetPosition',
+  full_name='ReqMotorGetPosition',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='id', full_name='ReqMotorGetPosition.id', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=608,
+  serialized_end=641,
 )
 
 
@@ -289,8 +395,8 @@ _REQMOTORSTOP = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=463,
-  serialized_end=489,
+  serialized_start=643,
+  serialized_end=669,
 )
 
 
@@ -328,8 +434,8 @@ _REQMOTORRESET = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=491,
-  serialized_end=537,
+  serialized_start=671,
+  serialized_end=717,
 )
 
 
@@ -367,8 +473,8 @@ _REQMOTORCHANGESPEED = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=539,
-  serialized_end=587,
+  serialized_start=719,
+  serialized_end=767,
 )
 
 
@@ -406,8 +512,8 @@ _REQMOTORCHANGEDIRECTION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=589,
-  serialized_end=645,
+  serialized_start=769,
+  serialized_end=825,
 )
 
 
@@ -445,8 +551,8 @@ _RESMOTOR = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=647,
-  serialized_end=683,
+  serialized_start=827,
+  serialized_end=863,
 )
 
 
@@ -491,8 +597,8 @@ _RESMOTORPOSITION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=685,
-  serialized_end=747,
+  serialized_start=865,
+  serialized_end=927,
 )
 
 
@@ -530,15 +636,17 @@ _REQDUALCAMERALINKAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=749,
-  serialized_end=793,
+  serialized_start=929,
+  serialized_end=973,
 )
 
 DESCRIPTOR.message_types_by_name['ReqMotorServiceJoystick'] = _REQMOTORSERVICEJOYSTICK
 DESCRIPTOR.message_types_by_name['ReqMotorServiceJoystickFixedAngle'] = _REQMOTORSERVICEJOYSTICKFIXEDANGLE
 DESCRIPTOR.message_types_by_name['ReqMotorServiceJoystickStop'] = _REQMOTORSERVICEJOYSTICKSTOP
 DESCRIPTOR.message_types_by_name['ReqMotorRun'] = _REQMOTORRUN
+DESCRIPTOR.message_types_by_name['ReqMotorRunInPulse'] = _REQMOTORRUNINPULSE
 DESCRIPTOR.message_types_by_name['ReqMotorRunTo'] = _REQMOTORRUNTO
+DESCRIPTOR.message_types_by_name['ReqMotorGetPosition'] = _REQMOTORGETPOSITION
 DESCRIPTOR.message_types_by_name['ReqMotorStop'] = _REQMOTORSTOP
 DESCRIPTOR.message_types_by_name['ReqMotorReset'] = _REQMOTORRESET
 DESCRIPTOR.message_types_by_name['ReqMotorChangeSpeed'] = _REQMOTORCHANGESPEED
@@ -576,12 +684,26 @@ ReqMotorRun = _reflection.GeneratedProtocolMessageType('ReqMotorRun', (_message.
   })
 _sym_db.RegisterMessage(ReqMotorRun)
 
+ReqMotorRunInPulse = _reflection.GeneratedProtocolMessageType('ReqMotorRunInPulse', (_message.Message,), {
+  'DESCRIPTOR' : _REQMOTORRUNINPULSE,
+  '__module__' : 'motor_control_pb2'
+  # @@protoc_insertion_point(class_scope:ReqMotorRunInPulse)
+  })
+_sym_db.RegisterMessage(ReqMotorRunInPulse)
+
 ReqMotorRunTo = _reflection.GeneratedProtocolMessageType('ReqMotorRunTo', (_message.Message,), {
   'DESCRIPTOR' : _REQMOTORRUNTO,
   '__module__' : 'motor_control_pb2'
   # @@protoc_insertion_point(class_scope:ReqMotorRunTo)
   })
 _sym_db.RegisterMessage(ReqMotorRunTo)
+
+ReqMotorGetPosition = _reflection.GeneratedProtocolMessageType('ReqMotorGetPosition', (_message.Message,), {
+  'DESCRIPTOR' : _REQMOTORGETPOSITION,
+  '__module__' : 'motor_control_pb2'
+  # @@protoc_insertion_point(class_scope:ReqMotorGetPosition)
+  })
+_sym_db.RegisterMessage(ReqMotorGetPosition)
 
 ReqMotorStop = _reflection.GeneratedProtocolMessageType('ReqMotorStop', (_message.Message,), {
   'DESCRIPTOR' : _REQMOTORSTOP,

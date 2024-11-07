@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x0b\x61stro.proto\"\x15\n\x13ReqStartCalibration\"\x14\n\x12ReqStopCalibration\":\n\nReqGotoDSO\x12\n\n\x02ra\x18\x01 \x01(\x01\x12\x0b\n\x03\x64\x65\x63\x18\x02 \x01(\x01\x12\x13\n\x0btarget_name\x18\x03 \x01(\t\"R\n\x12ReqGotoSolarSystem\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x0b\n\x03lon\x18\x02 \x01(\x01\x12\x0b\n\x03lat\x18\x03 \x01(\x01\x12\x13\n\x0btarget_name\x18\x04 \x01(\t\"\r\n\x0bReqStopGoto\"\x1b\n\x19ReqCaptureRawLiveStacking\"\x1f\n\x1dReqStopCaptureRawLiveStacking\"\x13\n\x11ReqCheckDarkFrame\"3\n\x11ResCheckDarkFrame\x12\x10\n\x08progress\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"&\n\x13ReqCaptureDarkFrame\x12\x0f\n\x07reshoot\x18\x01 \x01(\x05\"\x19\n\x17ReqStopCaptureDarkFrame\"\x0b\n\tReqGoLive\"@\n\x15ReqTrackSpecialTarget\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x0b\n\x03lon\x18\x02 \x01(\x01\x12\x0b\n\x03lat\x18\x03 \x01(\x01\"\x1b\n\x19ReqStopTrackSpecialTargetb\x06proto3'
+  serialized_pb=b'\n\x0b\x61stro.proto\"\x15\n\x13ReqStartCalibration\"\x14\n\x12ReqStopCalibration\":\n\nReqGotoDSO\x12\n\n\x02ra\x18\x01 \x01(\x01\x12\x0b\n\x03\x64\x65\x63\x18\x02 \x01(\x01\x12\x13\n\x0btarget_name\x18\x03 \x01(\t\"R\n\x12ReqGotoSolarSystem\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x0b\n\x03lon\x18\x02 \x01(\x01\x12\x0b\n\x03lat\x18\x03 \x01(\x01\x12\x13\n\x0btarget_name\x18\x04 \x01(\t\"\r\n\x0bReqStopGoto\"\x1b\n\x19ReqCaptureRawLiveStacking\"\x1f\n\x1dReqStopCaptureRawLiveStacking\"\x13\n\x11ReqCheckDarkFrame\"3\n\x11ResCheckDarkFrame\x12\x10\n\x08progress\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\"&\n\x13ReqCaptureDarkFrame\x12\x0f\n\x07reshoot\x18\x01 \x01(\x05\"\x19\n\x17ReqStopCaptureDarkFrame\"j\n\x1cReqCaptureDarkFrameWithParam\x12\x11\n\texp_index\x18\x01 \x01(\x05\x12\x12\n\ngain_index\x18\x02 \x01(\x05\x12\x11\n\tbin_index\x18\x03 \x01(\x05\x12\x10\n\x08\x63\x61p_size\x18\x04 \x01(\x05\"\"\n ReqStopCaptureDarkFrameWithParam\"\x15\n\x13ReqGetDarkFrameList\"\x9b\x01\n\x13ResGetDarkFrameInfo\x12\x11\n\texp_index\x18\x01 \x01(\x05\x12\x12\n\ngain_index\x18\x02 \x01(\x05\x12\x11\n\tbin_index\x18\x03 \x01(\x05\x12\x10\n\x08\x65xp_name\x18\x04 \x01(\t\x12\x11\n\tgain_name\x18\x05 \x01(\t\x12\x10\n\x08\x62in_name\x18\x06 \x01(\t\x12\x13\n\x0btemperature\x18\x07 \x01(\x05\"N\n\x17ResGetDarkFrameInfoList\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12%\n\x07results\x18\x02 \x03(\x0b\x32\x14.ResGetDarkFrameInfo\"K\n\x0fReqDelDarkFrame\x12\x11\n\texp_index\x18\x01 \x01(\x05\x12\x12\n\ngain_index\x18\x02 \x01(\x05\x12\x11\n\tbin_index\x18\x03 \x01(\x05\":\n\x13ReqDelDarkFrameList\x12#\n\tdark_list\x18\x01 \x03(\x0b\x32\x10.ReqDelDarkFrame\"#\n\x13ResDelDarkFrameList\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\"\x0b\n\tReqGoLive\"@\n\x15ReqTrackSpecialTarget\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x0b\n\x03lon\x18\x02 \x01(\x01\x12\x0b\n\x03lat\x18\x03 \x01(\x01\"\x1b\n\x19ReqStopTrackSpecialTarget\"B\n\x12ReqOneClickGotoDSO\x12\n\n\x02ra\x18\x01 \x01(\x01\x12\x0b\n\x03\x64\x65\x63\x18\x02 \x01(\x01\x12\x13\n\x0btarget_name\x18\x03 \x01(\t\"Z\n\x1aReqOneClickGotoSolarSystem\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x0b\n\x03lon\x18\x02 \x01(\x01\x12\x0b\n\x03lat\x18\x03 \x01(\x01\x12\x13\n\x0btarget_name\x18\x04 \x01(\t\">\n\x0fResOneClickGoto\x12\x0c\n\x04step\x18\x01 \x01(\x05\x12\x0c\n\x04\x63ode\x18\x02 \x01(\x05\x12\x0f\n\x07\x61ll_end\x18\x03 \x01(\x08\"\x15\n\x13ReqStopOneClickGoto\"\x1f\n\x1dReqCaptureWideRawLiveStacking\"#\n!ReqStopCaptureWideRawLiveStacking\"-\n\x11ReqStartEqSolving\x12\x0b\n\x03lon\x18\x01 \x01(\x01\x12\x0b\n\x03lat\x18\x02 \x01(\x01\"C\n\x11ResStartEqSolving\x12\x0f\n\x07\x61zi_err\x18\x01 \x01(\x01\x12\x0f\n\x07\x61lt_err\x18\x02 \x01(\x01\x12\x0c\n\x04\x63ode\x18\x03 \x01(\x05\"\x12\n\x10ReqStopEqSolvingb\x06proto3'
 )
 
 
@@ -370,6 +370,332 @@ _REQSTOPCAPTUREDARKFRAME = _descriptor.Descriptor(
 )
 
 
+_REQCAPTUREDARKFRAMEWITHPARAM = _descriptor.Descriptor(
+  name='ReqCaptureDarkFrameWithParam',
+  full_name='ReqCaptureDarkFrameWithParam',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='exp_index', full_name='ReqCaptureDarkFrameWithParam.exp_index', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='gain_index', full_name='ReqCaptureDarkFrameWithParam.gain_index', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='bin_index', full_name='ReqCaptureDarkFrameWithParam.bin_index', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='cap_size', full_name='ReqCaptureDarkFrameWithParam.cap_size', index=3,
+      number=4, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=422,
+  serialized_end=528,
+)
+
+
+_REQSTOPCAPTUREDARKFRAMEWITHPARAM = _descriptor.Descriptor(
+  name='ReqStopCaptureDarkFrameWithParam',
+  full_name='ReqStopCaptureDarkFrameWithParam',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=530,
+  serialized_end=564,
+)
+
+
+_REQGETDARKFRAMELIST = _descriptor.Descriptor(
+  name='ReqGetDarkFrameList',
+  full_name='ReqGetDarkFrameList',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=566,
+  serialized_end=587,
+)
+
+
+_RESGETDARKFRAMEINFO = _descriptor.Descriptor(
+  name='ResGetDarkFrameInfo',
+  full_name='ResGetDarkFrameInfo',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='exp_index', full_name='ResGetDarkFrameInfo.exp_index', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='gain_index', full_name='ResGetDarkFrameInfo.gain_index', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='bin_index', full_name='ResGetDarkFrameInfo.bin_index', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='exp_name', full_name='ResGetDarkFrameInfo.exp_name', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='gain_name', full_name='ResGetDarkFrameInfo.gain_name', index=4,
+      number=5, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='bin_name', full_name='ResGetDarkFrameInfo.bin_name', index=5,
+      number=6, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='temperature', full_name='ResGetDarkFrameInfo.temperature', index=6,
+      number=7, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=590,
+  serialized_end=745,
+)
+
+
+_RESGETDARKFRAMEINFOLIST = _descriptor.Descriptor(
+  name='ResGetDarkFrameInfoList',
+  full_name='ResGetDarkFrameInfoList',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='code', full_name='ResGetDarkFrameInfoList.code', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='results', full_name='ResGetDarkFrameInfoList.results', index=1,
+      number=2, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=747,
+  serialized_end=825,
+)
+
+
+_REQDELDARKFRAME = _descriptor.Descriptor(
+  name='ReqDelDarkFrame',
+  full_name='ReqDelDarkFrame',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='exp_index', full_name='ReqDelDarkFrame.exp_index', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='gain_index', full_name='ReqDelDarkFrame.gain_index', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='bin_index', full_name='ReqDelDarkFrame.bin_index', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=827,
+  serialized_end=902,
+)
+
+
+_REQDELDARKFRAMELIST = _descriptor.Descriptor(
+  name='ReqDelDarkFrameList',
+  full_name='ReqDelDarkFrameList',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='dark_list', full_name='ReqDelDarkFrameList.dark_list', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=904,
+  serialized_end=962,
+)
+
+
+_RESDELDARKFRAMELIST = _descriptor.Descriptor(
+  name='ResDelDarkFrameList',
+  full_name='ResDelDarkFrameList',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='code', full_name='ResDelDarkFrameList.code', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=964,
+  serialized_end=999,
+)
+
+
 _REQGOLIVE = _descriptor.Descriptor(
   name='ReqGoLive',
   full_name='ReqGoLive',
@@ -390,8 +716,8 @@ _REQGOLIVE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=422,
-  serialized_end=433,
+  serialized_start=1001,
+  serialized_end=1012,
 )
 
 
@@ -436,8 +762,8 @@ _REQTRACKSPECIALTARGET = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=435,
-  serialized_end=499,
+  serialized_start=1014,
+  serialized_end=1078,
 )
 
 
@@ -461,10 +787,342 @@ _REQSTOPTRACKSPECIALTARGET = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=501,
-  serialized_end=528,
+  serialized_start=1080,
+  serialized_end=1107,
 )
 
+
+_REQONECLICKGOTODSO = _descriptor.Descriptor(
+  name='ReqOneClickGotoDSO',
+  full_name='ReqOneClickGotoDSO',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='ra', full_name='ReqOneClickGotoDSO.ra', index=0,
+      number=1, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='dec', full_name='ReqOneClickGotoDSO.dec', index=1,
+      number=2, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='target_name', full_name='ReqOneClickGotoDSO.target_name', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1109,
+  serialized_end=1175,
+)
+
+
+_REQONECLICKGOTOSOLARSYSTEM = _descriptor.Descriptor(
+  name='ReqOneClickGotoSolarSystem',
+  full_name='ReqOneClickGotoSolarSystem',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='index', full_name='ReqOneClickGotoSolarSystem.index', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='lon', full_name='ReqOneClickGotoSolarSystem.lon', index=1,
+      number=2, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='lat', full_name='ReqOneClickGotoSolarSystem.lat', index=2,
+      number=3, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='target_name', full_name='ReqOneClickGotoSolarSystem.target_name', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1177,
+  serialized_end=1267,
+)
+
+
+_RESONECLICKGOTO = _descriptor.Descriptor(
+  name='ResOneClickGoto',
+  full_name='ResOneClickGoto',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='step', full_name='ResOneClickGoto.step', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='code', full_name='ResOneClickGoto.code', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='all_end', full_name='ResOneClickGoto.all_end', index=2,
+      number=3, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1269,
+  serialized_end=1331,
+)
+
+
+_REQSTOPONECLICKGOTO = _descriptor.Descriptor(
+  name='ReqStopOneClickGoto',
+  full_name='ReqStopOneClickGoto',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1333,
+  serialized_end=1354,
+)
+
+
+_REQCAPTUREWIDERAWLIVESTACKING = _descriptor.Descriptor(
+  name='ReqCaptureWideRawLiveStacking',
+  full_name='ReqCaptureWideRawLiveStacking',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1356,
+  serialized_end=1387,
+)
+
+
+_REQSTOPCAPTUREWIDERAWLIVESTACKING = _descriptor.Descriptor(
+  name='ReqStopCaptureWideRawLiveStacking',
+  full_name='ReqStopCaptureWideRawLiveStacking',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1389,
+  serialized_end=1424,
+)
+
+
+_REQSTARTEQSOLVING = _descriptor.Descriptor(
+  name='ReqStartEqSolving',
+  full_name='ReqStartEqSolving',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='lon', full_name='ReqStartEqSolving.lon', index=0,
+      number=1, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='lat', full_name='ReqStartEqSolving.lat', index=1,
+      number=2, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1426,
+  serialized_end=1471,
+)
+
+
+_RESSTARTEQSOLVING = _descriptor.Descriptor(
+  name='ResStartEqSolving',
+  full_name='ResStartEqSolving',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='azi_err', full_name='ResStartEqSolving.azi_err', index=0,
+      number=1, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='alt_err', full_name='ResStartEqSolving.alt_err', index=1,
+      number=2, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='code', full_name='ResStartEqSolving.code', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1473,
+  serialized_end=1540,
+)
+
+
+_REQSTOPEQSOLVING = _descriptor.Descriptor(
+  name='ReqStopEqSolving',
+  full_name='ReqStopEqSolving',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1542,
+  serialized_end=1560,
+)
+
+_RESGETDARKFRAMEINFOLIST.fields_by_name['results'].message_type = _RESGETDARKFRAMEINFO
+_REQDELDARKFRAMELIST.fields_by_name['dark_list'].message_type = _REQDELDARKFRAME
 DESCRIPTOR.message_types_by_name['ReqStartCalibration'] = _REQSTARTCALIBRATION
 DESCRIPTOR.message_types_by_name['ReqStopCalibration'] = _REQSTOPCALIBRATION
 DESCRIPTOR.message_types_by_name['ReqGotoDSO'] = _REQGOTODSO
@@ -476,9 +1134,26 @@ DESCRIPTOR.message_types_by_name['ReqCheckDarkFrame'] = _REQCHECKDARKFRAME
 DESCRIPTOR.message_types_by_name['ResCheckDarkFrame'] = _RESCHECKDARKFRAME
 DESCRIPTOR.message_types_by_name['ReqCaptureDarkFrame'] = _REQCAPTUREDARKFRAME
 DESCRIPTOR.message_types_by_name['ReqStopCaptureDarkFrame'] = _REQSTOPCAPTUREDARKFRAME
+DESCRIPTOR.message_types_by_name['ReqCaptureDarkFrameWithParam'] = _REQCAPTUREDARKFRAMEWITHPARAM
+DESCRIPTOR.message_types_by_name['ReqStopCaptureDarkFrameWithParam'] = _REQSTOPCAPTUREDARKFRAMEWITHPARAM
+DESCRIPTOR.message_types_by_name['ReqGetDarkFrameList'] = _REQGETDARKFRAMELIST
+DESCRIPTOR.message_types_by_name['ResGetDarkFrameInfo'] = _RESGETDARKFRAMEINFO
+DESCRIPTOR.message_types_by_name['ResGetDarkFrameInfoList'] = _RESGETDARKFRAMEINFOLIST
+DESCRIPTOR.message_types_by_name['ReqDelDarkFrame'] = _REQDELDARKFRAME
+DESCRIPTOR.message_types_by_name['ReqDelDarkFrameList'] = _REQDELDARKFRAMELIST
+DESCRIPTOR.message_types_by_name['ResDelDarkFrameList'] = _RESDELDARKFRAMELIST
 DESCRIPTOR.message_types_by_name['ReqGoLive'] = _REQGOLIVE
 DESCRIPTOR.message_types_by_name['ReqTrackSpecialTarget'] = _REQTRACKSPECIALTARGET
 DESCRIPTOR.message_types_by_name['ReqStopTrackSpecialTarget'] = _REQSTOPTRACKSPECIALTARGET
+DESCRIPTOR.message_types_by_name['ReqOneClickGotoDSO'] = _REQONECLICKGOTODSO
+DESCRIPTOR.message_types_by_name['ReqOneClickGotoSolarSystem'] = _REQONECLICKGOTOSOLARSYSTEM
+DESCRIPTOR.message_types_by_name['ResOneClickGoto'] = _RESONECLICKGOTO
+DESCRIPTOR.message_types_by_name['ReqStopOneClickGoto'] = _REQSTOPONECLICKGOTO
+DESCRIPTOR.message_types_by_name['ReqCaptureWideRawLiveStacking'] = _REQCAPTUREWIDERAWLIVESTACKING
+DESCRIPTOR.message_types_by_name['ReqStopCaptureWideRawLiveStacking'] = _REQSTOPCAPTUREWIDERAWLIVESTACKING
+DESCRIPTOR.message_types_by_name['ReqStartEqSolving'] = _REQSTARTEQSOLVING
+DESCRIPTOR.message_types_by_name['ResStartEqSolving'] = _RESSTARTEQSOLVING
+DESCRIPTOR.message_types_by_name['ReqStopEqSolving'] = _REQSTOPEQSOLVING
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 ReqStartCalibration = _reflection.GeneratedProtocolMessageType('ReqStartCalibration', (_message.Message,), {
@@ -558,6 +1233,62 @@ ReqStopCaptureDarkFrame = _reflection.GeneratedProtocolMessageType('ReqStopCaptu
   })
 _sym_db.RegisterMessage(ReqStopCaptureDarkFrame)
 
+ReqCaptureDarkFrameWithParam = _reflection.GeneratedProtocolMessageType('ReqCaptureDarkFrameWithParam', (_message.Message,), {
+  'DESCRIPTOR' : _REQCAPTUREDARKFRAMEWITHPARAM,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqCaptureDarkFrameWithParam)
+  })
+_sym_db.RegisterMessage(ReqCaptureDarkFrameWithParam)
+
+ReqStopCaptureDarkFrameWithParam = _reflection.GeneratedProtocolMessageType('ReqStopCaptureDarkFrameWithParam', (_message.Message,), {
+  'DESCRIPTOR' : _REQSTOPCAPTUREDARKFRAMEWITHPARAM,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqStopCaptureDarkFrameWithParam)
+  })
+_sym_db.RegisterMessage(ReqStopCaptureDarkFrameWithParam)
+
+ReqGetDarkFrameList = _reflection.GeneratedProtocolMessageType('ReqGetDarkFrameList', (_message.Message,), {
+  'DESCRIPTOR' : _REQGETDARKFRAMELIST,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqGetDarkFrameList)
+  })
+_sym_db.RegisterMessage(ReqGetDarkFrameList)
+
+ResGetDarkFrameInfo = _reflection.GeneratedProtocolMessageType('ResGetDarkFrameInfo', (_message.Message,), {
+  'DESCRIPTOR' : _RESGETDARKFRAMEINFO,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ResGetDarkFrameInfo)
+  })
+_sym_db.RegisterMessage(ResGetDarkFrameInfo)
+
+ResGetDarkFrameInfoList = _reflection.GeneratedProtocolMessageType('ResGetDarkFrameInfoList', (_message.Message,), {
+  'DESCRIPTOR' : _RESGETDARKFRAMEINFOLIST,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ResGetDarkFrameInfoList)
+  })
+_sym_db.RegisterMessage(ResGetDarkFrameInfoList)
+
+ReqDelDarkFrame = _reflection.GeneratedProtocolMessageType('ReqDelDarkFrame', (_message.Message,), {
+  'DESCRIPTOR' : _REQDELDARKFRAME,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqDelDarkFrame)
+  })
+_sym_db.RegisterMessage(ReqDelDarkFrame)
+
+ReqDelDarkFrameList = _reflection.GeneratedProtocolMessageType('ReqDelDarkFrameList', (_message.Message,), {
+  'DESCRIPTOR' : _REQDELDARKFRAMELIST,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqDelDarkFrameList)
+  })
+_sym_db.RegisterMessage(ReqDelDarkFrameList)
+
+ResDelDarkFrameList = _reflection.GeneratedProtocolMessageType('ResDelDarkFrameList', (_message.Message,), {
+  'DESCRIPTOR' : _RESDELDARKFRAMELIST,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ResDelDarkFrameList)
+  })
+_sym_db.RegisterMessage(ResDelDarkFrameList)
+
 ReqGoLive = _reflection.GeneratedProtocolMessageType('ReqGoLive', (_message.Message,), {
   'DESCRIPTOR' : _REQGOLIVE,
   '__module__' : 'astro_pb2'
@@ -578,6 +1309,69 @@ ReqStopTrackSpecialTarget = _reflection.GeneratedProtocolMessageType('ReqStopTra
   # @@protoc_insertion_point(class_scope:ReqStopTrackSpecialTarget)
   })
 _sym_db.RegisterMessage(ReqStopTrackSpecialTarget)
+
+ReqOneClickGotoDSO = _reflection.GeneratedProtocolMessageType('ReqOneClickGotoDSO', (_message.Message,), {
+  'DESCRIPTOR' : _REQONECLICKGOTODSO,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqOneClickGotoDSO)
+  })
+_sym_db.RegisterMessage(ReqOneClickGotoDSO)
+
+ReqOneClickGotoSolarSystem = _reflection.GeneratedProtocolMessageType('ReqOneClickGotoSolarSystem', (_message.Message,), {
+  'DESCRIPTOR' : _REQONECLICKGOTOSOLARSYSTEM,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqOneClickGotoSolarSystem)
+  })
+_sym_db.RegisterMessage(ReqOneClickGotoSolarSystem)
+
+ResOneClickGoto = _reflection.GeneratedProtocolMessageType('ResOneClickGoto', (_message.Message,), {
+  'DESCRIPTOR' : _RESONECLICKGOTO,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ResOneClickGoto)
+  })
+_sym_db.RegisterMessage(ResOneClickGoto)
+
+ReqStopOneClickGoto = _reflection.GeneratedProtocolMessageType('ReqStopOneClickGoto', (_message.Message,), {
+  'DESCRIPTOR' : _REQSTOPONECLICKGOTO,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqStopOneClickGoto)
+  })
+_sym_db.RegisterMessage(ReqStopOneClickGoto)
+
+ReqCaptureWideRawLiveStacking = _reflection.GeneratedProtocolMessageType('ReqCaptureWideRawLiveStacking', (_message.Message,), {
+  'DESCRIPTOR' : _REQCAPTUREWIDERAWLIVESTACKING,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqCaptureWideRawLiveStacking)
+  })
+_sym_db.RegisterMessage(ReqCaptureWideRawLiveStacking)
+
+ReqStopCaptureWideRawLiveStacking = _reflection.GeneratedProtocolMessageType('ReqStopCaptureWideRawLiveStacking', (_message.Message,), {
+  'DESCRIPTOR' : _REQSTOPCAPTUREWIDERAWLIVESTACKING,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqStopCaptureWideRawLiveStacking)
+  })
+_sym_db.RegisterMessage(ReqStopCaptureWideRawLiveStacking)
+
+ReqStartEqSolving = _reflection.GeneratedProtocolMessageType('ReqStartEqSolving', (_message.Message,), {
+  'DESCRIPTOR' : _REQSTARTEQSOLVING,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqStartEqSolving)
+  })
+_sym_db.RegisterMessage(ReqStartEqSolving)
+
+ResStartEqSolving = _reflection.GeneratedProtocolMessageType('ResStartEqSolving', (_message.Message,), {
+  'DESCRIPTOR' : _RESSTARTEQSOLVING,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ResStartEqSolving)
+  })
+_sym_db.RegisterMessage(ResStartEqSolving)
+
+ReqStopEqSolving = _reflection.GeneratedProtocolMessageType('ReqStopEqSolving', (_message.Message,), {
+  'DESCRIPTOR' : _REQSTOPEQSOLVING,
+  '__module__' : 'astro_pb2'
+  # @@protoc_insertion_point(class_scope:ReqStopEqSolving)
+  })
+_sym_db.RegisterMessage(ReqStopEqSolving)
 
 
 # @@protoc_insertion_point(module_scope)

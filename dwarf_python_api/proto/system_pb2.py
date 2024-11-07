@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x0csystem.proto\"\x1f\n\nReqSetTime\x12\x11\n\ttimestamp\x18\x01 \x01(\x04\"\"\n\x0eReqSetTimezone\x12\x10\n\x08timezone\x18\x01 \x01(\t\"\x1d\n\rReqSetMtpMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\x1d\n\rReqSetCpuMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"#\n\x13ReqSetHostSlaveMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\x62\x06proto3'
+  serialized_pb=b'\n\x0csystem.proto\"8\n\nReqSetTime\x12\x11\n\ttimestamp\x18\x01 \x01(\x04\x12\x17\n\x0ftimezone_offset\x18\x02 \x01(\x01\"\"\n\x0eReqSetTimezone\x12\x10\n\x08timezone\x18\x01 \x01(\t\"\x1d\n\rReqSetMtpMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\"\x1d\n\rReqSetCpuMode\x12\x0c\n\x04mode\x18\x01 \x01(\x05\" \n\x10ReqsetMasterLock\x12\x0c\n\x04lock\x18\x01 \x01(\x08\"*\n\x18ReqGetDeviceActivateInfo\x12\x0e\n\x06issuer\x18\x01 \x01(\x05\"f\n\x15ResDeviceActivateInfo\x12\x16\n\x0e\x61\x63tivate_state\x18\x01 \x01(\x05\x12\x1e\n\x16\x61\x63tivate_process_state\x18\x02 \x01(\x05\x12\x15\n\rrequest_param\x18\x03 \x01(\t\"3\n\x1aReqDeviceActivateWriteFile\x12\x15\n\rrequest_param\x18\x01 \x01(\t\"A\n\x1aResDeviceActivateWriteFile\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x15\n\rrequest_param\x18\x02 \x01(\t\"5\n\x1cReqDeviceActivateSuccessfull\x12\x15\n\rrequest_param\x18\x01 \x01(\t\"D\n\x1cResDeviceActivateSuccessfull\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x16\n\x0e\x61\x63tivate_state\x18\x02 \x01(\x05\"1\n\x18ReqDisableDeviceActivate\x12\x15\n\rrequest_param\x18\x01 \x01(\t\"@\n\x18ResDisableDeviceActivate\x12\x0c\n\x04\x63ode\x18\x01 \x01(\x05\x12\x16\n\x0e\x61\x63tivate_state\x18\x02 \x01(\x05\x62\x06proto3'
 )
 
 
@@ -40,6 +40,13 @@ _REQSETTIME = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='timezone_offset', full_name='ReqSetTime.timezone_offset', index=1,
+      number=2, type=1, cpp_type=5, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -53,7 +60,7 @@ _REQSETTIME = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=16,
-  serialized_end=47,
+  serialized_end=72,
 )
 
 
@@ -84,8 +91,8 @@ _REQSETTIMEZONE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=49,
-  serialized_end=83,
+  serialized_start=74,
+  serialized_end=108,
 )
 
 
@@ -116,8 +123,8 @@ _REQSETMTPMODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=85,
-  serialized_end=114,
+  serialized_start=110,
+  serialized_end=139,
 )
 
 
@@ -148,21 +155,53 @@ _REQSETCPUMODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=116,
-  serialized_end=145,
+  serialized_start=141,
+  serialized_end=170,
 )
 
 
-_REQSETHOSTSLAVEMODE = _descriptor.Descriptor(
-  name='ReqSetHostSlaveMode',
-  full_name='ReqSetHostSlaveMode',
+_REQSETMASTERLOCK = _descriptor.Descriptor(
+  name='ReqsetMasterLock',
+  full_name='ReqsetMasterLock',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='mode', full_name='ReqSetHostSlaveMode.mode', index=0,
+      name='lock', full_name='ReqsetMasterLock.lock', index=0,
+      number=1, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=172,
+  serialized_end=204,
+)
+
+
+_REQGETDEVICEACTIVATEINFO = _descriptor.Descriptor(
+  name='ReqGetDeviceActivateInfo',
+  full_name='ReqGetDeviceActivateInfo',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='issuer', full_name='ReqGetDeviceActivateInfo.issuer', index=0,
       number=1, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
@@ -180,15 +219,282 @@ _REQSETHOSTSLAVEMODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=147,
-  serialized_end=182,
+  serialized_start=206,
+  serialized_end=248,
+)
+
+
+_RESDEVICEACTIVATEINFO = _descriptor.Descriptor(
+  name='ResDeviceActivateInfo',
+  full_name='ResDeviceActivateInfo',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='activate_state', full_name='ResDeviceActivateInfo.activate_state', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='activate_process_state', full_name='ResDeviceActivateInfo.activate_process_state', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='request_param', full_name='ResDeviceActivateInfo.request_param', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=250,
+  serialized_end=352,
+)
+
+
+_REQDEVICEACTIVATEWRITEFILE = _descriptor.Descriptor(
+  name='ReqDeviceActivateWriteFile',
+  full_name='ReqDeviceActivateWriteFile',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='request_param', full_name='ReqDeviceActivateWriteFile.request_param', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=354,
+  serialized_end=405,
+)
+
+
+_RESDEVICEACTIVATEWRITEFILE = _descriptor.Descriptor(
+  name='ResDeviceActivateWriteFile',
+  full_name='ResDeviceActivateWriteFile',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='code', full_name='ResDeviceActivateWriteFile.code', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='request_param', full_name='ResDeviceActivateWriteFile.request_param', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=407,
+  serialized_end=472,
+)
+
+
+_REQDEVICEACTIVATESUCCESSFULL = _descriptor.Descriptor(
+  name='ReqDeviceActivateSuccessfull',
+  full_name='ReqDeviceActivateSuccessfull',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='request_param', full_name='ReqDeviceActivateSuccessfull.request_param', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=474,
+  serialized_end=527,
+)
+
+
+_RESDEVICEACTIVATESUCCESSFULL = _descriptor.Descriptor(
+  name='ResDeviceActivateSuccessfull',
+  full_name='ResDeviceActivateSuccessfull',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='code', full_name='ResDeviceActivateSuccessfull.code', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='activate_state', full_name='ResDeviceActivateSuccessfull.activate_state', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=529,
+  serialized_end=597,
+)
+
+
+_REQDISABLEDEVICEACTIVATE = _descriptor.Descriptor(
+  name='ReqDisableDeviceActivate',
+  full_name='ReqDisableDeviceActivate',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='request_param', full_name='ReqDisableDeviceActivate.request_param', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=599,
+  serialized_end=648,
+)
+
+
+_RESDISABLEDEVICEACTIVATE = _descriptor.Descriptor(
+  name='ResDisableDeviceActivate',
+  full_name='ResDisableDeviceActivate',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='code', full_name='ResDisableDeviceActivate.code', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='activate_state', full_name='ResDisableDeviceActivate.activate_state', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=650,
+  serialized_end=714,
 )
 
 DESCRIPTOR.message_types_by_name['ReqSetTime'] = _REQSETTIME
 DESCRIPTOR.message_types_by_name['ReqSetTimezone'] = _REQSETTIMEZONE
 DESCRIPTOR.message_types_by_name['ReqSetMtpMode'] = _REQSETMTPMODE
 DESCRIPTOR.message_types_by_name['ReqSetCpuMode'] = _REQSETCPUMODE
-DESCRIPTOR.message_types_by_name['ReqSetHostSlaveMode'] = _REQSETHOSTSLAVEMODE
+DESCRIPTOR.message_types_by_name['ReqsetMasterLock'] = _REQSETMASTERLOCK
+DESCRIPTOR.message_types_by_name['ReqGetDeviceActivateInfo'] = _REQGETDEVICEACTIVATEINFO
+DESCRIPTOR.message_types_by_name['ResDeviceActivateInfo'] = _RESDEVICEACTIVATEINFO
+DESCRIPTOR.message_types_by_name['ReqDeviceActivateWriteFile'] = _REQDEVICEACTIVATEWRITEFILE
+DESCRIPTOR.message_types_by_name['ResDeviceActivateWriteFile'] = _RESDEVICEACTIVATEWRITEFILE
+DESCRIPTOR.message_types_by_name['ReqDeviceActivateSuccessfull'] = _REQDEVICEACTIVATESUCCESSFULL
+DESCRIPTOR.message_types_by_name['ResDeviceActivateSuccessfull'] = _RESDEVICEACTIVATESUCCESSFULL
+DESCRIPTOR.message_types_by_name['ReqDisableDeviceActivate'] = _REQDISABLEDEVICEACTIVATE
+DESCRIPTOR.message_types_by_name['ResDisableDeviceActivate'] = _RESDISABLEDEVICEACTIVATE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 ReqSetTime = _reflection.GeneratedProtocolMessageType('ReqSetTime', (_message.Message,), {
@@ -219,12 +525,68 @@ ReqSetCpuMode = _reflection.GeneratedProtocolMessageType('ReqSetCpuMode', (_mess
   })
 _sym_db.RegisterMessage(ReqSetCpuMode)
 
-ReqSetHostSlaveMode = _reflection.GeneratedProtocolMessageType('ReqSetHostSlaveMode', (_message.Message,), {
-  'DESCRIPTOR' : _REQSETHOSTSLAVEMODE,
+ReqsetMasterLock = _reflection.GeneratedProtocolMessageType('ReqsetMasterLock', (_message.Message,), {
+  'DESCRIPTOR' : _REQSETMASTERLOCK,
   '__module__' : 'system_pb2'
-  # @@protoc_insertion_point(class_scope:ReqSetHostSlaveMode)
+  # @@protoc_insertion_point(class_scope:ReqsetMasterLock)
   })
-_sym_db.RegisterMessage(ReqSetHostSlaveMode)
+_sym_db.RegisterMessage(ReqsetMasterLock)
+
+ReqGetDeviceActivateInfo = _reflection.GeneratedProtocolMessageType('ReqGetDeviceActivateInfo', (_message.Message,), {
+  'DESCRIPTOR' : _REQGETDEVICEACTIVATEINFO,
+  '__module__' : 'system_pb2'
+  # @@protoc_insertion_point(class_scope:ReqGetDeviceActivateInfo)
+  })
+_sym_db.RegisterMessage(ReqGetDeviceActivateInfo)
+
+ResDeviceActivateInfo = _reflection.GeneratedProtocolMessageType('ResDeviceActivateInfo', (_message.Message,), {
+  'DESCRIPTOR' : _RESDEVICEACTIVATEINFO,
+  '__module__' : 'system_pb2'
+  # @@protoc_insertion_point(class_scope:ResDeviceActivateInfo)
+  })
+_sym_db.RegisterMessage(ResDeviceActivateInfo)
+
+ReqDeviceActivateWriteFile = _reflection.GeneratedProtocolMessageType('ReqDeviceActivateWriteFile', (_message.Message,), {
+  'DESCRIPTOR' : _REQDEVICEACTIVATEWRITEFILE,
+  '__module__' : 'system_pb2'
+  # @@protoc_insertion_point(class_scope:ReqDeviceActivateWriteFile)
+  })
+_sym_db.RegisterMessage(ReqDeviceActivateWriteFile)
+
+ResDeviceActivateWriteFile = _reflection.GeneratedProtocolMessageType('ResDeviceActivateWriteFile', (_message.Message,), {
+  'DESCRIPTOR' : _RESDEVICEACTIVATEWRITEFILE,
+  '__module__' : 'system_pb2'
+  # @@protoc_insertion_point(class_scope:ResDeviceActivateWriteFile)
+  })
+_sym_db.RegisterMessage(ResDeviceActivateWriteFile)
+
+ReqDeviceActivateSuccessfull = _reflection.GeneratedProtocolMessageType('ReqDeviceActivateSuccessfull', (_message.Message,), {
+  'DESCRIPTOR' : _REQDEVICEACTIVATESUCCESSFULL,
+  '__module__' : 'system_pb2'
+  # @@protoc_insertion_point(class_scope:ReqDeviceActivateSuccessfull)
+  })
+_sym_db.RegisterMessage(ReqDeviceActivateSuccessfull)
+
+ResDeviceActivateSuccessfull = _reflection.GeneratedProtocolMessageType('ResDeviceActivateSuccessfull', (_message.Message,), {
+  'DESCRIPTOR' : _RESDEVICEACTIVATESUCCESSFULL,
+  '__module__' : 'system_pb2'
+  # @@protoc_insertion_point(class_scope:ResDeviceActivateSuccessfull)
+  })
+_sym_db.RegisterMessage(ResDeviceActivateSuccessfull)
+
+ReqDisableDeviceActivate = _reflection.GeneratedProtocolMessageType('ReqDisableDeviceActivate', (_message.Message,), {
+  'DESCRIPTOR' : _REQDISABLEDEVICEACTIVATE,
+  '__module__' : 'system_pb2'
+  # @@protoc_insertion_point(class_scope:ReqDisableDeviceActivate)
+  })
+_sym_db.RegisterMessage(ReqDisableDeviceActivate)
+
+ResDisableDeviceActivate = _reflection.GeneratedProtocolMessageType('ResDisableDeviceActivate', (_message.Message,), {
+  'DESCRIPTOR' : _RESDISABLEDEVICEACTIVATE,
+  '__module__' : 'system_pb2'
+  # @@protoc_insertion_point(class_scope:ResDisableDeviceActivate)
+  })
+_sym_db.RegisterMessage(ResDisableDeviceActivate)
 
 
 # @@protoc_insertion_point(module_scope)
