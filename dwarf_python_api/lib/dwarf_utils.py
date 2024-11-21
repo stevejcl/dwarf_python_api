@@ -1340,11 +1340,12 @@ def stop_polar_align():
 
     return False
 
-def motor_action( action ):
+def motor_action( action, correction = 0 ):
 
     module_id = 6  # MODULE_MOTOR
     type_id = 0; #REQUEST
 
+    # Rotation Motor Resetting
     if (action == 5):
       ReqMotorReset_message = motor.ReqMotorReset ()
       ReqMotorReset_message.id= 1;
@@ -1352,6 +1353,7 @@ def motor_action( action ):
       command = 14003; #CMD_STEP_MOTOR_RESET
       response = connect_socket(ReqMotorReset_message, command, type_id, module_id)
 
+    # Pitch Motor Resetting
     if (action == 6):
       ReqMotorReset_message = motor.ReqMotorReset ()
       ReqMotorReset_message.id= 2;
@@ -1359,50 +1361,66 @@ def motor_action( action ):
       command = 14003; #CMD_STEP_MOTOR_RESET
       response = connect_socket(ReqMotorReset_message, command, type_id, module_id)
 
+    #Closed Barrel Position
     if (action == 1):
       ReqMotorRunTo_message = motor.ReqMotorRunTo ()
       ReqMotorRunTo_message.id= 2;
-      ReqMotorRunTo_message.end_position = 317;
+      ReqMotorRunTo_message.end_position = 317 + correction;
       ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 2;
       command = 14001; #CMD_STEP_MOTOR_RUN_TO
       response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
+    # Rotation Motor positioning...
     if (action == 2):
       ReqMotorRunTo_message = motor.ReqMotorRunTo ()
       ReqMotorRunTo_message.id= 1;
-      ReqMotorRunTo_message.end_position = 160;
+      ReqMotorRunTo_message.end_position = 158.6 + correction;
       ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
       command = 14001; #CMD_STEP_MOTOR_RUN_TO
       response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
+    # Rotation Motor positioning D3...
+    if (action == 9):
+      ReqMotorRunTo_message = motor.ReqMotorRunTo ()
+      ReqMotorRunTo_message.id= 1;
+      ReqMotorRunTo_message.end_position = 158 + correction;
+      ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
+      ReqMotorRunTo_message.speed_ramping = 100;
+      ReqMotorRunTo_message.resolution_level = 3;
+      command = 14001; #CMD_STEP_MOTOR_RUN_TO
+      response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
+
+    # Pitch Motor positioning...
     if (action == 3):
       ReqMotorRunTo_message = motor.ReqMotorRunTo ()
       ReqMotorRunTo_message.id= 2;
-      ReqMotorRunTo_message.end_position = 146.5;
+      ReqMotorRunTo_message.end_position = 146.5 + correction;
       ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
       command = 14001; #CMD_STEP_MOTOR_RUN_TO
       response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
+    # Pitch Motor positioning D3...
     if (action == 7):  # For D3
       ReqMotorRunTo_message = motor.ReqMotorRunTo ()
       ReqMotorRunTo_message.id= 2;
-      ReqMotorRunTo_message.end_position = 166.5;
+      ReqMotorRunTo_message.end_position = 166.1 + correction;
       ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
       command = 14001; #CMD_STEP_MOTOR_RUN_TO
       response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
+    # Turn 90° Rotation Motor
     if (action == 4):
       ReqMotorRunTo_message = motor.ReqMotorRunTo ()
       ReqMotorRunTo_message.id= 1;
-      ReqMotorRunTo_message.end_position = 69;
+      ReqMotorRunTo_message.end_position = 67.6 + correction;
       ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
@@ -1422,11 +1440,11 @@ def motor_action( action ):
     if (action == 8):
       ReqMotorGetPosition_message = motor.ReqMotorGetPosition ()
       ReqMotorGetPosition_message.id= 1;
-      command = 14010; #CMD_STEP_MOTOR_GET_POSITION
+      command = 14011; #CMD_STEP_MOTOR_GET_POSITION
       response = connect_socket(ReqMotorGetPosition_message, command, type_id, module_id)
 
       ReqMotorGetPosition_message.id= 2;
-      command = 14010; #CMD_STEP_MOTOR_GET_POSITION
+      command = 14011; #CMD_STEP_MOTOR_GET_POSITION
       response = connect_socket(ReqMotorGetPosition_message, command, type_id, module_id)
 
     if (action == 10):

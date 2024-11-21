@@ -159,8 +159,8 @@ enum DwarfCMD {
     CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP = 14008; // Stop joystick
     CMD_STEP_MOTOR_SERVICE_DUAL_CAMERA_LINKAGE = 14009; // Dual camera linkage
 
-    CMD_STEP_MOTOR_GET_POSITION = 14010; // Motor get Position ??
-    CMD_STEP_MOTOR_RUN_IN_PULSE = 14011; // Motor run in pulse ??
+    CMD_STEP_MOTOR_RUN_IN_PULSE = 14010; // Motor run in pulse
+    CMD_STEP_MOTOR_GET_POSITION = 14011; // Motor get Position
 
     CMD_TRACK_START_TRACK = 14800; // Started tracking
     CMD_TRACK_STOP_TRACK = 14801; // Stop tracking

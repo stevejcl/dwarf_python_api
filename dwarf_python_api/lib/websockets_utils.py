@@ -464,7 +464,7 @@ class WebSocketClient:
                                     log.success("Success CMD_STEP_MOTOR_RUN")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CMD_STEP_MOTOR_SERVICE_JOYSTICK", ComResponse_message.code)
 
-                            # CMD_STEP_MOTOR_GET_POSITION = 14010; // Motor Get Position
+                            # CMD_STEP_MOTOR_GET_POSITION = 14011; // Motor Get Position
                             if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_GET_POSITION):
                                 ResMotorPosition_message = motor.ResMotorPosition()
                                 ResMotorPosition_message.ParseFromString(WsPacket_message.data)
