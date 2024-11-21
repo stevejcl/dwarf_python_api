@@ -133,7 +133,10 @@ def get_file_modification_time(file_path):
     return os.path.getmtime(file_path)
 
 def connect_bluetooth():
-    URL = f"http://127.0.0.1:{PORT}/dwarf_ble_connect/connect_dwarf.html"
+    # Append a unique timestamp to the URL to avoid cache
+    timestamp = int(time.time())  # Current time in seconds
+
+    URL = f"http://127.0.0.1:{PORT}/dwarf_ble_connect/connect_dwarf.html?datestamp={timestamp}"
     
     # Start processing requests
     server = MyServer()
