@@ -1,8 +1,9 @@
 import paramiko
 import dwarf_python_api.lib.my_logger as log
-from dwarf_python_api.get_config_data import update_config_data, CONFIG_FILE
+# import data for config.py
+import dwarf_python_api.get_config_data
 
-def update_client_id_from_last_session(dwarf_ip, config_file = CONFIG_FILE):
+def update_client_id_from_last_session(dwarf_ip):
     ssh_port = 22
     ssh_username = "root"
     ssh_password = "rockchip"
@@ -28,7 +29,7 @@ def update_client_id_from_last_session(dwarf_ip, config_file = CONFIG_FILE):
             log.info(f"Extracted new CLIENT_ID: {new_client_id}")
             
             # Update the config file with the new client_id
-            update_config_data("client_id", new_client_id, True, config_file)
+            dwarf_python_api.get_config_data.update_config_data("client_id", new_client_id, True)
             log.info(f"Updated CLIENT_ID to match DwarfLab app one")
         else:
             log.info("No line containing the search string was found. Retrying...")

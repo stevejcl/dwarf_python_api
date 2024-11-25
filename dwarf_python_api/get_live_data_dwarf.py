@@ -8,7 +8,8 @@ import configparser
 import time
 from dwarf_python_api.lib.dwarf_utils import perform_takePhoto
 # import data for config.py
-from dwarf_python_api.get_config_data import get_config_data
+import dwarf_python_api.get_config_data
+# Import the module
 import dwarf_python_api.lib.my_logger as log
 
 # FTP connection details
@@ -329,7 +330,7 @@ def display_menu():
     # Reload the config module to ensure the new value is used
     if not ftp_host:
         # read at runtime
-        data_config = get_config_data()
+        data_config = dwarf_python_api.get_config_data.get_config_data()
         ftp_host = data_config['ip'] 
 
     log.notice("")
@@ -381,7 +382,7 @@ def option_4():
     # Reload the config module to ensure the new value is used
     if not ftp_host:
         # read at runtime
-        data_config = get_config_data()
+        data_config = dwarf_python_api.get_config_data.get_config_data()
         ftp_host = data_config['ip'] 
 
     if (not ftp_host):
@@ -422,7 +423,7 @@ def getGetLastPhoto(history = 0, get_config = False):
     # Reload the config module to ensure the new value is used
     if not ftp_host:
         # read at runtime
-        data_config = get_config_data()
+        data_config = dwarf_python_api.get_config_data.get_config_data()
         ftp_host = data_config['ip'] 
 
     if (not ftp_host):

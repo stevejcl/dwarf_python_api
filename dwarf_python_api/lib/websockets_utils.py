@@ -20,7 +20,7 @@ import dwarf_python_api.proto.motor_control_pb2 as motor
 # in notify
 import dwarf_python_api.proto.base_pb2 as base__pb2
 # import data for config.py
-from dwarf_python_api.get_config_data import get_config_data
+import dwarf_python_api.get_config_data
 
 class Dwarf_Result (Enum):
     DISCONNECTED = -2;
@@ -182,7 +182,7 @@ class WebSocketClient:
             # Perform the initialization logic here
             log.info("Initializing...")
 
-            data_config = get_config_data()
+            data_config = dwarf_python_api.get_config_data.get_config_data()
             if data_config['calibration']:
                 self.modeCalibration = True
             if data_config['timeout_cmd']:
@@ -2256,7 +2256,7 @@ async def start_socket(uri=None, client_id=None, ping_interval_task=10):
     result = True
 
     if uri is None or client_id is None:
-        data_config = get_config_data()
+        data_config = dwarf_python_api.get_config_data.get_config_data()
         if uri is None:
             uri = data_config['ip']
         if client_id is None:

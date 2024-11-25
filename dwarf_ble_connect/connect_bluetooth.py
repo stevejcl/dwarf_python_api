@@ -14,7 +14,8 @@ from filelock import FileLock
 import mimetypes
 
 # import data for config.py
-from dwarf_python_api.get_config_data import get_config_data,CONFIG_FILE
+import dwarf_python_api.get_config_data
+
 import dwarf_python_api.lib.my_logger as log
 
 # Set the correct MIME type for .js files
@@ -22,8 +23,6 @@ mimetypes.add_type('text/javascript', '.js')
 
 # Global PORT
 PORT = 8000
-CONFIG_FILE_TMP = 'config.tmp'
-LOCK_FILE = 'config.lock'
 
 def copy_file_in_current_directory(source_filename, destination_filename):
     """
@@ -56,18 +55,18 @@ class MyHandler(SimpleHTTPRequestHandler):
         interface = data['interface']
         parameter = data['parameter']
 
-        lock = FileLock(LOCK_FILE, thread_local=False)  # Lock file with no timeout (wait indefinitely)
+        lock = FileLock(dwarf_python_api.get_config_data.LOCK_FILE, thread_local=False)  # Lock file with no timeout (wait indefinitely)
 
         with lock:
             log.debug("(B) Lock ON")
             # Create or clear the temp file
-            open(CONFIG_FILE_TMP, 'w').close()
+            open(dwarf_python_api.get_config_data.CONFIG_FILE_TMP, 'w').close()
 
             # Read the config file and update the IP address
-            with open(CONFIG_FILE, 'r') as file:
+            with open(dwarf_python_api.get_config_data.CONFIG_FILE, 'r') as file:
                 lines = file.readlines()
         
-            with open(CONFIG_FILE_TMP, 'w') as file:
+            with open(dwarf_python_api.get_config_data.CONFIG_FILE_TMP, 'w') as file:
                 for line in lines:
                     if (interface == "IP"):
                       if line.startswith('DWARF_IP'):
@@ -87,9 +86,9 @@ class MyHandler(SimpleHTTPRequestHandler):
 
             # Copy tmp file
             nb_try = 0
-            result_copy = copy_file_in_current_directory(CONFIG_FILE_TMP, CONFIG_FILE)
+            result_copy = copy_file_in_current_directory(dwarf_python_api.get_config_data.CONFIG_FILE_TMP, dwarf_python_api.get_config_data.CONFIG_FILE)
             while nb_try < 3 and not result_copy:
-                result_copy = copy_file_in_current_directory(CONFIG_FILE_TMP, CONFIG_FILE)
+                result_copy = copy_file_in_current_directory(dwarf_python_api.get_config_data.CONFIG_FILE_TMP, dwarf_python_api.get_config_data.CONFIG_FILE)
                 nb_try += 1
                 time.sleep(0.25)
 
@@ -158,7 +157,7 @@ def connect_bluetooth():
         resultUI = False
         exitAsked = False
         # read at runtime
-        data_config = get_config_data()
+        data_config = dwarf_python_api.get_config_data.get_config_data()
         # in case of wifi error restart the process
         if data_config['ip'] != "":
           previous_ip = data_config['ip']
@@ -173,15 +172,15 @@ def connect_bluetooth():
         while (not resultUI):
 
             # Reload the config module when changing to ensure the new value is used
-            current_mod_time = get_file_modification_time(CONFIG_FILE)
+            current_mod_time = get_file_modification_time(dwarf_python_api.get_config_data.CONFIG_FILE)
             check_file = (last_check_time is None or last_check_time!= current_mod_time)
             if check_file :
               try:
-                lock = FileLock(LOCK_FILE, thread_local=False, timeout=5)
+                lock = FileLock(dwarf_python_api.get_config_data.LOCK_FILE, thread_local=False, timeout=5)
                 with lock:
                     log.debug("(BC)Lock On")
                     # read at runtime
-                    data_config = get_config_data()
+                    data_config = dwarf_python_api.get_config_data.get_config_data()
                     last_check_time = current_mod_time
 
                     current_ip = data_config['ip']
