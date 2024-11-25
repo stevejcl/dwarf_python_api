@@ -3,6 +3,7 @@ import shutil
 from filelock import FileLock
 import dwarf_python_api.lib.my_logger as log
 
+# files must be in the main directory
 CONFIG_FILE = 'config.py'
 CONFIG_FILE_TMP = 'config.tmp'
 LOCK_FILE = 'config.lock'
@@ -22,7 +23,12 @@ def parse_bool(value):
     else:
         return None  # or handle it with a default, like False
 
-def read_config_values(config_file = CONFIG_FILE):
+def read_config_values(config_file = None):
+    global CONFIG_FILE
+
+    if config_file is None:
+        config_file = CONFIG_FILE
+
     if not os.path.exists(config_file):
         raise ConfigFileNotFoundError(f"Configuration file {config_file} not found.")
     config_values = {}
@@ -35,7 +41,12 @@ def read_config_values(config_file = CONFIG_FILE):
     return config_values
 
 # Function to dynamically import and reload the config module
-def get_config_data(config_file = CONFIG_FILE, print_log = False):
+def get_config_data(config_file = None, print_log = False):
+    global CONFIG_FILE
+
+    if config_file is None:
+        config_file = CONFIG_FILE
+
     try:
         config_values = read_config_values(config_file)
         # Convert specific keys to booleans
@@ -85,7 +96,14 @@ def verif_config_data( id_param, value, print_log = False):
         return True
 
 # Function to dynamically import and reload the config module
-def update_config_data( id_param, value, print_log = False, config_file = CONFIG_FILE, tmp_file = CONFIG_FILE_TMP):
+def update_config_data( id_param, value, print_log = False, config_file = None, tmp_file = None):
+    global CONFIG_FILE, CONFIG_FILE_TMP, LOCK_FILE
+
+    if config_file is None:
+        config_file = CONFIG_FILE
+
+    if tmp_file is None:
+        tmp_file = CONFIG_FILE_TMP
 
     return_value = False
     find_value = False
@@ -135,3 +153,15 @@ def update_config_data( id_param, value, print_log = False, config_file = CONFIG
             log.debug("(B) Lock OFF")
 
     return return_value
+
+# Function to update CONFIGS value
+def set_config_data(config_file, config_file_tmp, lock_file, print_log = False):
+    global CONFIG_FILE, CONFIG_FILE_TMP, LOCK_FILE
+
+    CONFIG_FILE = config_file;
+    CONFIG_FILE_TMP = config_file_tmp;
+    LOCK_FILE = lock_file;
+
+    if print_log:
+        print(f" CONFIGS variables have been updated: {CONFIG_FILE}: {config_file} {CONFIG_FILE_TMP}: {config_file_tmp} {LOCK_FILE}: {lock_file}")
+
