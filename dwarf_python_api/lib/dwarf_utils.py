@@ -1409,7 +1409,7 @@ def motor_action( action, correction = 0 ):
     if (action == 7):  # For D3
       ReqMotorRunTo_message = motor.ReqMotorRunTo ()
       ReqMotorRunTo_message.id= 2;
-      ReqMotorRunTo_message.end_position = 166.1 + correction;
+      ReqMotorRunTo_message.end_position = 169 + correction; 
       ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
