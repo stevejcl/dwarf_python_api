@@ -779,7 +779,9 @@ def perform_time():
     local_time = datetime.now()
     utc_time = datetime.utcnow()
     timezone_offset = (local_time - utc_time).total_seconds() / 3600  # Offset in hours
-    ReqSetTime_message.timezone_offset = timezone_offset
+    # Round to the nearest 0.25 (15 minutes)
+    rounded_timezone_offset = round(timezone_offset * 4) / 4
+    ReqSetTime_message.timezone_offset = rounded_timezone_offset
     log.notice(f"Timezone offset is : {timezone_offset} H")
 
     command = 13000 #CMD_SYSTEM_SET_TIME
@@ -1024,14 +1026,14 @@ def get_result_value ( type, result_cnx, is_double = False):
 
   elif isinstance(result_cnx, dict) and 'code' in result_cnx:
     if result_cnx["code"] == 0 and 'value' in result_cnx:
-      log.success(f"{type} value: {result_cnx["value"] if not is_double else format_double(result_cnx["value"])}")
+      log.success(f"{type} value: {result_cnx['value'] if not is_double else format_double(result_cnx['value'])}")
       return result_cnx["value"] if not is_double else format_double(result_cnx["value"])
     else: 
       if result_cnx["code"] == 0:
         log.success(f"{type} no value")
         return result_cnx["code"]
       else:
-        log.error(f"Error code: {result_cnx["code"]}")
+        log.error(f"Error code: {result_cnx['code']}")
   else: 
     log.error(f"Unknown Error ")
 
@@ -1290,15 +1292,15 @@ def get_result_polar_value ( result_cnx):
   elif isinstance(result_cnx, dict) and 'code' in result_cnx:
     if result_cnx["code"] == 0 and 'azi_err' in result_cnx and 'alt_err' in result_cnx:
       log.success("Polar Alignement result")
-      log.notice(f"Azimuth error value: {decimal_to_dms(result_cnx["azi_err"])}")
-      log.notice(f"Altitude error value: {decimal_to_dms(result_cnx["alt_err"])}")
-      return {'azi_err' : result_cnx["azi_err"], 'alt_err' : result_cnx["alt_err"]}
+      log.notice(f"Azimuth error value: {decimal_to_dms(result_cnx['azi_err'])}")
+      log.notice(f"Altitude error value: {decimal_to_dms(result_cnx['alt_err'])}")
+      return {'azi_err' : result_cnx['azi_err'], 'alt_err' : result_cnx['alt_err']}
     else:
       if result_cnx["code"] == 0:
         log.success(f"Polar Alignement no result value")
         return result_cnx["code"]
       else:
-        log.error(f"Error code: {result_cnx["code"]}")
+        log.error(f"Error code: {result_cnx['code']}")
   else: 
     log.error(f"Unknown Error ")
 
