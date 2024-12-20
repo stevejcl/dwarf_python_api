@@ -4,6 +4,6 @@ protobuf==3.20.*
 
 bleak
 
-filelock
+FileLock
 
 paramiko
