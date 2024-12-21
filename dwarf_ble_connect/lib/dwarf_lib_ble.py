@@ -15,15 +15,21 @@ async def discover_dwarf_devices():
     log.info("Scanning for DWARF devices...")
     connection_state = {
         "step" : "1",
-        "dwarf_devices":None
+        "dwarf_devices":None,
+        "error": None,
     }
 
-    devices = await BleakScanner.discover(timeout=15)
+    try:
+        devices = await BleakScanner.discover(timeout=15)
     
-    # Filter devices that start with "DWARF"
-    dwarf_devices = [d for d in devices if d.name and d.name.startswith("DWARF")]
+        # Filter devices that start with "DWARF"
+        dwarf_devices = [d for d in devices if d.name and d.name.startswith("DWARF")]
 
-    connection_state["dwarf_devices"] = dwarf_devices 
+        connection_state["dwarf_devices"] = dwarf_devices 
+
+    except Exception as error:
+        connection_state["error"] = str(error)
+        log.error(f"An error occurred: {error}")
 
     return connection_state
 
@@ -31,7 +37,8 @@ async def select_dwarf_device(dwarf_devices):
 
     connection_state = {
         "step" : "2",
-        "dwarf_device" :None
+        "dwarf_device" :None,
+        "error": None,
     }
 
     selected_device = None
@@ -56,10 +63,14 @@ async def choice_dwarf_device(dwarf_devices, choice):
 
     connection_state = {
         "step" : "2",
-        "dwarf_device" :None
+        "dwarf_device" :None,
+        "error": None,
     }
 
-    if choice > 0 or choice <= len(dwarf_devices):
+    if not dwarf_devices:
+        log.notice("No DWARF devices found.")
+
+    elif choice > 0 or choice <= len(dwarf_devices):
 
         selected_device = dwarf_devices[choice - 1]
         connection_state["dwarf_device"] = selected_device
