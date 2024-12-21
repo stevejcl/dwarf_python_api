@@ -159,6 +159,7 @@ def connect_ble_dwarf_win(Bluetooth_PWD="DWARF_12345678", Wifi_SSID="", Wifi_PWD
         new_window = tk.Toplevel(root)
         new_window.geometry(f"{width}x{height}+{x}+{y}")
         new_window.title("Dwarf Device Bluetooth Connection")
+        new_window.wm_attributes("-topmost", 1)
 
         # Add a Label widget to show the message
         status_label = tk.Label(new_window, text="Searching for Dwarf Device...", font=("Arial", 12))
@@ -177,7 +178,7 @@ def connect_ble_dwarf_win(Bluetooth_PWD="DWARF_12345678", Wifi_SSID="", Wifi_PWD
                 dwarf_devices = connection_state.get("dwarf_devices")
 
                 if not dwarf_devices:
-                    restart = messagebox.askyesno("No Devices Found", "No devices found.\nDo you want to restart the scan?")
+                    restart = messagebox.askyesno("No Devices Found", "No devices found.\nDo you want to restart the scan?",parent=new_window)
                     if not restart:
                         log.info("Exiting...")
                         root.destroy()
@@ -207,9 +208,10 @@ def connect_ble_dwarf_win(Bluetooth_PWD="DWARF_12345678", Wifi_SSID="", Wifi_PWD
                             f"Multiple DWARF devices found:\n\n" +
                             "\n".join([f"{i+1}. {connection_state.get(f'dwarf_devices{i+1}')}" for i, d in enumerate(dwarf_devices)]) +
                             "\n\nEnter the number of the device to select (or 0 to exit):",
+                            parent=new_window
                         )
                         if selection is None or selection < 0 or selection > len(dwarf_devices):
-                            messagebox.showerror("Invalid Selection", "Please enter a valid number.")
+                            messagebox.showerror("Invalid Selection", "Please enter a valid number.", parent=new_window)
                             selection = None
 
                     if selection == 0:
