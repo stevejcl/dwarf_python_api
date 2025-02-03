@@ -170,6 +170,7 @@ class WebSocketClient:
         self.totalSizeDwarf = None
         self.TemperatureLevelDwarf = None
         self.StreamTypeDwarf = None
+        self.FocusValueDwarf = None
 
         # TEST_CALIBRATION : Test Calibration Packet or Goto Packet
         # Test Mode : Calibration Packet => TEST_CALIBRATION = True
@@ -1741,14 +1742,14 @@ class WebSocketClient:
                                 log.debug("Decoding CMD_NOTIFY_STREAM_TYPE ")
                                 log.debug(f"receive request Stream type (RTSP , JPEG) >> {ResNotifyStreamType_message.stream_type}")
                                 log.debug(f"receive request Camera value >> {ResNotifyStreamType_message.cam_id}")
-                                camera = ResNotifyStreamType_message.cam_id
+                                cameraId = ResNotifyStreamType_message.cam_id
                                 value = ResNotifyStreamType_message.stream_type
                                 # notify ?
                                 if (self.StreamTypeDwarf is None or (self.StreamTypeDwarf != value)):
                                   if (value == 1):
-                                    log.notice(f"Dwarf Stream Video Type is RTSP for {'Wide_Angle' if camera == 1 else 'Tele Photo'}.")
+                                    log.notice(f"Dwarf Stream Video Type is RTSP for {'Wide_Angle' if cameraId == 1 else 'Tele Photo'}.")
                                   elif (value == 2):
-                                    log.notice(f"Dwarf Stream Video Type is JPEG for {'Wide_Angle' if camera == 1 else 'Tele Photo'}.")
+                                    log.notice(f"Dwarf Stream Video Type is JPEG for {'Wide_Angle' if cameraId == 1 else 'Tele Photo'}.")
                                   else :
                                     log.notice("Dwarf Stream Video Type is unknown!")
                                   self.StreamTypeDwarf = value
@@ -1768,6 +1769,17 @@ class WebSocketClient:
                                        log.notice(f"Available Space: {availableSizeDwarf}/{totalSizeDwarf} GB")
                                    self.availableSizeDwarf = availableSizeDwarf
                                    self.totalSizeDwarf = totalSizeDwarf
+                            # CMD_NOTIFY_FOCUS 15257
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_FOCUS):
+                                ResNotifyFocus_message = notify.ResNotifyFocus()
+                                ResNotifyFocus_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding FOCUS ")
+                                log.debug(f"receive request focus value >> {ResNotifyFocus_message.focus}")
+                                value = ResNotifyFocus_message.focus
+                                # notify ?
+                                if (self.FocusValueDwarf is None or self.FocusValueDwarf != value):
+                                   log.notice(f"Focus Position is {value}")
+                                   self.FocusValueDwarf = value
                             # Unknown
                             elif (WsPacket_message.cmd != self.command):
                                 log.info(f"Receiving command {WsPacket_message.cmd}")
@@ -1850,6 +1862,7 @@ class WebSocketClient:
         self.totalSizeDwarf = None
         self.TemperatureLevelDwarf = None
         self.StreamTypeDwarf = None
+        self.FocusValueDwarf = None
         #CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE
         WsPacket_messageTeleGetSystemWorkingState = base__pb2.WsPacket()
         ReqGetSystemWorkingState_message = camera.ReqGetSystemWorkingState()
