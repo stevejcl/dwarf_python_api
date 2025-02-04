@@ -204,7 +204,7 @@ async def connect_to_bluetooth_device(dwarf_device = None, Bluetooth_PWD = None,
             # Disconnect Bluetooth
             if characteristicDwarf:
                 # Stop notifications
-                await deviceDwarf.stop_notifications()
+                await deviceDwarf.stop_notify(characteristicDwarf)
 
             if deviceDwarf:
                 # Remove event listener for disconnection
