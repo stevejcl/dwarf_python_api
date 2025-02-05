@@ -2535,6 +2535,55 @@ def stop_event_loop():
 #--------------------------------------
 # External Functions
 #--------------------------------------
+# Store previous values
+previous_values = {}
+
+def get_client_status():
+    global previous_values
+ 
+    if client_instance is None:
+        return json.dumps({"error": "Client instance is not initialized"})
+
+    status = {
+        "HostMode": client_instance.InitHostReceived,
+        "takePhotoStarted": client_instance.takePhotoStarted,
+        "takeWidePhotoStarted": client_instance.takeWidePhotoStarted,
+        "AstroCapture": client_instance.AstroCapture,
+        "AstroWideCapture": client_instance.AstroWideCapture,
+        "startEQSolving": client_instance.startEQSolving,
+        "takePhotoCount": client_instance.takePhotoCount,
+        "takePhotoStacked": client_instance.takePhotoStacked,
+        "takeWidePhotoCount": client_instance.takeWidePhotoCount,
+        "takeWidePhotoStacked": client_instance.takeWidePhotoStacked,
+        "ErrorConnection": client_instance.ErrorConnection,
+        "BatteryLevelDwarf": client_instance.BatteryLevelDwarf,
+        "availableSizeDwarf": client_instance.availableSizeDwarf,
+        "totalSizeDwarf": client_instance.totalSizeDwarf,
+        "TemperatureLevelDwarf": client_instance.TemperatureLevelDwarf,
+        "StreamTypeDwarf": client_instance.StreamTypeDwarf,
+        "FocusValueDwarf": client_instance.FocusValueDwarf,
+    }
+
+    # Detect changes
+    new_values = {}
+    has_new_values = False
+
+    for key, value in status.items():
+        if key not in previous_values or previous_values[key] != value:
+            new_values[key] = value
+            has_new_values = True
+
+    # Update previous values
+    previous_values = status.copy()
+
+    # Include change indicators in response
+    response = {
+        "hasNewValues": has_new_values,
+        "fullStatus": status,
+        "newValues": new_values
+    }
+
+    return json.dumps(status)
 
 def connect_socket(message, command, type_id, module_id):
     global client_instance
