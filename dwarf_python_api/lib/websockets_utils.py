@@ -2583,7 +2583,7 @@ def get_client_status():
         "newValues": new_values
     }
 
-    return json.dumps(status)
+    return status
 
 def connect_socket(message, command, type_id, module_id):
     global client_instance
