@@ -1,6 +1,7 @@
 import asyncio
 import threading
 from bleak import BleakClient, BleakScanner, BleakError
+from inputimeout import inputimeout, TimeoutOccurred
 
 import dwarf_python_api.get_config_data
 import dwarf_python_api.proto.ble_pb2 as ble
@@ -36,20 +37,20 @@ async def connect_ble_dwarf_test(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="",
     log.info ("End of Function connect_ble_dwarf")
     log.info (f"{connection_state}")
 
-def connect_ble_direct_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi_PWD = ""):
+def connect_ble_direct_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi_PWD = "", auto_select = ""):
     try:
-        result = asyncio.run(connect_ble_dwarf(Bluetooth_PWD, Wifi_SSID, Wifi_PWD))
+        result = asyncio.run(connect_ble_dwarf(Bluetooth_PWD, Wifi_SSID, Wifi_PWD, auto_select))
     except RuntimeError as e:
         if "Event loop is closed" in str(e):
             print("Restarting the event loop...")
             restart_event_loop()
-            return asyncio.run(connect_ble_dwarf(Bluetooth_PWD, Wifi_SSID, Wifi_PWD))
+            return asyncio.run(connect_ble_dwarf(Bluetooth_PWD, Wifi_SSID, Wifi_PWD, auto_select))
         else:
             raise
     finally:
         return result  # Return the result to the caller
 
-async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi_PWD = ""):
+async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi_PWD = "", auto_select = ""):
 
     status_bluetooth = False
 
@@ -59,20 +60,36 @@ async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi
     dwarf_devices = None
     dwarf_device = None
 
-    # Keep scanning until a device is found or the user exits
-    while not dwarf_devices:
+    max_retries = 2
+    retry_count = 0
+
+    # Keep scanning until a device is found or the user exits or max tests reached
+    while not dwarf_devices and retry_count < max_retries:
         connection_state = await discover_dwarf_devices()
+        log.notice (f"{connection_state}")
         dwarf_devices = connection_state.get("dwarf_devices")
 
         if not dwarf_devices:
-            restart = input("No devices found. Do you want to restart the scan? (y/n): ").lower()
-            if restart != 'y':
+            try:
+                restart = inputimeout(prompt="No devices found. Do you want to restart the scan? (y/n): ", timeout=5).lower()
+            except TimeoutOccurred:
+                restart = 'y'
+
+            if restart == 'n':
                 log.info("Exiting...")
                 break  # Exit the loop if user chooses not to restart
 
+            retry_count += 1
+            log.info(f"Retrying scan... Attempt {retry_count}/{max_retries}")
+        else:
+            break  # Exit loop if devices are found
+
+    if retry_count == max_retries:
+        log.info("Max retries reached. Exiting...")
+
     if dwarf_devices:
         connection_state = await select_dwarf_device(dwarf_devices)
-        log.info (f"{connection_state}")
+        log.notice (f"{connection_state}")
 
         # none or one device found
         if connection_state and connection_state.get("step") == "2":
@@ -80,27 +97,49 @@ async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi
 
         # more than one device found
         elif connection_state and connection_state.get("step") == "3":
-            # If multiple devices are found, prompt the user to choose one
-            log.notice("Multiple DWARF devices found:")
-            dwarf_devices = connection_state.get("dwarf_devices")
-            for i, d in enumerate(dwarf_devices):
-                dwarf_device_i = "dwarf_devices"+ str(i+1)
-                log.notice(f"{i+1} - {connection_state.get(dwarf_device_i)}")
+
+            choice = None
+            if auto_select :
+              dwarf_devices = connection_state.get("dwarf_devices")
+              for i, d in enumerate(dwarf_devices):
+                  dwarf_device_i = "dwarf_devices"+ str(i+1)
+                  if (auto_select == connection_state.get(dwarf_device_i)):
+                    choice = i+1
+                    log.notice(f"Auto select - {connection_state.get(dwarf_device_i)}")
+
+            if auto_select == 0 or auto_select == "0":
+                # Return the list of devices found to be chosen by the user in caller app
+                choice = 0
+
+            if choice is None:
+                # If multiple devices are found, prompt the user to choose one
+                log.notice("Multiple DWARF devices found:")
+                dwarf_devices = connection_state.get("dwarf_devices")
+                for i, d in enumerate(dwarf_devices):
+                    dwarf_device_i = "dwarf_devices"+ str(i+1)
+                    log.notice(f"{i+1} - {connection_state.get(dwarf_device_i)}")
         
             # Get the user's choice
-            choice = None
+            timeout_seconds = 10  # Timeout duration
+
             while choice is None:
                 try:
-                    choice = int(input(f"Select a device (1-{len(dwarf_devices)}) or 0 to exit: "))
+                    user_input = inputimeout(prompt=f"Select a device (1-{len(dwarf_devices)}) or 0 to exit: ", timeout=timeout_seconds)
+                    choice = int(user_input)
+
                     if choice < 0 or choice > len(dwarf_devices):
                         print("Invalid choice. Please select a valid number.")
                         choice = None
+                except TimeoutOccurred:
+                    print(f"\nNo input received in {timeout_seconds} seconds. Selecting device 1 automatically.")
+                    choice = 1  # Default to selecting the first device
                 except ValueError:
                     print("Invalid input. Please enter a number.")
 
             # Set the selected device
             if choice != 0:
                 connection_state = await choice_dwarf_device(dwarf_devices, choice)
+                log.notice (f"{connection_state}")
                 dwarf_device = connection_state.get("dwarf_device")
 
         else:
@@ -109,6 +148,7 @@ async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi
 
     if dwarf_device:
         connection_state = await connect_to_bluetooth_device(dwarf_device,Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
+        log.notice (f"{connection_state}")
 
     if connection_state.get("is_connected"):
        status_bluetooth = True
@@ -118,7 +158,6 @@ async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi
        except dwarf_python_api.get_config_data.ConfigFileNotFoundError as e:
            log.warning(f"Warning: {e}")
 
-    log.notice (f"{connection_state}")
     log.notice ("End of Function connect_ble_dwarf")
 
     return status_bluetooth
