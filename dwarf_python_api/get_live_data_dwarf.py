@@ -6,7 +6,7 @@ import importlib
 from time import sleep
 import configparser
 import time
-from dwarf_python_api.lib.dwarf_utils import perform_takePhoto
+from dwarf_python_api.lib.dwarf_utils import perform_takePhoto, perform_takeWidePhoto
 # import data for config.py
 import dwarf_python_api.get_config_data
 # Import the module
@@ -67,7 +67,104 @@ def get_file_mtime(ftp, remote_file):
 def get_dir_mtime(remote_dir):
     return remote_dir[-23:]
 
-def getLastTelePhoto(history):
+def getlistPhoto(cameraPhoto = "TELE", indiceStart=0, indiceEnd=10):
+    global ftp_host
+    global local_photo_directory
+
+    # Create an FTP_TLS instance
+    ftp = FTP()
+
+    # return JSON List
+    listPhotos = []
+
+    # Connect to the FTP server
+    log.notice (f"Try to connect to : {ftp_host}")
+    # Connect to the FTP server
+    try:
+        ftp.connect(ftp_host)
+
+        ftp.login("Anonymous","")
+        ftp.set_pasv(True)
+        log.success(f"Connected to {ftp_host}")
+    except:
+        log.error("Can't connect to the Dwarf Device.")
+        return False
+
+    # Remote directory on the FTP server to monitor
+    remote_directoryD2 = '/DWARF_II/Normal_Photos'
+    start_nameD2 = f"DWARF_{cameraPhoto}"
+    remote_directoryD3 = '/Normal_Photos'
+    start_nameD3 = f"DWARF3_{cameraPhoto}"
+    remote_directory = remote_directoryD2
+    start_name = start_nameD2
+
+    # File extension to filter for (e.g., '.fits')
+    file_extension = '.jpg'
+
+    # Change to the Photo subdirectory
+    # Try to change to remote_directoryD2, switch to remote_directoryD3 if D2 doesn't exist
+    try:
+        ftp.cwd(remote_directory)
+        log.success(f"Dwarf 2 connected, Successfully changed to {remote_directoryD2}")
+    except error_perm as e:
+        remote_directory = remote_directoryD3
+        start_name = start_nameD3
+        try:
+            ftp.cwd(remote_directory)
+            log.success(f"Dwarf 3 connected, Successfully changed to {remote_directory}")
+        except error_perm as e:
+            log.error(f"Erreur getting files on FTP on the Dwarf, error: {e}")
+            return False
+
+    ftp.cwd(remote_directory)
+    wait_number = 0
+    old_wait_number = 0
+
+    # Get the list of files in the directory
+    remote_files = ftp.nlst()
+
+    log.notice(f"Searching {cameraPhoto} Photo in directory: {remote_directory}")
+
+    remote_telefiles = [f for f in remote_files if (f.startswith(start_name))]
+    sorted_file_list = sorted(remote_telefiles, reverse=True)
+
+    FindAllPhotos = False
+    if indiceStart.lower() == "all":
+       indiceStart = 0
+       FindAllPhotos = True
+       indiceEnd = 0
+    else:
+        try:
+            indiceStart = int(indiceStart)
+        except ValueError:
+            indiceStart = 0
+        try:
+            indiceEnd = int(indiceEnd)
+        except ValueError:
+            indiceEnd = 0
+
+    # Verify
+    log.notice(f"Total Photos found: {len(sorted_file_list)}")
+    # return JSON List
+    found_photo = 0
+    for remote_file in sorted_file_list:
+        if remote_file.endswith(file_extension):
+            # Found a file
+            if found_photo > indiceEnd and not FindAllPhotos:
+                log.notice("Found last photo file")
+                break
+            elif indiceStart <= found_photo <= indiceEnd or FindAllPhotos:
+                log.notice(f"Found PhotoFile : {found_photo} - {remote_file}")
+                listPhotos.append({'indice': found_photo, 'file': remote_file})
+            found_photo += 1
+
+    # Move back to the parent directory
+    ftp.cwd('..')
+
+    log.notice(f"End of List")
+    return listPhotos
+
+def getLastPhoto(history, camera="TELE"):
     global ftp_host
     global local_photo_directory
 
@@ -89,9 +186,9 @@ def getLastTelePhoto(history):
 
     # Remote directory on the FTP server to monitor
     remote_directoryD2 = '/DWARF_II/Normal_Photos'
-    start_nameD2 = "DWARF_TELE"
+    start_nameD2 = f"DWARF_{camera}"
     remote_directoryD3 = '/Normal_Photos'
-    start_nameD3 = "DWARF3_TELE"
+    start_nameD3 = f"DWARF3_{camera}"
     remote_directory = remote_directoryD2
     start_name = start_nameD2
 
@@ -124,6 +221,7 @@ def getLastTelePhoto(history):
     sorted_file_list = sorted(remote_telefiles, reverse=True)
 
     # Verify
+    log.notice(f"Total Photos found: {len(sorted_file_list)}")
     local_path = False
     found_photo = 0
     for remote_file in sorted_file_list:
@@ -135,7 +233,7 @@ def getLastTelePhoto(history):
               log.notice (f"Found photo file {found_photo}")
             if (found_photo >= history):
                 log.notice ("Found the requested photo")
-                log.notice(f"Find File : {remote_file} from directory: {remote_directory}")
+                log.notice(f"Found File : {remote_file} from directory: {remote_directory}")
                 remote_path = remote_directory + "/" + remote_file
                 # Convert to absolute path
                 local_photo_directory = os.path.abspath(local_photo_directory)
@@ -280,7 +378,7 @@ def stacking():
                         log.notice ("Found new file")
                         old_wait_number = wait_number
 
-                        log.notice(f"Find File : {remote_file} from directory: {most_recent_subdirectory}")
+                        log.notice(f"Found File : {remote_file} from directory: {most_recent_subdirectory}")
                         remote_path = most_recent_subdirectory + "/" + remote_file
                         local_path = os.path.join(local_directory, remote_file)
 
@@ -328,10 +426,9 @@ def stacking():
 def display_menu():
     global ftp_host
     # Reload the config module to ensure the new value is used
-    if not ftp_host:
-        # read at runtime
-        data_config = dwarf_python_api.get_config_data.get_config_data()
-        ftp_host = data_config['ip'] 
+    # read at runtime
+    data_config = dwarf_python_api.get_config_data.get_config_data()
+    ftp_host = data_config['ip'] 
 
     log.notice("")
     log.notice("------------------")
@@ -342,14 +439,26 @@ def display_menu():
     log.notice(f"5. Current Photo Directory: {local_photo_directory}")
     log.notice(f"6. Get Last Tele Photo (Photo Mode)")
     log.notice(f"7. Take a Tele Photo (Photo Mode)")
+    log.notice(f"8. Get Last Wide Photo (Photo Mode)")
+    log.notice(f"9. Take a Wide Photo (Photo Mode)")
+    log.notice(f"10. Get Tele Photos List")
+    log.notice(f"11. Get Wide Photos List")
     log.notice("0. Return to main menu")
 
 def get_user_choice():
-    choice = input("Enter your choice (1-7) or 0 to return to main menu: ")
+    choice = input("Enter your choice (1-11) or 0 to return to main menu: ")
     return choice
 
 def get_user_choice_last_Photo():
-    choice = input("You can choose a photo from the last photo history (0 (default) => last photo, 1 => penultimate and so on): ")
+    choice = input("You can choose a photo from the last photo history (0 (default) => last photo, 1 => previous photo and so on): ")
+    return choice
+
+def get_user_choice_indice_start():
+    choice = input("Set the starting  index based on history. (0 (default) => most recent photo, 1 => previous photo and so on or 'all'): ")
+    return choice
+
+def get_user_choice_indice_end():
+    choice = input("Set the ending index based on history. (0 (default) => last photo, 1 => previous photo and so on): ")
     return choice
 
 def option_1():
@@ -408,7 +517,7 @@ def option_6():
     # Add your Option 6 functionality here
     nb_last_photo = get_user_choice_last_Photo()
 
-    getGetLastPhoto(nb_last_photo)
+    getGetLastPhoto(nb_last_photo, "TELE")
 
 def option_7():
     log.notice("You selected Option 7. Take one Photo Only")
@@ -416,7 +525,39 @@ def option_7():
     # Add your Option 7 functionality here
     perform_takePhoto()
 
-def getGetLastPhoto(history = 0, get_config = False):
+def option_8():
+    log.notice("You selected Option 8. Get Last Wide Photo (Photo Mode)")
+    # Add your Option 8 functionality here
+    nb_last_photo = get_user_choice_last_Photo()
+
+    getGetLastPhoto(nb_last_photo, "WIDE")
+
+def option_9():
+    log.notice("You selected Option 9. Take one Wide Photo Only")
+    # Add your Option 9 functionality here
+    perform_takeWidePhoto()
+
+def option_10():
+    log.notice("You selected Option 10. Get Tele Photos List")
+    # Add your Option 10 functionality here
+    indiceStart = get_user_choice_indice_start()
+    indiceEnd = "0"
+    if indiceStart.lower() != "all": 
+        indiceEnd = get_user_choice_indice_end()
+
+    getlistPhoto("TELE", indiceStart, indiceEnd)
+
+def option_11():
+    log.notice("You selected Option 11. Get Wide Photos List")
+    # Add your Option 10 functionality here
+    indiceStart = get_user_choice_indice_start()
+    indiceEnd = "0"
+    if indiceStart.lower() != "all": 
+        indiceEnd = get_user_choice_indice_end()
+
+    getlistPhoto("WIDE", indiceStart, indiceEnd)
+
+def getGetLastPhoto(history = 0, camera="TELE", get_config = False):
     global ftp_host
     global local_photo_directory
 
@@ -444,7 +585,7 @@ def getGetLastPhoto(history = 0, get_config = False):
 
     update_config(local_photo_directory=local_photo_directory)
 
-    return getLastTelePhoto(history)
+    return getLastPhoto(history, camera)
 
 def update_config(ftp_host=None, local_directory=None, last_directory=None, local_photo_directory=None ):
     config = configparser.ConfigParser()
@@ -587,10 +728,22 @@ def get_live_data():
         elif user_choice == '7':
             option_7()
 
+        elif user_choice == '8':
+            option_8()
+
+        elif user_choice == '9':
+            option_9()
+
+        elif user_choice == '10':
+            option_10()
+
+        elif user_choice == '11':
+            option_11()
+
         elif user_choice == '0':
             log.notice("return to main menu")
             break
 
         else:
-            log.error("Invalid choice. Please enter a number between 0 and 7.")
+            log.error("Invalid choice. Please enter a number between 0 and 11.")
 
