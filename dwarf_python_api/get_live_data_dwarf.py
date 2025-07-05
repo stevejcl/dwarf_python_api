@@ -67,7 +67,7 @@ def get_file_mtime(ftp, remote_file):
 def get_dir_mtime(remote_dir):
     return remote_dir[-23:]
 
-def getlistPhoto(cameraPhoto = "TELE", indiceStart=0, indiceEnd=10):
+def getlistPhoto(cameraPhoto = "TELE", indexStart=0, indexEnd=10):
     global ftp_host
     global local_photo_directory
 
@@ -129,19 +129,19 @@ def getlistPhoto(cameraPhoto = "TELE", indiceStart=0, indiceEnd=10):
     sorted_file_list = sorted(remote_telefiles, reverse=True)
 
     FindAllPhotos = False
-    if indiceStart.lower() == "all":
-       indiceStart = 0
+    if str(indexStart).lower() == "all":
+       indexStart = 0
        FindAllPhotos = True
-       indiceEnd = 0
+       indexEnd = 0
     else:
         try:
-            indiceStart = int(indiceStart)
+            indexStart = int(indexStart)
         except ValueError:
-            indiceStart = 0
+            indexStart = 0
         try:
-            indiceEnd = int(indiceEnd)
+            indexEnd = int(indexEnd)
         except ValueError:
-            indiceEnd = 0
+            indexEnd = 0
 
     # Verify
     log.notice(f"Total Photos found: {len(sorted_file_list)}")
@@ -150,12 +150,12 @@ def getlistPhoto(cameraPhoto = "TELE", indiceStart=0, indiceEnd=10):
     for remote_file in sorted_file_list:
         if remote_file.endswith(file_extension):
             # Found a file
-            if found_photo > indiceEnd and not FindAllPhotos:
+            if found_photo > indexEnd and not FindAllPhotos:
                 log.notice("Found last photo file")
                 break
-            elif indiceStart <= found_photo <= indiceEnd or FindAllPhotos:
+            elif indexStart <= found_photo <= indexEnd or FindAllPhotos:
                 log.notice(f"Found PhotoFile : {found_photo} - {remote_file}")
-                listPhotos.append({'indice': found_photo, 'file': remote_file})
+                listPhotos.append({'index': found_photo, 'file': remote_file})
             found_photo += 1
 
     # Move back to the parent directory
@@ -453,11 +453,11 @@ def get_user_choice_last_Photo():
     choice = input("You can choose a photo from the last photo history (0 (default) => last photo, 1 => previous photo and so on): ")
     return choice
 
-def get_user_choice_indice_start():
+def get_user_choice_index_start():
     choice = input("Set the starting  index based on history. (0 (default) => most recent photo, 1 => previous photo and so on or 'all'): ")
     return choice
 
-def get_user_choice_indice_end():
+def get_user_choice_index_end():
     choice = input("Set the ending index based on history. (0 (default) => last photo, 1 => previous photo and so on): ")
     return choice
 
@@ -540,22 +540,22 @@ def option_9():
 def option_10():
     log.notice("You selected Option 10. Get Tele Photos List")
     # Add your Option 10 functionality here
-    indiceStart = get_user_choice_indice_start()
-    indiceEnd = "0"
-    if indiceStart.lower() != "all": 
-        indiceEnd = get_user_choice_indice_end()
+    indexStart = get_user_choice_index_start()
+    indexEnd = "0"
+    if str(indexStart).lower() != "all": 
+        indexEnd = get_user_choice_index_end()
 
-    getlistPhoto("TELE", indiceStart, indiceEnd)
+    getlistPhoto("TELE", indexStart, indexEnd)
 
 def option_11():
     log.notice("You selected Option 11. Get Wide Photos List")
     # Add your Option 10 functionality here
-    indiceStart = get_user_choice_indice_start()
-    indiceEnd = "0"
-    if indiceStart.lower() != "all": 
-        indiceEnd = get_user_choice_indice_end()
+    indexStart = get_user_choice_index_start()
+    indexEnd = "0"
+    if str(indexStart).lower() != "all": 
+        indexEnd = get_user_choice_index_end()
 
-    getlistPhoto("WIDE", indiceStart, indiceEnd)
+    getlistPhoto("WIDE", indexStart, indexEnd)
 
 def getGetLastPhoto(history = 0, camera="TELE", get_config = False):
     global ftp_host
