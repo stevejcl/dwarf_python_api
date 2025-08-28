@@ -165,3 +165,24 @@ def set_config_data(config_file, config_file_tmp, lock_file, print_log = False):
     if print_log:
         print(f" CONFIGS variables have been updated: {CONFIG_FILE}: {config_file} {CONFIG_FILE_TMP}: {config_file_tmp} {LOCK_FILE}: {lock_file}")
 
+# The config value for dwarf_id is offset by -1 (stored as one less than the actual ID).
+def config_to_dwarf_id_str(dwarf_id):
+    """
+    Convert a config-stored dwarf_id (offset by -1) into the actual dwarf_id as a string.
+
+    Example:
+        config_to_dwarf_id_str(1) -> "2"
+        config_to_dwarf_id_str(None) -> None
+    """
+    return str(int(dwarf_id) + 1) if dwarf_id is not None else None
+
+def config_to_dwarf_id_int(dwarf_id):
+    """
+    Convert a config-stored dwarf_id (offset by -1) into the actual dwarf_id as an integer.
+
+    Example:
+        config_to_dwarf_id_int(2) -> 3
+        config_to_dwarf_id_int(None) -> 0
+    """
+    return int(dwarf_id) + 1 if dwarf_id is not None else 0
+
