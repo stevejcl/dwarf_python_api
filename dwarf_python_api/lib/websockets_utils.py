@@ -16,6 +16,7 @@ import dwarf_python_api.proto.notify_pb2 as notify
 import dwarf_python_api.proto.astro_pb2 as astro
 import dwarf_python_api.proto.system_pb2 as system
 import dwarf_python_api.proto.camera_pb2 as camera
+import dwarf_python_api.proto.rgb_pb2 as rgb
 import dwarf_python_api.proto.motor_control_pb2 as motor
 # in notify
 import dwarf_python_api.proto.base_pb2 as base__pb2
@@ -60,6 +61,8 @@ VALID_PAIRS = {
     (protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_ASTRO_START_EQ_SOLVING, protocol.CMD_NOTIFY_EQ_SOLVING_STATE),
+    (protocol.CMD_RGB_POWER_REBOOT, protocol.CMD_NOTIFY_POWER_OFF),
+    (protocol.CMD_RGB_POWER_POWER_DOWN, protocol.CMD_NOTIFY_POWER_OFF),
 }
 
 def process_command(command, result):
@@ -1705,8 +1708,9 @@ class WebSocketClient:
                                 log.debug(f"receive request response data >> {ComResponse_message.code}")
                                 log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
                                 log.success("CMD_NOTIFY_POWER_OFF received >> EXIT")
+                                await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "POWER OFF", protocol.OK)
                                 # disconnect  
-                                await asyncio.sleep(0.1)
+                                await asyncio.sleep(1)
                                 await self.disconnect()
                             # notify Battery level
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_ELE):

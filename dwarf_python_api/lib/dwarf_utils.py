@@ -18,6 +18,7 @@ import dwarf_python_api.proto.focus_pb2 as focus
 import dwarf_python_api.proto.protocol_pb2 as protocol
 import dwarf_python_api.proto.motor_control_pb2 as motor
 import dwarf_python_api.proto.ble_pb2 as ble
+import dwarf_python_api.proto.rgb_pb2 as rgb_power
 
 import configparser
 import time
@@ -27,6 +28,48 @@ import re
 
 def perform_disconnect():
     disconnect_socket()
+
+def perform_reboot():
+
+    # Power Down
+    module_id = 5   # MODULE_RGB_POWER
+    type_id = 0;    # REQUEST
+
+    ReqPowerReboot_message = rgb_power.ReqReboot ()
+
+    command = 13505; # CMD_RGB_POWER_REBOOT
+    response = connect_socket(ReqPowerReboot_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == 0:
+          log.success("Reboot command success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+def perform_powerdown():
+
+    # Power Down
+    module_id = 5   # MODULE_RGB_POWER
+    type_id = 0;    # REQUEST
+
+    ReqPowerDown_message = rgb_power.ReqPowerDown ()
+
+    command = 13502; # CMD_RGB_POWER_POWER_DOWN
+    response = connect_socket(ReqPowerDown_message, command, type_id, module_id)
+
+    if response is not False: 
+
+      if response == 0:
+          log.success("Shutdown command success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
 
 def read_longitude():
     config = configparser.ConfigParser()
