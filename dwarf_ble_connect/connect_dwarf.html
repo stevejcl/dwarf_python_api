@@ -163,12 +163,12 @@ async function handleClick(event) {
         try {
           service = await server.getPrimaryService(DwarfII_ID_String);
           Dwarf_Name = "Dwarf II";
-          Dwarf_Type = 2;
+          Dwarf_Type = 1;
         } catch (error) {
           // If the first service isn't found, try the second one
           service = await server.getPrimaryService(Dwarf3_ID_String);
           Dwarf_Name = "Dwarf 3";
-          Dwarf_Type = 3;
+          Dwarf_Type = 2;
         }
         console.log('Got service:', service.uuid);
         console.log('Dwarf Type:', Dwarf_Name);

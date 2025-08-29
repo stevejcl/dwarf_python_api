@@ -222,7 +222,7 @@ def connect_bluetooth():
             time.sleep(1.5)
 
         if (resultUI and resultIP):
-            log.success(f"Successful Connection to Dwarf {current_dwarf_id}, ip is {current_ip}.")
+            log.success(f"Successful Connection to Dwarf {int(current_dwarf_id)+1}, ip is {current_ip}.")
         else:
             log.error("Error connecting to Dwarf Device.")
 
