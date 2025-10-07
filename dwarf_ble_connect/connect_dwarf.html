@@ -223,7 +223,14 @@ async function handleClick(event) {
                 console.log("Load WiFi configuration...");
                 phase = 2;
                 // set WifiSTA
-                let bufferSetWifiSta = messageWifiSTA(1, BluetoothPWD, BleSTASSIDDwarf, BleSTAPWDDwarf);
+                let paramSetWifiSta = 1;
+
+                if (result_data.ip == "192.168.88.1" || result_data.ssid.startsWith("DWARF3_"))
+                { 
+                  // set WifiSTA saved in memory
+                  paramSetWifiSta = 0
+                }
+                let bufferSetWifiSta = messageWifiSTA(paramSetWifiSta, BluetoothPWD, BleSTASSIDDwarf, BleSTAPWDDwarf);
                 await characteristic.writeValue(bufferSetWifiSta);
               }
               else if (result_data.state != 2) {

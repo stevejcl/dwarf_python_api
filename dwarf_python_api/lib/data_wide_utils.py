@@ -99,7 +99,8 @@ class AllowedWideExposuresD3:
             {"index": 156, "name": "15"},
             {"index": 159, "name": "30"},
             {"index": 160, "name": "45"},
-            {"index": 162, "name": "60"}
+            {"index": 162, "name": "60"},
+            {"index": 163, "name": "90"}
         ]
 
 def get_wide_exposure_name_by_index(index, dwarf_type = "2"):

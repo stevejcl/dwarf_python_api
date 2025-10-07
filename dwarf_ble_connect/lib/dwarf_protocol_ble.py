@@ -109,15 +109,25 @@ def fill_defaults_from_class(proto_instance):
     :return: A dictionary with all fields populated with defaults if not explicitly set.
     """
     from google.protobuf.json_format import MessageToDict
+    from google.protobuf.message import Message
 
-    # Convert to dictionary including unset fields with default values
-    filled_message = MessageToDict(
-        proto_instance,
-        including_default_value_fields=True,  # Ensure default values are included
-        preserving_proto_field_name=True      # Use field names as they appear in the proto definition
-    )
+    # Workaround for protobuf >= 4.x: merge default values manually
+    def dict_with_defaults(message: Message):
+        result = {}
+        for descriptor in message.DESCRIPTOR.fields:
+            value = getattr(message, descriptor.name)
+            if descriptor.label == descriptor.LABEL_REPEATED:
+                # Repeated fields
+                result[descriptor.name] = list(value)
+            elif descriptor.cpp_type == descriptor.CPPTYPE_MESSAGE:
+                # Nested message
+                result[descriptor.name] = dict_with_defaults(value)
+            else:
+                # Scalars: include value even if unset (default is auto-assigned)
+                result[descriptor.name] = value
+        return result
 
-    return filled_message
+    return dict_with_defaults(proto_instance)
 
   ## BLE Class Command
   # cmd: 1: "ReqGetconfig", // Get WiFi configuration

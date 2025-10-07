@@ -2382,6 +2382,115 @@ async def get_result_with_timeout(queue, timeout = 30):
     log.warning(f"No result after {timeout} seconds.")
     return result_timeout
  
+async def get_solicited_response(client_instance, gb_timeout, process_command, Dwarf_Result, ERROR_TIMEOUT):
+    """
+    Waits for the next message, then drains any subsequent notifications 
+    until the solicited response is found or a timeout/error occurs.
+    """
+    
+    # --- Helper function for processing a single result message ---
+    def process_result(result_cnx):
+        """Processes the result and determines if it's a notification/ignorable message."""
+        
+        # Default return values
+        is_notification_or_ignorable = False
+        final_result = None
+        
+        if isinstance(result_cnx, dict) and 'code' in result_cnx:
+            result = result_cnx.get('code', ERROR_TIMEOUT)
+            
+            # Critical Errors (Stop immediately)
+            if result_cnx.get('result') == Dwarf_Result.DISCONNECTED:
+                log.error("Error WebSocket Disconnected.")
+                final_result = result_cnx # Propagate disconnection
+            elif result_cnx.get('result') == Dwarf_Result.WARNING and "SLAVE MODE" in result_cnx.get('message', {}):
+                log.error("Can't send command, SLAVE MODE detected.")
+                final_result = result_cnx # Propagate warning
+            
+            # Notifications / Ignorable Frames (Continue draining)
+            elif result == 0:
+                is_notification = result_cnx.get('notification', False)
+                is_ignored_command = process_command(result_cnx.get('cmd_send'), result_cnx.get('cmd_recv')) is None
+                
+                if is_notification:
+                    log.debug("Notification Received: continuing drain.")
+                    is_notification_or_ignorable = True
+                elif is_ignored_command:
+                    log.info("Ignore Frame Received: continuing drain.")
+                    is_notification_or_ignorable = True
+                else:
+                    # Found the solicited response
+                    log.info("Solicited Response Found.")
+                    final_result = result_cnx
+            else:
+                # Found a non-zero error code response
+                final_result = result_cnx
+                
+        elif isinstance(result_cnx, dict) and result_cnx.get('code') == ERROR_TIMEOUT:
+            # Handle the specific timeout message from get_result_with_timeout
+            log.warning("Timeout received from get_result_with_timeout.")
+            final_result = result_cnx
+            
+        elif isinstance(result_cnx, int):
+            final_result = {'code': result_cnx} # Wrap simple code/error
+            
+        return is_notification_or_ignorable, final_result
+
+    # 1. Wait for the initial message (uses your timeout logic)
+    log.debug("WebSocket Client wait Queue for initial response.")
+    result_cnx = await get_result_with_timeout(client_instance.result_queue, gb_timeout)
+    
+    log.debug(f"Result (Initial): {result_cnx}")
+    
+    current_result = result_cnx
+    
+    while True:
+        is_notification, final_result = process_result(current_result)
+        
+        # If we found the final result (solicited response, disconnect, or timeout), return it
+        if final_result is not None:
+            # Important: If the item was successfully retrieved from the queue, 
+            # we should mark it as done before returning.
+            # Assuming get_result_with_timeout uses queue.get() which pulls the item.
+            # Note: queue.get() does not require task_done() in your case unless you use queue.join() 
+            # elsewhere, but it's good practice. We'll add it here.
+            try:
+                client_instance.result_queue.task_done()
+            except ValueError:
+                # Handle case where task_done() is called more than once or not after get()
+                pass 
+            return final_result
+
+        # If it was a notification/ignorable frame, try to drain the queue non-blockingly
+        if is_notification:
+            try:
+                # 2. Drain the next item without blocking
+                current_result = client_instance.result_queue.get_nowait()
+                log.debug(f"Result (Notification Drain): {current_result}")
+                # Mark the consumed notification as done
+                client_instance.result_queue.task_done()
+                # Loop continues to process the new current_result
+            except asyncio.QueueEmpty:
+                log.info("Queue is empty after draining notifications. Returning default timeout/error.")
+                # The queue is empty, and we didn't find the solicited response.
+                # Since we successfully pulled the item in the first step, 
+                # we must now wait for a new message if the command hasn't timed out.
+                # Simplest fix is to return the timeout/error result here if the command is considered failed
+                # or loop back to await get_result_with_timeout() if you want to reuse the timeout.
+                # Given the structure, we'll return a failure now that draining is complete.
+                result_timeout = { 
+                    'result' : Dwarf_Result.WARNING, 
+                    'message' : {"Timeout occurred while waiting for response, only notifications received."}, 
+                    'code': ERROR_TIMEOUT 
+                }
+                return result_timeout
+        
+        # Should not be reached, but as a safeguard against infinite loop
+        # if a non-notification, non-final result is encountered.
+        else:
+            log.error("Internal logic error: Result neither final nor notification.")
+            return {'result' : Dwarf_Result.WARNING, 'code': ERROR_TIMEOUT, 'message': 'Internal reader error'} 
+ 
 async def init_socket():
     global client_instance, event_loop, event_loop_thread
 
@@ -2446,6 +2555,9 @@ async def init_socket():
                         log.error("Error WebSocket Connection.")
                         stop_event_loop()
                         result = False
+                    elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_TIMEOUT:
+                        log.error("command TIMEOUT.")
+                        result = False
                     elif result_cnx['result'] == Dwarf_Result.WARNING:
                         log.error("Can't send command , SLAVE MODE detected.")
                         result = False
@@ -2477,44 +2589,71 @@ async def send_socket_message(message, command, type_id, module_id):
 
             log.debug(f"client_instance {client_instance}")
             if client_instance:
-                notification_result = True
-                while notification_result:
-                    notification_result = False
-                    log.debug("WebSocket Client wait Queue.")
-                    future_cnx = asyncio.run_coroutine_threadsafe(get_result_with_timeout(client_instance.result_queue, gb_timeout), event_loop)
 
-                    while not future_cnx.done():
-                        # Check every short interval for task completion or interruption
-                        time.sleep(0.1)  # Small sleep to allow for other tasks
-                        #  client_instance.result_queue.put(result_interrupt)
+                future_response = asyncio.run_coroutine_threadsafe(
+                    get_solicited_response(client_instance, gb_timeout, process_command, Dwarf_Result, ERROR_TIMEOUT), 
+                    event_loop
+                )
 
-                    result_cnx = future_cnx.result()
+                # Use your existing pattern to wait for the future to complete:
+                while not future_response.done():
+                    time.sleep(0.1) 
+                    
+                result_cnx = future_response.result()
+                if isinstance(result_cnx, dict) and 'code' in result_cnx:
+                    if result_cnx['result'] == Dwarf_Result.DISCONNECTED:
+                        log.error("Error WebSocket Disconnected.")
+                        stop_event_loop()
+                        result = False
+                    elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_TIMEOUT:
+                        log.error("command TIMEOUT.")
+                        result = False
+                    elif result_cnx['result'] == Dwarf_Result.WARNING:
+                        log.error("Can't send command , SLAVE MODE detected.")
+                        result = False
+                    else:
+                        result = result_cnx['code']
+                elif isinstance(result_cnx, int):
+                    result = result_cnx
 
-                    log.debug("WebSocket Client connect Queue.")
-                    log.debug(f"Result : send_socket")
-                    log.debug(f"Result : {result_cnx}")
-                       
-                    if isinstance(result_cnx, dict) and 'code' in result_cnx:
-                        if result_cnx['result'] == Dwarf_Result.DISCONNECTED:
-                            log.error("Error WebSocket Disconnected.")
-                            stop_event_loop()
-                            result = False
-                        elif result_cnx['result'] == Dwarf_Result.WARNING:
-                            log.error("Can't send command , SLAVE MODE detected.")
-                            result = False
-                        else:
-                            result = result_cnx['code']
-                            # test if it is a notification so we will continue (Astro photo)
-                            if result == 0 and isinstance(result_cnx, dict) and 'notification' in result_cnx:
-                                log.debug("Notification Received : continue loop.")
-                                notification_result = result_cnx['notification']
-                            # test if command received corresponds to possible command sent
-                            elif result == 0 and process_command(result_cnx['cmd_send'], result_cnx['cmd_recv']) is None:
-                                log.info("Ignore Frame Received : continue loop.")
-                                notification_result = True
+#                notification_result = True
+#                while notification_result:
+#                    notification_result = False
+#                    log.debug("WebSocket Client wait Queue.")
+#                    future_cnx = asyncio.run_coroutine_threadsafe(get_result_with_timeout(client_instance.result_queue, gb_timeout), event_loop)
 
-                    elif isinstance(result_cnx, int):
-                        result = result_cnx
+#                    while not future_cnx.done():
+#                        # Check every short interval for task completion or interruption
+#                        time.sleep(0.1)  # Small sleep to allow for other tasks
+#                        #  client_instance.result_queue.put(result_interrupt)
+
+#                    result_cnx = future_cnx.result()
+
+#                    log.debug("WebSocket Client connect Queue.")
+#                    log.debug(f"Result : send_socket")
+#                    log.debug(f"Result : {result_cnx}")
+#                       
+#                    if isinstance(result_cnx, dict) and 'code' in result_cnx:
+#                        if result_cnx['result'] == Dwarf_Result.DISCONNECTED:
+#                            log.error("Error WebSocket Disconnected.")
+#                            stop_event_loop()
+#                            result = False
+#                        elif result_cnx['result'] == Dwarf_Result.WARNING:
+#                            log.error("Can't send command , SLAVE MODE detected.")
+#                            result = False
+#                        else:
+#                            result = result_cnx['code']
+#                            # test if it is a notification so we will continue (Astro photo)
+#                            if result == 0 and isinstance(result_cnx, dict) and 'notification' in result_cnx:
+#                                log.debug("Notification Received : continue loop.")
+#                                notification_result = result_cnx['notification']
+#                            # test if command received corresponds to possible command sent
+#                            elif result == 0 and process_command(result_cnx['cmd_send'], result_cnx['cmd_recv']) is None:
+#                                log.info("Ignore Frame Received : continue loop.")
+#                                notification_result = True
+
+#                    elif isinstance(result_cnx, int):
+#                        result = result_cnx
 
             log.info(f"Result : {result}")
 
