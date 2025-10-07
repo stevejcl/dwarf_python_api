@@ -1,5 +1,5 @@
 # dwarf_python_api
-Dwarf II, some api functions to be used with python
+Dwarf II and Dwarf 3, some api functions to be used with python
 
 It uses the new api V2.0.
 
