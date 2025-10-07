@@ -121,10 +121,17 @@ async def connect_to_bluetooth_device(dwarf_device = None, Bluetooth_PWD = None,
                     connection_state["error"] = f"Error get Config: {result_data['code']} "
                     await action_disconnect(data_state["deviceDwarf"], data_state["characteristicDwarf"])
                 elif result_data.get('state') == 0 and Wifi_SSID and Wifi_PWD:
-                    log.info("Load WiFi configuration...")
                     data_state["IsFirstStepOK"] = True
                     connection_state["error"] = "Pending.. "
-                    bufferSetWifiSta = set_wifi_STA_message(1, Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
+                    if (result_data.get('ip') == "192.168.88.1" or
+                      result_data.get('ssid', '').startswith("DWARF3_")) and Wifi_SSID and Wifi_PWD:
+                        log.info("Load WiFi configuration (1)...")
+                        data_state["IsFirstStepOK"] = True
+                        connection_state["error"] = "Pending.. "
+                        bufferSetWifiSta = set_wifi_STA_message(0, Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
+                    else:
+                        log.info("Load WiFi configuration...")
+                        bufferSetWifiSta = set_wifi_STA_message(1, Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
                     await data_state["deviceDwarf"].write_gatt_char(DWARF_CHARACTERISTIC_UUID, bufferSetWifiSta)
                 elif result_data.get('state') != 2:
                     log.error(
@@ -140,14 +147,14 @@ async def connect_to_bluetooth_device(dwarf_device = None, Bluetooth_PWD = None,
                     await action_disconnect(data_state["deviceDwarf"], data_state["characteristicDwarf"])
                 elif (result_data.get('ip') == "192.168.88.1" or
                   result_data.get('ssid', '').startswith("DWARF3_")) and Wifi_SSID and Wifi_PWD:
-                    log.info("Load WiFi configuration...")
+                    log.info("Load WiFi configuration (2)...")
                     data_state["IsFirstStepOK"] = True
                     connection_state["error"] = "Pending.. "
                     bufferSetWifiSta = set_wifi_STA_message(0, Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
                     await data_state["deviceDwarf"].write_gatt_char(DWARF_CHARACTERISTIC_UUID, bufferSetWifiSta)
                 elif (result_data.get('ssid') and result_data.get('psd') and
                   Wifi_SSID and Wifi_PWD):
-                    log.info("Load WiFi configuration...")
+                    log.info("Load WiFi configuration (3)...")
                     data_state["IsFirstStepOK"] = True
                     connection_state["error"] = "Pending.. "
                     bufferSetWifiSta = set_wifi_STA_message(
