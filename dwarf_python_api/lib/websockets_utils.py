@@ -45,7 +45,9 @@ VALID_PAIRS = {
     (protocol.CMD_CAMERA_TELE_PHOTOGRAPH, protocol.CMD_NOTIFY_TELE_FUNCTION_STATE),
     (protocol.CMD_CAMERA_WIDE_PHOTOGRAPH, protocol.CMD_NOTIFY_WIDE_FUNCTION_STATE),
     (protocol.CMD_ASTRO_START_GOTO_DSO, protocol.CMD_NOTIFY_STATE_ASTRO_TRACKING),
+    (protocol.CMD_ASTRO_START_GOTO_DSO, protocol.CMD_ASTRO_STOP_GOTO),
     (protocol.CMD_ASTRO_START_GOTO_SOLAR_SYSTEM, protocol.CMD_NOTIFY_STATE_ASTRO_TRACKING),
+    (protocol.CMD_ASTRO_START_GOTO_SOLAR_SYSTEM, protocol.CMD_ASTRO_STOP_GOTO),
     (protocol.CMD_ASTRO_START_CALIBRATION,protocol.CMD_ASTRO_STOP_CALIBRATION),
     (protocol.CMD_ASTRO_START_CALIBRATION,protocol.CMD_NOTIFY_STATE_ASTRO_CALIBRATION),
     (protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
@@ -64,6 +66,97 @@ VALID_PAIRS = {
     (protocol.CMD_RGB_POWER_REBOOT, protocol.CMD_NOTIFY_POWER_OFF),
     (protocol.CMD_RGB_POWER_POWER_DOWN, protocol.CMD_NOTIFY_POWER_OFF),
 }
+
+# ID-to-name mapping
+ID_TELE_PARAM_NAMES = {
+    0: "Exposure",
+    1: "Gain",
+    2: "White Balance",
+    3: "Brightness",
+    4: "Contrast",
+    5: "Hue",
+    6: "Saturation",
+    7: "Sharpness",
+    8: "IR Cut"
+}
+
+ID_WIDE_PARAM_NAMES = {
+    0: "Exposure",
+    1: "Gain",
+    2: "White Balance",
+    3: "Brightness",
+    4: "Contrast",
+    5: "Hue",
+    6: "Saturation",
+    7: "Sharpness",
+}
+
+ID_FEATURE_PARAM_NAMES = {
+    0: "Astro binning",
+    1: "Astro img_to_take",
+    2: "Astro format",
+    3: "Burst count",
+    4: "TimeLapse interval",
+    5: "TimeLapse totalTime",
+    6: "Panorama row",
+    7: "Panorama col",
+    8: "Astro display source",
+    9: "Burst interval",
+    10: "Telephoto video resolution",
+    11: "Telephoto video fps",
+    12: "Wide-angle video resolution",
+    13: "Wide-angle video fps",
+    14: "Astro ai enhance",
+    15: "Astro mosaic sub img to take",
+}
+
+def fct_log_detail_tele_param(param):
+    if not param:
+        log.warning("No tele params found in response.")
+        return
+    # Get id and index
+    id_value = param.get('id')
+    index_value = param.get('index')
+    auto_mode = param.get('auto_mode')
+    value = param.get('continue_value')
+    
+    # Look up readable name
+    id_name = ID_TELE_PARAM_NAMES.get(id_value, f"Unknown_ID_{id_value}")
+
+    # Log it
+    log.info(f"Logging TELE Param - Name: {id_name}, ID: {id_value}, Index: {index_value}, Auto: {auto_mode}, Value: {value}")
+
+def fct_log_detail_wide_param(param):
+    if not param:
+        log.warning("No wide params found in response.")
+        return
+    # Get id and index
+    id_value = param.get('id')
+    index_value = param.get('index')
+    auto_mode = param.get('auto_mode')
+    value = param.get('continue_value')
+    
+    # Look up readable name
+    id_name = ID_WIDE_PARAM_NAMES.get(id_value, f"Unknown_ID_{id_value}")
+
+    # Log it
+    log.info(f"Logging WIDE Param - Name: {id_name}, ID: {id_value}, Index: {index_value}, Auto: {auto_mode}, Value: {value} ")
+
+def fct_log_feature_param(param):
+    if not param:
+        log.warning("No feature params found in response.")
+        return
+    # Get id and index
+    id_value = param.get('id')
+    index_value = param.get('index')
+    auto_mode = param.get('auto_mode')
+    value = param.get('continue_value')
+    
+    # Look up readable name
+    id_name = ID_FEATURE_PARAM_NAMES.get(id_value, f"Unknown_ID_{id_value}")
+
+    # Log it
+    log.info(f"Logging ID_FEATURE_PARAM_NAMES Param - Name: {id_name}, ID: {id_value}, Index: {index_value}, Auto: {auto_mode}, Value: {value} ")
 
 def process_command(command, result):
     # If the result matches the command, accept it by default
@@ -149,6 +242,7 @@ class WebSocketClient:
         self.reset_timeout = True
         self.stop_task = asyncio.Event()
         self.result_queue = asyncio.Queue()
+        self.result_queue_locked = asyncio.Lock()
         self.wait_pong = False
         self.stopcalibration = False
         self.takePhotoStarted = False
@@ -275,7 +369,8 @@ class WebSocketClient:
             log.info("result_receive_messages.")
             result_message = { 'cmd_send' : cmd_send, 'cmd_recv' : cmd_recv, 'result' : result, 'message' : message, 'code': code}
             log.info(result_message)
-            await self.result_queue.put(result_message)
+            async with self.result_queue_locked:
+                await self.result_queue.put(result_message)
             log.info("end result_receive_messages.")
         except Exception as e:
             # Handle other exceptions
@@ -290,7 +385,8 @@ class WebSocketClient:
             notification_message = { 'cmd_send' : cmd_send, 'cmd_recv' : cmd_recv, 'result' : result, 'message' : message, 'code': code, 'notification' : True}
             log.debug(notification_message)
             log.notice(notification_message['message'])
-            await self.result_queue.put(notification_message)
+            async with self.result_queue_locked:
+                await self.result_queue.put(notification_message)
             log.info("end result_notification_messages.")
         except Exception as e:
             # Handle other exceptions
@@ -1147,6 +1243,60 @@ class WebSocketClient:
                                         res_get_all_params_data["all_params"].append(common_param_data)
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA GET ALL_PARAMS", res_get_all_params_data)
                                     await asyncio.sleep(1)
+                            # CMD_CAMERA_WIDE_SET_ALL_PARAMS
+                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_SET_ALL_PARAMS):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_WIDE_SET_ALL_PARAMS")
+                                log.debug(f"receive request response data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error CAMERA WIDE SET ALL PARAMS {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR CAMERA WIDE SET ALL PARAMS", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    # Signal the ping and receive functions to stop
+                                    log.info("Success CAMERA WIDE SET ALL PARAM OK >> EXIT")
+                                    log.success("Success CAMERA WIDE SET ALL PARAM")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA WIDE SET ALL PARAMS", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                            # CMD_CAMERA_WIDE_GET_ALL_PARAMS
+                            elif (self.command == protocol.CMD_CAMERA_WIDE_GET_ALL_PARAMS and WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_GET_ALL_PARAMS):
+                                common_param_instance = base__pb2.CommonParam()
+                                # Populate fields of common_param_instance
+                                ResGetAllParams_message = camera.ResGetAllParams()
+                                # Add common_param_instance to the repeated field all_params
+                                ResGetAllParams_message.all_params.append(common_param_instance)
+
+                                ResGetAllParams_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_WIDE_GET_ALL_PARAMS")
+                                log.debug(f"receive request response data >> {ResGetAllParams_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ResGetAllParams_message.code)}")
+                                if (ResGetAllParams_message.code != protocol.OK):
+                                    log.error(f"Error CAMERA _WIDE_GET ALL_PARAMS {getErrorCodeValueName(ResGetAllParams_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR CAMERA_WIDE_GET ALL PARAMS", ResGetAllParams_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    # Signal the ping and receive functions to stop
+                                    log.info("Success CAMERA_WIDE_GET ALL_PARAMS OK >> EXIT")
+                                    log.success("Success CAMERA_WIDE_GET ALL_PARAMS")
+                                    # Create a dictionary to store the content
+                                    res_get_all_params_data = {
+                                        "all_params": [],
+                                        "code": ResGetAllParams_message.code
+                                    }
+                                    for common_param_instance in ResGetAllParams_message.all_params:
+                                        common_param_data = {
+                                            "hasAuto": common_param_instance.hasAuto,
+                                            "auto_mode": common_param_instance.auto_mode,
+                                            "id": common_param_instance.id,
+                                            "mode_index": common_param_instance.mode_index,
+                                            "index": common_param_instance.index,
+                                            "continue_value": common_param_instance.continue_value
+                                        }
+                                        res_get_all_params_data["all_params"].append(common_param_data)
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA _WIDE_GET ALL_PARAMS", res_get_all_params_data)
+                                    await asyncio.sleep(1)
                             # CMD_CAMERA_TELE_SET_FEATURE_PARAM
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_SET_FEATURE_PARAM):
                                 ComResponse_message = base__pb2.ComResponse()
@@ -1215,24 +1365,21 @@ class WebSocketClient:
                                     log.success(f"Success CAMERA SET EXP MODE:  {getErrorCodeValueName(ComResponse_message.code)}")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET EXP MODE", ComResponse_message.code)
                             elif (self.command == protocol.CMD_CAMERA_TELE_SET_EXP_MODE and WsPacket_message.cmd==protocol.CMD_NOTIFY_TELE_SET_PARAM and self.toDoSetExpMode == True):
-                                common_param_instance = base__pb2.CommonParam()
-                                common_param_instance.ParseFromString(WsPacket_message.data)
+                                ResGetAllParams_message = camera.ResGetAllParams()
+                                ResGetAllParams_message.ParseFromString(WsPacket_message.data)
+
+                                # Access the first common_param_instance directly
+                                common_param_instance = ResGetAllParams_message.all_params[0]
+                                log.debug("Decoding EXP_MODE CMD_NOTIFY_TELE_SET_PARAM")
                                 log.debug(f"receive request response data >> {common_param_instance}")
-                                log.debug("Decoding CMD_NOTIFY_TELE_SET_PARAM")
-                                common_param_data = {
-                                    "hasAuto": common_param_instance.hasAuto,
-                                    "auto_mode": common_param_instance.auto_mode,
-                                    "id": common_param_instance.id,
-                                    "mode_index": common_param_instance.mode_index,
-                                    "index": common_param_instance.index,
-                                    "continue_value": common_param_instance.continue_value
-                                }
-                                log.debug(f"receive request response data >> {common_param_data}")
+                                log.debug(f">> {getErrorCodeValueName(ResGetAllParams_message.code)}")
+
+                                # Check the specific condition and take actions accordingly
                                 if (common_param_instance.id == 0):
-                                    self.toDoSetExpMode = False
-                                    log.info("CAMERA SET EXP MODE OK >> EXIT")
-                                    log.success(f"Success CAMERA SET EXP MODE:  {common_param_instance.auto_mode}")
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET EXP MODE", protocol.OK)
+                                    self.toDoSetWideExpMode = False
+                                    log.info("CAMERA SET TELE EXP MODE OK >> EXIT")
+                                    log.success(f"Success CAMERA SET TELE EXP MODE:  {common_param_instance.auto_mode}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET TELE EXP MODE", protocol.OK)
                             # CMD_CAMERA_TELE_SET_EXP
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_SET_EXP and self.toDoSetExp == True):
                                 self.toDoSetExp == False
@@ -1250,23 +1397,21 @@ class WebSocketClient:
                                     log.success(f"Success CAMERA SET EXP:  {getErrorCodeValueName(ComResponse_message.code)}")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET EXP", ComResponse_message.code)
                             elif (self.command == protocol.CMD_CAMERA_TELE_SET_EXP and WsPacket_message.cmd==protocol.CMD_NOTIFY_TELE_SET_PARAM and self.toDoSetExp == True):
-                                common_param_instance = base__pb2.CommonParam()
-                                common_param_instance.ParseFromString(WsPacket_message.data)
-                                log.debug("Decoding CMD_NOTIFY_TELE_SET_PARAM")
-                                common_param_data = {
-                                    "hasAuto": common_param_instance.hasAuto,
-                                    "auto_mode": common_param_instance.auto_mode,
-                                    "id": common_param_instance.id,
-                                    "mode_index": common_param_instance.mode_index,
-                                    "index": common_param_instance.index,
-                                    "continue_value": common_param_instance.continue_value
-                                }
-                                log.debug(f"receive request response data >> {common_param_data}")
+                                ResGetAllParams_message = camera.ResGetAllParams()
+                                ResGetAllParams_message.ParseFromString(WsPacket_message.data)
+
+                                # Access the first common_param_instance directly
+                                common_param_instance = ResGetAllParams_message.all_params[0]
+                                log.debug("Decoding EXP CMD_NOTIFY_TELE_SET_PARAM")
+                                log.debug(f"receive request response data >> {common_param_instance}")
+                                log.debug(f">> {getErrorCodeValueName(ResGetAllParams_message.code)}")
+
+                                # Check the specific condition and take actions accordingly
                                 if (common_param_instance.id == 0):
                                     self.toDoSetExp = False
-                                    log.info("CAMERA SET EXP OK >> EXIT")
-                                    log.success(f"Success CAMERA SET EXP:  {common_param_instance.index}")
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET EXP", protocol.OK)
+                                    log.info("CAMERA SET TELE EXP OK >> EXIT")
+                                    log.success(f"Success CAMERA SET TELE EXP:  {common_param_instance.index}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET TELE EXP", protocol.OK)
                             # CMD_CAMERA_TELE_GET_EXP
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_GET_EXP and WsPacket_message.type == 3):
                                 ComResponseWithDouble_message = base__pb2.ComResWithDouble()
@@ -1297,7 +1442,7 @@ class WebSocketClient:
                                     log.success(f"Success CAMERA GET EXP:  {getErrorCodeValueName(ComResponse_message.code)}")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA GET EXP", ComResponse_message.code)
                             # CMD_CAMERA_TELE_SET_GAIN
-                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_SET_GAIN and self.toDoSetGain == True):
+                            elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_SET_GAIN and WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_SET_GAIN and self.toDoSetGain == True):
                                 self.toDoSetGain == False
                                 ComResponse_message = base__pb2.ComResponse()
                                 ComResponse_message.ParseFromString(WsPacket_message.data)
@@ -1313,23 +1458,27 @@ class WebSocketClient:
                                     log.success(f"Success CAMERA SET GAIN:  {getErrorCodeValueName(ComResponse_message.code)}")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET GAIN", ComResponse_message.code)
                             elif (self.command == protocol.CMD_CAMERA_TELE_SET_GAIN and WsPacket_message.cmd==protocol.CMD_NOTIFY_TELE_SET_PARAM and self.toDoSetGain == True):
-                                common_param_instance = base__pb2.CommonParam()
-                                common_param_instance.ParseFromString(WsPacket_message.data)
-                                log.debug("Decoding CMD_NOTIFY_TELE_SET_PARAM")
-                                common_param_data = {
-                                    "hasAuto": common_param_instance.hasAuto,
-                                    "auto_mode": common_param_instance.auto_mode,
-                                    "id": common_param_instance.id,
-                                    "mode_index": common_param_instance.mode_index,
-                                    "index": common_param_instance.index,
-                                    "continue_value": common_param_instance.continue_value
-                                }
-                                log.debug(f"receive request response data >> {common_param_data}")
-                                if (common_param_instance.id == 0):
+                                ResGetAllParams_message = camera.ResGetAllParams()
+                                ResGetAllParams_message.ParseFromString(WsPacket_message.data)
+
+                                # Access the first common_param_instance directly
+                                common_param_instance = ResGetAllParams_message.all_params[0]
+                                log.debug("Decoding GAIN CMD_NOTIFY_TELE_SET_PARAM")
+                                log.debug(f"receive request response data >> {common_param_instance}")
+                                log.debug(f">> {getErrorCodeValueName(ResGetAllParams_message.code)}")
+
+                                # Check the specific condition and take actions accordingly
+                                if common_param_instance.id == 1:
                                     self.toDoSetGain = False
-                                    log.info("CAMERA SET GAIN >> EXIT")
-                                    log.success(f"Success CAMERA SET GAIN:  {common_param_instance.index}")
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA SET GAIN", protocol.OK)
+                                    log.info("CAMERA SET TELE GAIN >> EXIT")
+                                    log.success(f"Success CAMERA SET TELE GAIN: index {common_param_instance.index}")
+                                    await self.result_receive_messages(
+                                        self.command,
+                                        WsPacket_message.cmd,
+                                        Dwarf_Result.OK,
+                                        "OK CAMERA SET TELE GAIN",
+                                        protocol.OK
+                                    )
                             # CMD_CAMERA_TELE_GET_GAIN
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_GET_GAIN and WsPacket_message.type == 3):
                                 ComResWithInt_message = base__pb2.ComResWithInt()
@@ -1447,43 +1596,6 @@ class WebSocketClient:
                                     log.info("CAMERA SET GRCUT OK >> EXIT")
                                     log.success(f"Success CAMERA GET IRCUT:  {getErrorCodeValueName(ComResponse_message.code)}")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA GET IRCUT", ComResponse_message.code)
-                            # CMD_CAMERA_WIDE_GET_ALL_PARAMS
-                            elif (self.command == protocol.CMD_CAMERA_WIDE_GET_ALL_PARAMS and WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_GET_ALL_PARAMS):
-                                common_param_instance = base__pb2.CommonParam()
-                                # Populate fields of common_param_instance
-                                ResGetAllParams_message = camera.ResGetAllParams()
-                                # Add common_param_instance to the repeated field all_params
-                                ResGetAllParams_message.all_params.append(common_param_instance)
-
-                                ResGetAllParams_message.ParseFromString(WsPacket_message.data)
-                                log.debug("Decoding CMD_CAMERA_WIDE_GET_ALL_PARAMS")
-                                log.debug(f"receive request response data >> {ResGetAllParams_message.code}")
-                                log.debug(f">> {getErrorCodeValueName(ResGetAllParams_message.code)}")
-                                if (ResGetAllParams_message.code != protocol.OK):
-                                    log.error(f"Error CAMERA _WIDE_GET ALL_PARAMS {getErrorCodeValueName(ResGetAllParams_message.code)} >> EXIT")
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR CAMERA_WIDE_GET ALL PARAMS", ResGetAllParams_message.code)
-                                    await asyncio.sleep(1)
-                                else:
-                                    # Signal the ping and receive functions to stop
-                                    log.info("Success CAMERA_WIDE_GET ALL_PARAMS OK >> EXIT")
-                                    log.success("Success CAMERA_WIDE_GET ALL_PARAMS")
-                                    # Create a dictionary to store the content
-                                    res_get_all_params_data = {
-                                        "all_params": [],
-                                        "code": ResGetAllParams_message.code
-                                    }
-                                    for common_param_instance in ResGetAllParams_message.all_params:
-                                        common_param_data = {
-                                            "hasAuto": common_param_instance.hasAuto,
-                                            "auto_mode": common_param_instance.auto_mode,
-                                            "id": common_param_instance.id,
-                                            "mode_index": common_param_instance.mode_index,
-                                            "index": common_param_instance.index,
-                                            "continue_value": common_param_instance.continue_value
-                                        }
-                                        res_get_all_params_data["all_params"].append(common_param_data)
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA _WIDE_GET ALL_PARAMS", res_get_all_params_data)
-                                    await asyncio.sleep(1)
                             # CMD_CAMERA_WIDE_SET_EXP_MODE
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_WIDE_SET_EXP_MODE and self.toDoSetWideExpMode == True):
                                 self.toDoSetWideExpMode = False
@@ -1646,6 +1758,96 @@ class WebSocketClient:
                                     log.info("CAMERA GET WIDE GAIN OK >> CONTINUE TO GET VALUE")
                                     #log.success(f"Success CAMERA GET WIDE GAIN:  {getErrorCodeValueName(ComResponse_message.code)}")
                                     #await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA GET WIDE GAIN", ComResponse_message.code)
+                            # CMD_NOTIFY_TELE_SET_PARAM ignore multiple message
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_TELE_SET_PARAM):
+                                # send a notification
+                                common_param_instance = base__pb2.CommonParam()
+                                ResGetAllParams_message = camera.ResGetAllParams()
+                                ResGetAllParams_message.ParseFromString(WsPacket_message.data)
+                                res_get_all_params_data = {
+                                    "all_params": [],
+                                    "code": ResGetAllParams_message.code
+                                }
+                                for common_param_instance in ResGetAllParams_message.all_params:
+                                    common_param_data = {
+                                        "hasAuto": common_param_instance.hasAuto,
+                                        "auto_mode": common_param_instance.auto_mode,
+                                        "id": common_param_instance.id,
+                                        "mode_index": common_param_instance.mode_index,
+                                        "index": common_param_instance.index,
+                                        "continue_value": common_param_instance.continue_value
+                                    }
+                                    res_get_all_params_data["all_params"].append(common_param_data)
+                                log.debug(f"received CMD_NOTIFY_TELE_SET_PARAM : {res_get_all_params_data}")
+                                # Log the data received
+                                all_params = res_get_all_params_data.get("all_params", [])
+                                if len(all_params) > 0:                            
+                                    fct_log_detail_tele_param(param = all_params[0])
+                                else:
+                                    log.info(f"Logging TELE Param: No DATA!")
+                                # send a notification
+                                message = f"CMD_NOTIFY_TELE_SET_PARAM received (notify)"
+                                await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
+                            # CMD_NOTIFY_WIDE_SET_PARAM ignore multiple message
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_WIDE_SET_PARAM):
+                                # send a notification
+                                common_param_instance = base__pb2.CommonParam()
+                                ResGetAllParams_message = camera.ResGetAllParams()
+                                ResGetAllParams_message.ParseFromString(WsPacket_message.data)
+                                res_get_all_params_data = {
+                                    "all_params": [],
+                                    "code": ResGetAllParams_message.code
+                                }
+                                for common_param_instance in ResGetAllParams_message.all_params:
+                                    common_param_data = {
+                                        "hasAuto": common_param_instance.hasAuto,
+                                        "auto_mode": common_param_instance.auto_mode,
+                                        "id": common_param_instance.id,
+                                        "mode_index": common_param_instance.mode_index,
+                                        "index": common_param_instance.index,
+                                        "continue_value": common_param_instance.continue_value
+                                    }
+                                    res_get_all_params_data["all_params"].append(common_param_data)
+                                log.debug(f"received CMD_NOTIFY_WIDE_SET_PARAM : {res_get_all_params_data}")
+                                # Log the data received
+                                all_params = res_get_all_params_data.get("all_params", [])
+                                if len(all_params) > 0:                            
+                                    fct_log_detail_wide_param(param = all_params[0])
+                                else:
+                                    log.info(f"Logging WIDE Param: No DATA!")
+                                # send a notification
+                                message = f"CMD_NOTIFY_WIDE_SET_PARAM received (notify)"
+                                await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
+                            # CMD_NOTIFY_SET_FEATURE_PARAM ignore multiple message
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_SET_FEATURE_PARAM):
+                                # send a notification
+                                common_param_instance = base__pb2.CommonParam()
+                                ResGetAllParams_message = camera.ResGetAllParams()
+                                ResGetAllParams_message.ParseFromString(WsPacket_message.data)
+                                res_get_all_params_data = {
+                                    "all_params": [],
+                                    "code": ResGetAllParams_message.code
+                                }
+                                for common_param_instance in ResGetAllParams_message.all_params:
+                                    common_param_data = {
+                                        "hasAuto": common_param_instance.hasAuto,
+                                        "auto_mode": common_param_instance.auto_mode,
+                                        "id": common_param_instance.id,
+                                        "mode_index": common_param_instance.mode_index,
+                                        "index": common_param_instance.index,
+                                        "continue_value": common_param_instance.continue_value
+                                    }
+                                    res_get_all_params_data["all_params"].append(common_param_data)
+                                log.debug(f"received CMD_NOTIFY_SET_FEATURE_PARAM : {res_get_all_params_data}")
+                                # Log the data received
+                                all_params = res_get_all_params_data.get("all_params", [])
+                                if len(all_params) > 0:                            
+                                    fct_log_feature_param(param = all_params[0])
+                                else:
+                                    log.info(f"Logging Features Param: No DATA!")
+                                # send a notification
+                                message = f"CMD_NOTIFY_SET_FEATURE_PARAM received (notify)"
+                                await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
                             # CMD_ASTRO_START_EQ_SOLVING
                             elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_EQ_SOLVING):
                                 ResStartEqSolving_message = astro.ResStartEqSolving()
@@ -2357,6 +2559,26 @@ def run_event_loop(loop):
     asyncio.set_event_loop(loop)
     loop.run_forever()
 
+async def flush_queue_for_command_id(queue, queue_lock, cmd_send):
+    temp_items = []
+    flushed = 0
+
+    async with queue_lock:
+        try:
+            while True:
+                msg = queue.get_nowait()
+                if msg.get("cmd_send") == cmd_send:
+                    flushed += 1  # discard
+                else:
+                    temp_items.append(msg)  # keep
+        except asyncio.QueueEmpty:
+            pass
+
+        # Restore only unrelated messages in original order
+        for msg in temp_items:
+            await queue.put(msg)
+
+    log.debug(f"Flushed {flushed} message(s) with ID={cmd_send}")
 
 async def get_result_with_timeout(queue, timeout = 30):
 
@@ -2381,115 +2603,6 @@ async def get_result_with_timeout(queue, timeout = 30):
     result_timeout = { 'result' : Dwarf_Result.WARNING, 'message' : {f"No result after {timeout} seconds."}, 'code': ERROR_TIMEOUT}
     log.warning(f"No result after {timeout} seconds.")
     return result_timeout
- 
-async def get_solicited_response(client_instance, gb_timeout, process_command, Dwarf_Result, ERROR_TIMEOUT):
-    """
-    Waits for the next message, then drains any subsequent notifications 
-    until the solicited response is found or a timeout/error occurs.
-    """
-    
-    # --- Helper function for processing a single result message ---
-    def process_result(result_cnx):
-        """Processes the result and determines if it's a notification/ignorable message."""
-        
-        # Default return values
-        is_notification_or_ignorable = False
-        final_result = None
-        
-        if isinstance(result_cnx, dict) and 'code' in result_cnx:
-            result = result_cnx.get('code', ERROR_TIMEOUT)
-            
-            # Critical Errors (Stop immediately)
-            if result_cnx.get('result') == Dwarf_Result.DISCONNECTED:
-                log.error("Error WebSocket Disconnected.")
-                final_result = result_cnx # Propagate disconnection
-            elif result_cnx.get('result') == Dwarf_Result.WARNING and "SLAVE MODE" in result_cnx.get('message', {}):
-                log.error("Can't send command, SLAVE MODE detected.")
-                final_result = result_cnx # Propagate warning
-            
-            # Notifications / Ignorable Frames (Continue draining)
-            elif result == 0:
-                is_notification = result_cnx.get('notification', False)
-                is_ignored_command = process_command(result_cnx.get('cmd_send'), result_cnx.get('cmd_recv')) is None
-                
-                if is_notification:
-                    log.debug("Notification Received: continuing drain.")
-                    is_notification_or_ignorable = True
-                elif is_ignored_command:
-                    log.info("Ignore Frame Received: continuing drain.")
-                    is_notification_or_ignorable = True
-                else:
-                    # Found the solicited response
-                    log.info("Solicited Response Found.")
-                    final_result = result_cnx
-            else:
-                # Found a non-zero error code response
-                final_result = result_cnx
-                
-        elif isinstance(result_cnx, dict) and result_cnx.get('code') == ERROR_TIMEOUT:
-            # Handle the specific timeout message from get_result_with_timeout
-            log.warning("Timeout received from get_result_with_timeout.")
-            final_result = result_cnx
-            
-        elif isinstance(result_cnx, int):
-            final_result = {'code': result_cnx} # Wrap simple code/error
-            
-        return is_notification_or_ignorable, final_result
-
-    # 1. Wait for the initial message (uses your timeout logic)
-    log.debug("WebSocket Client wait Queue for initial response.")
-    result_cnx = await get_result_with_timeout(client_instance.result_queue, gb_timeout)
-    
-    log.debug(f"Result (Initial): {result_cnx}")
-    
-    current_result = result_cnx
-    
-    while True:
-        is_notification, final_result = process_result(current_result)
-        
-        # If we found the final result (solicited response, disconnect, or timeout), return it
-        if final_result is not None:
-            # Important: If the item was successfully retrieved from the queue, 
-            # we should mark it as done before returning.
-            # Assuming get_result_with_timeout uses queue.get() which pulls the item.
-            # Note: queue.get() does not require task_done() in your case unless you use queue.join() 
-            # elsewhere, but it's good practice. We'll add it here.
-            try:
-                client_instance.result_queue.task_done()
-            except ValueError:
-                # Handle case where task_done() is called more than once or not after get()
-                pass 
-            return final_result
-
-        # If it was a notification/ignorable frame, try to drain the queue non-blockingly
-        if is_notification:
-            try:
-                # 2. Drain the next item without blocking
-                current_result = client_instance.result_queue.get_nowait()
-                log.debug(f"Result (Notification Drain): {current_result}")
-                # Mark the consumed notification as done
-                client_instance.result_queue.task_done()
-                # Loop continues to process the new current_result
-            except asyncio.QueueEmpty:
-                log.info("Queue is empty after draining notifications. Returning default timeout/error.")
-                # The queue is empty, and we didn't find the solicited response.
-                # Since we successfully pulled the item in the first step, 
-                # we must now wait for a new message if the command hasn't timed out.
-                # Simplest fix is to return the timeout/error result here if the command is considered failed
-                # or loop back to await get_result_with_timeout() if you want to reuse the timeout.
-                # Given the structure, we'll return a failure now that draining is complete.
-                result_timeout = { 
-                    'result' : Dwarf_Result.WARNING, 
-                    'message' : {"Timeout occurred while waiting for response, only notifications received."}, 
-                    'code': ERROR_TIMEOUT 
-                }
-                return result_timeout
-        
-        # Should not be reached, but as a safeguard against infinite loop
-        # if a non-notification, non-final result is encountered.
-        else:
-            log.error("Internal logic error: Result neither final nor notification.")
-            return {'result' : Dwarf_Result.WARNING, 'code': ERROR_TIMEOUT, 'message': 'Internal reader error'} 
  
 async def init_socket():
     global client_instance, event_loop, event_loop_thread
@@ -2581,6 +2694,10 @@ async def send_socket_message(message, command, type_id, module_id):
 
     try:
         if client_instance:
+
+            # flush the queue for this message
+            await flush_queue_for_command_id(client_instance.result_queue, client_instance.result_queue_locked, command)
+
             # Call the send function
             future = asyncio.run_coroutine_threadsafe(send_socket(message, command, type_id, module_id), client_instance.task.get_loop())
             
@@ -2589,73 +2706,52 @@ async def send_socket_message(message, command, type_id, module_id):
 
             log.debug(f"client_instance {client_instance}")
             if client_instance:
+                notification_result = True
+                while notification_result:
+                    notification_result = False
+                    log.debug("WebSocket Client wait Queue.")
+                    future_cnx = asyncio.run_coroutine_threadsafe(get_result_with_timeout(client_instance.result_queue, gb_timeout), event_loop)
 
-                future_response = asyncio.run_coroutine_threadsafe(
-                    get_solicited_response(client_instance, gb_timeout, process_command, Dwarf_Result, ERROR_TIMEOUT), 
-                    event_loop
-                )
+                    while not future_cnx.done():
+                        # Check every short interval for task completion or interruption
+                        time.sleep(0.1)  # Small sleep to allow for other tasks
+                        #  client_instance.result_queue.put(result_interrupt)
 
-                # Use your existing pattern to wait for the future to complete:
-                while not future_response.done():
-                    time.sleep(0.1) 
-                    
-                result_cnx = future_response.result()
-                if isinstance(result_cnx, dict) and 'code' in result_cnx:
-                    if result_cnx['result'] == Dwarf_Result.DISCONNECTED:
-                        log.error("Error WebSocket Disconnected.")
-                        stop_event_loop()
-                        result = False
-                    elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_TIMEOUT:
-                        log.error("command TIMEOUT.")
-                        result = False
-                    elif result_cnx['result'] == Dwarf_Result.WARNING:
-                        log.error("Can't send command , SLAVE MODE detected.")
-                        result = False
-                    else:
-                        result = result_cnx['code']
-                elif isinstance(result_cnx, int):
-                    result = result_cnx
+                    result_cnx = future_cnx.result()
 
-#                notification_result = True
-#                while notification_result:
-#                    notification_result = False
-#                    log.debug("WebSocket Client wait Queue.")
-#                    future_cnx = asyncio.run_coroutine_threadsafe(get_result_with_timeout(client_instance.result_queue, gb_timeout), event_loop)
+                    log.debug("WebSocket Client connect Queue.")
+                    log.debug(f"Result : send_socket")
+                    log.debug(f"Result : {result_cnx}")
+                       
+                    if isinstance(result_cnx, dict) and 'code' in result_cnx:
+                        if result_cnx['result'] == Dwarf_Result.DISCONNECTED:
+                            log.error("Error WebSocket Disconnected.")
+                            stop_event_loop()
+                            result = False
+                        elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_TIMEOUT:
+                            log.error("command TIMEOUT.")
+                            result = False
+                        elif result_cnx['result'] == Dwarf_Result.WARNING:
+                            log.error("Can't send command , SLAVE MODE detected.")
+                            result = False
+                        else:
+                            result = result_cnx['code']
+                            # test if it is a notification so we will continue (Astro photo)
+                            if result == 0 and isinstance(result_cnx, dict) and 'notification' in result_cnx:
+                                log.debug("Notification Received : continue loop.")
+                                notification_result = result_cnx['notification']
+                            # test if command received corresponds to possible command sent
+                            elif result == 0 and process_command(result_cnx['cmd_send'], result_cnx['cmd_recv']) is None:
+                                log.info("Ignore Frame Received : continue loop.")
+                                notification_result = True
 
-#                    while not future_cnx.done():
-#                        # Check every short interval for task completion or interruption
-#                        time.sleep(0.1)  # Small sleep to allow for other tasks
-#                        #  client_instance.result_queue.put(result_interrupt)
-
-#                    result_cnx = future_cnx.result()
-
-#                    log.debug("WebSocket Client connect Queue.")
-#                    log.debug(f"Result : send_socket")
-#                    log.debug(f"Result : {result_cnx}")
-#                       
-#                    if isinstance(result_cnx, dict) and 'code' in result_cnx:
-#                        if result_cnx['result'] == Dwarf_Result.DISCONNECTED:
-#                            log.error("Error WebSocket Disconnected.")
-#                            stop_event_loop()
-#                            result = False
-#                        elif result_cnx['result'] == Dwarf_Result.WARNING:
-#                            log.error("Can't send command , SLAVE MODE detected.")
-#                            result = False
-#                        else:
-#                            result = result_cnx['code']
-#                            # test if it is a notification so we will continue (Astro photo)
-#                            if result == 0 and isinstance(result_cnx, dict) and 'notification' in result_cnx:
-#                                log.debug("Notification Received : continue loop.")
-#                                notification_result = result_cnx['notification']
-#                            # test if command received corresponds to possible command sent
-#                            elif result == 0 and process_command(result_cnx['cmd_send'], result_cnx['cmd_recv']) is None:
-#                                log.info("Ignore Frame Received : continue loop.")
-#                                notification_result = True
-
-#                    elif isinstance(result_cnx, int):
-#                        result = result_cnx
+                    elif isinstance(result_cnx, int):
+                        result = result_cnx
 
             log.info(f"Result : {result}")
+
+            #reset Command to avoid new message for it
+            client_instance.command = None
 
     except KeyboardInterrupt:
         # Handle KeyboardInterrupt separately

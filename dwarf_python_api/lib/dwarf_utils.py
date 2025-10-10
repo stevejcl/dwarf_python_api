@@ -1055,6 +1055,72 @@ def perform_get_all_camera_wide_setting():
   
   return response
 
+def perform_update_all_camera_setting( type, allValue, dwarf_id = "2"):
+
+  type_id = 0; #REQUEST
+  if (type == "wide"):
+    module_id = 2  # MODULE_WIDE_CAMERA
+  else:
+    module_id = 1  # MODULE_TELE_CAMERA
+
+  ReqSetAllParam_message = camera.ReqSetAllParams ()
+  if (type == "wide"):
+    if (allValue['camera_exposure']):
+      ReqSetAllParam_message.exp_mode = 1
+      ReqSetAllParam_message.exp_index = get_wide_exposure_index_by_name(str(allValue['camera_exposure']), str(dwarf_id))
+    else:
+      ReqSetAllParam_message.exp_mode = 0
+      ReqSetAllParam_message.exp_index = 0
+    if (allValue['camera_gain']):
+      ReqSetAllParam_message.gain_mode = 1
+      ReqSetAllParam_message.gain_index = get_wide_gain_index_by_name(str(allValue['camera_gain']),str(dwarf_id))
+    else:
+      ReqSetAllParam_message.gain_mode = 1
+      ReqSetAllParam_message.gain_index = 0
+  else:
+    if (allValue['camera_exposure']):
+      ReqSetAllParam_message.exp_mode = 1
+      ReqSetAllParam_message.exp_index = get_exposure_index_by_name(str(allValue['camera_exposure']), str(dwarf_id))
+    else:
+      ReqSetAllParam_message.exp_mode = 0
+      ReqSetAllParam_message.exp_index = 0
+    if (allValue['camera_gain']):
+      ReqSetAllParam_message.gain_mode = 1
+      ReqSetAllParam_message.gain_index = get_gain_index_by_name(str(allValue['camera_gain']),str(dwarf_id))
+    else:
+      ReqSetAllParam_message.gain_mode = 1
+      ReqSetAllParam_message.gain_index = 0
+
+  ReqSetAllParam_message.ircut_value = 0;
+  ReqSetAllParam_message.wb_mode = 0;
+  ReqSetAllParam_message.wb_index_type = 2;
+  ReqSetAllParam_message.wb_index = 0;
+  ReqSetAllParam_message.brightness = 0;
+  ReqSetAllParam_message.contrast = 0;
+  ReqSetAllParam_message.hue = 0;
+  ReqSetAllParam_message.saturation = 0;
+  ReqSetAllParam_message.sharpness = 50;
+  ReqSetAllParam_message.jpg_quality = 80;
+
+  if (type == "wide"):
+    command = 12028; #CMD_CAMERA_WIDE_SET_ALL_PARAMS
+  else:
+    command = 10035; #CMD_CAMERA_TELE_SET_ALL_PARAMS
+  
+  response = connect_socket(ReqSetAllParam_message, command, type_id, module_id)
+
+  if response is not False: 
+
+      if response == 0:
+          log.success("Update camera setting")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+  else:
+      log.error("Dwarf API: Dwarf Device not connected")
+
+  return False
+
 def get_result_value ( type, result_cnx, is_double = False):
 
   if result_cnx is False: 
@@ -1188,6 +1254,7 @@ def perform_update_camera_setting( type, value, dwarf_id = "2"):
     # exposure
     ReqSetExp_message = camera.ReqSetExp ()
     ReqSetExp_message.index = get_exposure_index_by_name(str(value), str(dwarf_id))
+    log.notice(f"Set Exp Index to:  {get_exposure_index_by_name(str(value), str(dwarf_id))}")
 
     command = 10009; #CMD_CAMERA_TELE_SET_EXP
 
@@ -1201,6 +1268,7 @@ def perform_update_camera_setting( type, value, dwarf_id = "2"):
 
     ReqSetGain_message = camera.ReqSetGain ()
     ReqSetGain_message.index = get_gain_index_by_name(str(value),str(dwarf_id))
+    log.notice(f"Set Gain Index to:  {get_gain_index_by_name(str(value), str(dwarf_id))}")
 
     command = 10013; #CMD_CAMERA_TELE_SET_GAIN
 
@@ -1283,6 +1351,7 @@ def perform_update_camera_setting( type, value, dwarf_id = "2"):
     # exposure
     ReqSetExp_message = camera.ReqSetExp ()
     ReqSetExp_message.index = get_wide_exposure_index_by_name(str(value), str(dwarf_id))
+    log.notice(f"Set Wide Exp Index to:  {get_wide_exposure_index_by_name(str(value), str(dwarf_id))}")
 
     command = 12004; #CMD_CAMERA_WIDE_SET_EXP
 
@@ -1295,6 +1364,7 @@ def perform_update_camera_setting( type, value, dwarf_id = "2"):
 
     ReqSetGain_message = camera.ReqSetGain ()
     ReqSetGain_message.index = get_wide_gain_index_by_name(str(value),str(dwarf_id))
+    log.notice(f"Set Wide Gain Index to:  {get_wide_gain_index_by_name(str(value), str(dwarf_id))}")
 
     command = 12006; #CMD_CAMERA_WIDE_SET_GAIN
 
