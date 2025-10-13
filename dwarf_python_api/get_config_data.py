@@ -7,7 +7,7 @@ import dwarf_python_api.lib.my_logger as log
 CONFIG_FILE = 'config.py'
 CONFIG_FILE_TMP = 'config.tmp'
 LOCK_FILE = 'config.lock'
-TAB_VALUE = { 'ip' : 'DWARF_IP', 'ui' : 'DWARF_UI', 'dwarf_id' : 'DWARF_ID', 'client_id' : 'CLIENT_ID', 'update_client_id' : 'UPDATE_CLIENT_ID', 'calibration' : 'TEST_CALIBRATION', 'debug' : 'DEBUG', 'trace' : 'TRACE', 'log_file' : 'LOG_FILE', 'timeout_cmd' : 'TIMEOUT_CMD' }
+TAB_VALUE = { 'ip' : 'DWARF_IP', 'ui' : 'DWARF_UI', 'dwarf_id' : 'DWARF_ID', 'dwarf_uid' : 'DWARF_UID', 'client_id' : 'CLIENT_ID', 'update_client_id' : 'UPDATE_CLIENT_ID', 'calibration' : 'TEST_CALIBRATION', 'debug' : 'DEBUG', 'trace' : 'TRACE', 'log_file' : 'LOG_FILE', 'timeout_cmd' : 'TIMEOUT_CMD' }
 
 class ConfigFileNotFoundError(Exception):
     """Exception raised when the configuration file is not found."""
@@ -61,7 +61,7 @@ def get_config_data(config_file = None, print_log = False):
     except ConfigFileNotFoundError as e:
         if print_log:
             print(e)
-        return {'ip': None, 'ui': None, 'dwarf_id': None, 'client_id': None, 'update_client_id' : None, 'calibration' : None,  'debug' : None, 'trace' : None, 'log_file' : None, 'timeout_cmd' : None}
+        return {'ip': None, 'ui': None, 'dwarf_id': None, 'dwarf_uid': None, 'client_id': None, 'update_client_id' : None, 'calibration' : None,  'debug' : None, 'trace' : None, 'log_file' : None, 'timeout_cmd' : None}
 
 def copy_file_in_current_directory(source_filename, destination_filename):
     """
@@ -128,7 +128,7 @@ def update_config_data( id_param, value, print_log = False, config_file = None, 
         
         with open(tmp_file, 'w') as file:
             for line in lines:
-                if line.startswith(TAB_VALUE[id_param]):
+                if line.startswith(TAB_VALUE[id_param] + ' '):
                     find_value = True
                     file.write(f'{TAB_VALUE[id_param]} = "{value}"\n')
                     if print_log:

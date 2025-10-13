@@ -172,7 +172,9 @@ async function handleClick(event) {
         }
         console.log('Got service:', service.uuid);
         console.log('Dwarf Type:', Dwarf_Name);
+        console.log('Dwarf uid:', device.name);
         sendParameter("ID", Dwarf_Type);
+        sendParameter("UID", device.name);
 
         const characteristic = await service.getCharacteristic(Dwarf_Characteristic_String);
         console.log('Got characteristic:', characteristic.uuid);
@@ -200,7 +202,7 @@ async function handleClick(event) {
             let configValue;
             let value = event.target.value;
             console.log('Value changed:', value);
-
+            
             if (phase == 1 && value.byteLength) {
 
               let bufferReadConfig = value.buffer;

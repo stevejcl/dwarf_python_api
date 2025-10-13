@@ -122,17 +122,23 @@ async def connect_to_bluetooth_device(dwarf_device = None, Bluetooth_PWD = None,
                     await action_disconnect(data_state["deviceDwarf"], data_state["characteristicDwarf"])
                 elif result_data.get('state') == 0 and Wifi_SSID and Wifi_PWD:
                     data_state["IsFirstStepOK"] = True
-                    connection_state["error"] = "Pending.. "
+                    connection_state["error"] = "Init Pending.. "
                     if (result_data.get('ip') == "192.168.88.1" or
                       result_data.get('ssid', '').startswith("DWARF3_")) and Wifi_SSID and Wifi_PWD:
                         log.info("Load WiFi configuration (1)...")
-                        data_state["IsFirstStepOK"] = True
-                        connection_state["error"] = "Pending.. "
                         bufferSetWifiSta = set_wifi_STA_message(0, Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
                     else:
                         log.info("Load WiFi configuration...")
                         bufferSetWifiSta = set_wifi_STA_message(1, Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
-                    await data_state["deviceDwarf"].write_gatt_char(DWARF_CHARACTERISTIC_UUID, bufferSetWifiSta)
+                    await asyncio.sleep(0.5) 
+                    try:
+                        await data_state["deviceDwarf"].write_gatt_char(DWARF_CHARACTERISTIC_UUID, bufferSetWifiSta)
+                        log.info("Sent WiFi configuration..., wait for connection...")
+                    except Exception as e:
+                        log.warning(f"First BLE write failed: {e}, retrying...")
+                        await asyncio.sleep(0.5)
+                        await data_state["deviceDwarf"].write_gatt_char(DWARF_CHARACTERISTIC_UUID, bufferSetWifiSta)
+                        log.info("Retried WiFi configuration write.")
                 elif result_data.get('state') != 2:
                     log.error(
                         "Error WiFi configuration not Completed! Restart it and Use the mobile App."
@@ -240,68 +246,78 @@ async def connect_to_bluetooth_device(dwarf_device = None, Bluetooth_PWD = None,
             return connection_state
 
         # Connect to the DWARF device
-        connection_state["device_dwarf_uid"] = dwarf_device.name.replace("DWARF3_","").replace("DWARF_","")
+        connection_state["device_dwarf_uid"] = dwarf_device.name
         log.info(f"Connecting to DWARF device: {dwarf_device.name} {dwarf_device.address}...")
+        log.info(f"Connecting {BleakClient(dwarf_device.address)}")
 
-        async with BleakClient(dwarf_device.address) as client:
-            log.info(f"Connected to {dwarf_device.name} ({dwarf_device.address})")
-            data_state["deviceDwarf"] = client
+        client = BleakClient(dwarf_device.address, timeout=10)
+        try:
+            await client.connect()
+            if client.is_connected:
+                log.info("Connected to DWARF")
+                log.info(f"Connected to {dwarf_device.name} ({dwarf_device.address})")
+                data_state["deviceDwarf"] = client
 
-            # Check for services
-            service_uuid = None
-            service_dwarf = None
+                # Check for services
+                service_uuid = None
+                service_dwarf = None
 
-            # Use the `services` property instead of `get_services()`
-            services = client.services  # Fetch the services
-            if services is None:  # This ensures services are fetched if not already populated
-                await client.get_services()
-                services = client.services
+                # Use the `services` property instead of `get_services()`
+                services = client.services  # Fetch the services
+                if services is None:  # This ensures services are fetched if not already populated
+                    await client.get_services()
+                    services = client.services
 
-            for service in client.services:
+                for service in client.services:
+                  if DWARFII_SERVICE_UUID == service.uuid:
+                    service_uuid = DWARFII_SERVICE_UUID
+                    connection_state["device_dwarf_id"] = 1
+                    connection_state["device_dwarf_name"] = "Dwarf II"
+                    service_dwarf = service
+                  elif DWARF3_SERVICE_UUID == service.uuid:
+                    service_uuid = DWARF3_SERVICE_UUID
+                    connection_state["device_dwarf_id"] = 2
+                    connection_state["device_dwarf_name"] = "Dwarf3"
+                    service_dwarf = service
 
-              if DWARFII_SERVICE_UUID == service.uuid:
-                service_uuid = DWARFII_SERVICE_UUID
-                connection_state["device_dwarf_id"] = 1
-                connection_state["device_dwarf_name"] = "Dwarf II"
-                service_dwarf = service
-              elif DWARF3_SERVICE_UUID == service.uuid:
-                service_uuid = DWARF3_SERVICE_UUID
-                connection_state["device_dwarf_id"] = 2
-                connection_state["device_dwarf_name"] = "Dwarf3"
-                service_dwarf = service
+                if not service_uuid:
+                    raise ValueError("Could not find DWARF services on device.")
 
-            if not service_uuid:
-                raise ValueError("Could not find DWARF services on device.")
+                log.debug(f"Connected to {connection_state['device_dwarf_name']}. Service UUID: {service_uuid}")
 
-            log.debug(f"Connected to {connection_state['device_dwarf_name']}. Service UUID: {service_uuid}")
+                # Find the specific characteristic
+                for char in service_dwarf.characteristics:
+                    log.debug(f"[char] {char.uuid} (Handle: {char.handle})")
 
-            # Find the specific characteristic
-            for char in service_dwarf.characteristics:
-                log.debug(f"[char] {char.uuid} (Handle: {char.handle})")
+                    # Check if this is the characteristic we are looking for
+                    if char.uuid == DWARF_CHARACTERISTIC_UUID:
+                        data_state["characteristicDwarf"] = char
+                        break
 
-                # Check if this is the characteristic we are looking for
-                if char.uuid == DWARF_CHARACTERISTIC_UUID:
-                    data_state["characteristicDwarf"] = char
-                    break
+                # If the characteristic is not found, raise an error
+                if not data_state["characteristicDwarf"]:
+                    raise ValueError("Bluetooth characteristic not found.")
 
-            # If the characteristic is not found, raise an error
-            if not data_state["characteristicDwarf"]:
-                raise ValueError("Bluetooth characteristic not found.")
+                # Proceed with interacting with the characteristic
+                # For example, reading or writing to the characteristic
+                log.debug(f"Found characteristic: {data_state['characteristicDwarf'].uuid}")
 
-            # Proceed with interacting with the characteristic
-            # For example, reading or writing to the characteristic
-            log.debug(f"Found characteristic: {data_state['characteristicDwarf'].uuid}")
+                # Start notifications
+                await client.start_notify(DWARF_CHARACTERISTIC_UUID, handle_value_changed)
 
-            # Start notifications
-            await client.start_notify(DWARF_CHARACTERISTIC_UUID, handle_value_changed)
+                # Write WiFi configuration
+                wifi_config = get_wifi_config_message(Bluetooth_PWD)
+                
+                await client.write_gatt_char(DWARF_CHARACTERISTIC_UUID, wifi_config)
+                log.info("Sent WiFi configuration...")
 
-            # Write WiFi configuration
-            wifi_config = get_wifi_config_message(Bluetooth_PWD)
-            
-            await client.write_gatt_char(DWARF_CHARACTERISTIC_UUID, wifi_config)
-            log.info("Sent WiFi configuration...")
+                await asyncio.sleep(2) 
 
-            await asyncio.sleep(2) 
+        except Exception as e:
+            log.error(f"Failed to connect: {e}")
+        finally:
+            log.info("Client disconnect...")
+            await client.disconnect()
 
     except Exception as error:
         connection_state["connecting"] = False

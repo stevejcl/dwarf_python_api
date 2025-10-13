@@ -11,6 +11,8 @@ import dwarf_python_api.lib.my_logger as log
 import tkinter as tk
 from tkinter import simpledialog, messagebox
 
+from bleak.backends.winrt.util import allow_sta
+
 async def connect_ble_dwarf_test(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi_PWD = ""):
     log.info ("Start of Function connect_ble_dwarf")
 
@@ -33,7 +35,15 @@ async def connect_ble_dwarf_test(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="",
         connection_state = await select_dwarf_device(dwarf_devices)
         dwarf_device = connection_state.get("dwarf_device")
 
-    connection_state = await connect_to_bluetooth_device(dwarf_device,Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
+    nbRetry = 2
+    while nbRetry > 0:
+        connection_state = await connect_to_bluetooth_device(dwarf_device,Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
+        # Retry during the first connection due to bluetooh deconnection
+        if connection_state["error"] == "Init Pending.. ":
+            log.info("Retry...")
+            nbRetry = nbRetry - 1
+        else:
+            nbRetry = 0
     log.info ("End of Function connect_ble_dwarf")
     log.info (f"{connection_state}")
 
@@ -147,7 +157,15 @@ async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi
             log.error ("Error occurs during selecting dwarf devices")
 
     if dwarf_device:
-        connection_state = await connect_to_bluetooth_device(dwarf_device,Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
+        nbRetry = 2
+        while nbRetry > 0:
+            connection_state = await connect_to_bluetooth_device(dwarf_device,Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
+            # Retry during the first connection due to bluetooh deconnection
+            if connection_state["error"] == "Init Pending.. ":
+                log.info("Retry...")
+                nbRetry = nbRetry - 1
+            else:
+                nbRetry = 0
         log.notice (f"{connection_state}")
 
     if connection_state.get("is_connected"):
@@ -155,6 +173,7 @@ async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi
        try:
            dwarf_python_api.get_config_data.update_config_data('ip', connection_state.get('ip_address'))
            dwarf_python_api.get_config_data.update_config_data('dwarf_id', connection_state.get('device_dwarf_id'))
+           dwarf_python_api.get_config_data.update_config_data('dwarf_uid', connection_state.get('device_dwarf_uid'))
        except dwarf_python_api.get_config_data.ConfigFileNotFoundError as e:
            log.warning(f"Warning: {e}")
 
@@ -162,7 +181,47 @@ async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi
 
     return status_bluetooth
 
+
+def run_ble_connect_in_thread(dwarf_device, bt_pwd, ssid, wifi_pwd):
+    """Run bleak BLE connection in a separate thread with its own event loop."""
+    result_container = {}
+
+    def target():
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            nbRetry = 2
+            while nbRetry > 0:
+                result = loop.run_until_complete(
+                    connect_to_bluetooth_device(dwarf_device, bt_pwd, ssid, wifi_pwd)
+                )
+                # Retry during the first connection due to bluetooh deconnection
+                log.info(result)
+                if result["error"] == "Init Pending.. ":
+                    log.info("Retry...")
+                    nbRetry = nbRetry - 1
+                else:
+                    result_container['result'] = result
+                    nbRetry = 0
+        except Exception as e:
+            result_container['error'] = str(e)
+
+    t = threading.Thread(target=target)
+    t.start()
+    t.join(timeout=30)
+
+    if 'result' in result_container:
+        return result_container['result']
+    elif 'error' in result_container:
+        raise RuntimeError(result_container['error'])
+    else:
+        raise TimeoutError("Bluetooth connection timed out")
+
+# ----------------------------------------
+# Main function using BLE and Tkinter
+# ----------------------------------------
 def connect_ble_dwarf_win(Bluetooth_PWD="DWARF_12345678", Wifi_SSID="", Wifi_PWD=""):
+
     log.notice("Start of Function connect_ble_dwarf_win")
 
     connection_state = None
@@ -171,145 +230,127 @@ def connect_ble_dwarf_win(Bluetooth_PWD="DWARF_12345678", Wifi_SSID="", Wifi_PWD
     status_bluetooth = False
 
     try:
-        from bleak.backends.winrt.util import allow_sta
-        # tell Bleak we are using a graphical user interface that has been properly configured to work with asyncio
-        allow_sta()
-    except ImportError:
-        pass
+        allow_sta()  # Necessary for Windows 11 + GUI BLE
 
-    try:
-
-        # Create the root window
+        # Setup Tkinter UI
         root = tk.Tk()
-        root.withdraw()  # Hide the root window
+        root.withdraw()
 
-        # Get screen width and height
-        width = 380
-        height = 100
-        screen_width = root.winfo_screenwidth()
-        screen_height = root.winfo_screenheight()
+        width, height = 380, 100
+        x = (root.winfo_screenwidth() // 2) - (width // 2)
+        y = (root.winfo_screenheight() // 2) - (height // 2)
 
-        # Calculate position x and y
-        x = (screen_width // 2) - (width // 2)
-        y = (screen_height // 2) - (height // 2)
-
-        # Set the geometry of the window
-        # Create a new window 
         new_window = tk.Toplevel(root)
         new_window.geometry(f"{width}x{height}+{x}+{y}")
         new_window.title("Dwarf Device Bluetooth Connection")
         new_window.wm_attributes("-topmost", 1)
 
-        # Add a Label widget to show the message
         status_label = tk.Label(new_window, text="Searching for Dwarf Device...", font=("Arial", 12))
         status_label.pack(pady=40)
 
-        # Function to stop the loop when the user closes the window
         def on_close():
             root.destroy()
 
         new_window.protocol("WM_DELETE_WINDOW", on_close)
 
         async def search_devices():
-            nonlocal dwarf_devices, connection_state
+            nonlocal dwarf_devices, connection_state, dwarf_device
+
+            # Search loop
             while not dwarf_devices:
                 connection_state = await discover_dwarf_devices()
                 dwarf_devices = connection_state.get("dwarf_devices")
 
                 if not dwarf_devices:
-                    restart = messagebox.askyesno("No Devices Found", "No devices found.\nDo you want to restart the scan?",parent=new_window)
+                    restart = messagebox.askyesno("No Devices Found", "No devices found.\nDo you want to restart the scan?", parent=new_window)
                     if not restart:
                         log.info("Exiting...")
                         root.destroy()
                         return
 
-            # Prompt for selection once the search is complete
-            if dwarf_devices:
-                # Change text
-                status_label.config(text="Device(s) found...")
+            # One or more devices found
+            status_label.config(text="Device(s) found...")
+            new_window.update_idletasks()
+            new_window.config(cursor="watch")
+            connection_state = await select_dwarf_device(dwarf_devices)
+
+            if connection_state and connection_state.get("step") == "2":
+                dwarf_device = connection_state["dwarf_device"]
+
+            elif connection_state and connection_state.get("step") == "3":
+                selection = None
+                status_label.config(text="Select a Device...")
                 new_window.update_idletasks()
-                new_window.config(cursor="watch")
-                connection_state = await select_dwarf_device(dwarf_devices)
-                log.debug(connection_state)
-                # None or one device found
-                if connection_state and connection_state.get("step") == "2":
-                    dwarf_device = connection_state["dwarf_device"]
+                while selection is None:
+                    selection = simpledialog.askinteger(
+                        "Select a Device",
+                        f"Multiple DWARF devices found:\n\n" +
+                        "\n".join([f"{i+1}. {connection_state.get(f'dwarf_devices{i+1}')}" for i, d in enumerate(dwarf_devices)]) +
+                        "\n\nEnter the number of the device to select (or 0 to exit):",
+                        parent=new_window
+                    )
+                    if selection is None or selection < 0 or selection > len(dwarf_devices):
+                        messagebox.showerror("Invalid Selection", "Please enter a valid number.", parent=new_window)
+                        selection = None
 
-                # More than one device found
-                elif connection_state and connection_state.get("step") == "3":
-                    selection = None
-                    # Change text
-                    status_label.config(text="select a Device...")
-                    new_window.update_idletasks()
-                    while selection is None:
-                        selection = simpledialog.askinteger(
-                            "Select a Device",
-                            f"Multiple DWARF devices found:\n\n" +
-                            "\n".join([f"{i+1}. {connection_state.get(f'dwarf_devices{i+1}')}" for i, d in enumerate(dwarf_devices)]) +
-                            "\n\nEnter the number of the device to select (or 0 to exit):",
-                            parent=new_window
-                        )
-                        if selection is None or selection < 0 or selection > len(dwarf_devices):
-                            messagebox.showerror("Invalid Selection", "Please enter a valid number.", parent=new_window)
-                            selection = None
-
-                    if selection == 0:
-                        log.info("Exiting...")
-                        root.destroy()
-                        return
-
-                    # Set the selected device
-                    new_window.config(cursor="watch")
-                    connection_state = await choice_dwarf_device(dwarf_devices, selection)
-                    dwarf_device = connection_state.get("dwarf_device")
-
-                else:
-                    # Close the window
+                if selection == 0:
+                    log.info("Exiting...")
                     root.destroy()
-                    dwarf_device = None
-                    messagebox.showerror("Error", "An error occurred while selecting DWARF devices.")
+                    return
 
+                new_window.config(cursor="watch")
+                connection_state = await choice_dwarf_device(dwarf_devices, selection)
+                dwarf_device = connection_state.get("dwarf_device")
+
+            else:
+                root.destroy()
+                messagebox.showerror("Error", "An error occurred while selecting DWARF devices.")
+                return
+
+            # BLE connect
             if dwarf_device:
                 status_label.config(text=f"Device {dwarf_device.name}, connecting...")
                 new_window.update_idletasks()
                 new_window.config(cursor="watch")
-                connection_state = await connect_to_bluetooth_device(dwarf_device, Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
-                # Close the window
+
+                try:
+                    connection_state = run_ble_connect_in_thread(dwarf_device, Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
+                except Exception as e:
+                    log.error(f"BLE connection failed: {e}")
+                    messagebox.showerror("Connection Failed", f"Error: {e}")
+                    root.destroy()
+                    return
+
                 root.destroy()
                 if connection_state.get("is_connected"):
-                    messagebox.showinfo("Success", f"{dwarf_device.name}\n\nSuccessfully connected\n\nwith ip: {connection_state.get('ip_address')}")
+                    messagebox.showinfo("Success", f"{dwarf_device.name}\n\nSuccessfully connected\n\nwith IP: {connection_state.get('ip_address')}")
                 else:
                     messagebox.showerror("Connection Failed", f"Error: {connection_state.get('error', 'Unknown error')}")
             else:
-                # Close the window
                 root.destroy()
                 messagebox.showerror("Error", "No device selected.")
 
         def run_asyncio_loop():
-             asyncio.run(search_devices())
+            asyncio.run(search_devices())
 
-        # Schedule the async function to start
         root.after(300, run_asyncio_loop)
-
-        # Show the window
         new_window.deiconify()
         new_window.config(cursor="watch")
-
-        # Run the Tkinter main loop
         root.mainloop()
 
     except Exception as error:
         log.error(f"An error occurred: {error}")
 
     finally:
-        if connection_state.get("is_connected"):
+        if connection_state and connection_state.get("is_connected"):
             status_bluetooth = True
         try:
             dwarf_python_api.get_config_data.update_config_data('ip', connection_state.get('ip_address'))
             dwarf_python_api.get_config_data.update_config_data('dwarf_id', connection_state.get('device_dwarf_id'))
+            dwarf_python_api.get_config_data.update_config_data('dwarf_uid', connection_state.get('device_dwarf_uid'))
         except dwarf_python_api.get_config_data.ConfigFileNotFoundError as e:
             log.warning(f"Warning: {e}")
 
-        log.notice (f"{connection_state}")
+        log.notice(f"{connection_state}")
         log.notice("End of Function connect_ble_dwarf_win")
-        return status_bluetooth;
+        return status_bluetooth

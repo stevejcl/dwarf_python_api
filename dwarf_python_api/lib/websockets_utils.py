@@ -65,6 +65,10 @@ VALID_PAIRS = {
     (protocol.CMD_ASTRO_START_EQ_SOLVING, protocol.CMD_NOTIFY_EQ_SOLVING_STATE),
     (protocol.CMD_RGB_POWER_REBOOT, protocol.CMD_NOTIFY_POWER_OFF),
     (protocol.CMD_RGB_POWER_POWER_DOWN, protocol.CMD_NOTIFY_POWER_OFF),
+    (protocol.CMD_RGB_POWER_POWERIND_ON, protocol.CMD_NOTIFY_POWER_IND_STATE),
+    (protocol.CMD_RGB_POWER_POWERIND_OFF, protocol.CMD_NOTIFY_POWER_IND_STATE),
+    (protocol.CMD_RGB_POWER_OPEN_RGB, protocol.CMD_NOTIFY_RGB_STATE),
+    (protocol.CMD_RGB_POWER_CLOSE_RGB, protocol.CMD_NOTIFY_RGB_STATE),
 }
 
 # ID-to-name mapping
@@ -211,6 +215,10 @@ def getOperationStateName(OperationStateCode):
         pass
     return ValueName
 
+def getPowerStateName(PowerStateCode):
+
+    return "ON" if PowerStateCode else "OFF"
+
 class StopClientException(Exception):
     pass
 
@@ -249,6 +257,8 @@ class WebSocketClient:
         self.takeWidePhotoStarted = False
         self.AstroCapture = False
         self.AstroWideCapture = False
+        self.RestartAstroCapture = False
+        self.RestartAstroWideCapture = False
         self.startEQSolving = False
         self.toDoSetExpMode = False
         self.toDoSetExp = False
@@ -268,6 +278,8 @@ class WebSocketClient:
         self.TemperatureLevelDwarf = None
         self.StreamTypeDwarf = None
         self.FocusValueDwarf = None
+        self.PowerIndStateDwarf = None
+        self.RgbIndStateDwarf = None
 
         # TEST_CALIBRATION : Test Calibration Packet or Goto Packet
         # Test Mode : Calibration Packet => TEST_CALIBRATION = True
@@ -1112,12 +1124,26 @@ class WebSocketClient:
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE RUNNING", 0)
                                     await asyncio.sleep(1)
 
+                                if ( ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING and self.RestartAstroCapture):
+                                    self.AstroCapture = True
+
                                 # OPERATION_STATE_STOPPED = 3; // Stopped
                                 if ( self.AstroCapture and self.takePhotoStarted and ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
                                     log.debug("ASTRO CAPTURE OK STOPPING >> EXIT")
                                     log.info("Success ASTRO CAPTURE ENDING")
                                     log.success("Success ASTRO CAPTURE ENDING")
                                     self.AstroCapture = False
+                                    self.RestartAstroCapture = False
+                                    self.takePhotoStarted = False
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE ENDING", 0)
+                                    await asyncio.sleep(1)
+                                # OPERATION_STATE_STOPPED = 3; // Stopped
+                                if ( self.RestartAstroCapture and ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
+                                    log.debug("ASTRO CAPTURE OK STOPPING >> EXIT")
+                                    log.info("Success ASTRO CAPTURE ENDING")
+                                    log.success("Success ASTRO CAPTURE ENDING")
+                                    self.AstroCapture = False
+                                    self.RestartAstroCapture = False
                                     self.takePhotoStarted = False
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE ENDING", 0)
                                     await asyncio.sleep(1)
@@ -1144,12 +1170,26 @@ class WebSocketClient:
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE RUNNING", 0)
                                     await asyncio.sleep(1)
 
+                                if ( ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING and self.RestartAstroWideCapture):
+                                    self.AstroWideCapture = True
+
                                 # OPERATION_STATE_STOPPED = 3; // Stopped
                                 if ( self.AstroWideCapture and ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
                                     log.debug("ASTRO CAPTURE OK STOPPING >> EXIT")
                                     log.info("Success ASTRO WIDE CAPTURE ENDING")
                                     log.success("Success ASTRO WIDE CAPTURE ENDING")
                                     self.AstroWideCapture = False
+                                    self.RestartAstroWideCapture = False
+                                    self.takeWidePhotoStarted = False
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE ENDING", 0)
+                                    await asyncio.sleep(1)
+                                # OPERATION_STATE_STOPPED = 3; // Stopped
+                                if ( self.RestartAstroWideCapture and ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
+                                    log.debug("ASTRO CAPTURE OK STOPPING >> EXIT")
+                                    log.info("Success ASTRO WIDE CAPTURE ENDING")
+                                    log.success("Success ASTRO WIDE CAPTURE ENDING")
+                                    self.AstroWideCapture = False
+                                    self.RestartAstroWideCapture = False
                                     self.takeWidePhotoStarted = False
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE ENDING", 0)
                                     await asyncio.sleep(1)
@@ -1158,6 +1198,8 @@ class WebSocketClient:
                                 ResNotifyProgressCaptureRawLiveStacking_message = notify.ResNotifyProgressCaptureRawLiveStacking()
                                 ResNotifyProgressCaptureRawLiveStacking_message.ParseFromString(WsPacket_message.data)
                                 self.takePhotoStarted = True
+                                if self.RestartAstroCapture:
+                                    self.AstroCapture = True
                                 log.debug("Decoding CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING")
                                 log.debug(f"receive notification target_name >> {ResNotifyProgressCaptureRawLiveStacking_message.target_name}")
                                 log.debug(f"receive notification total_count >> {ResNotifyProgressCaptureRawLiveStacking_message.total_count}")
@@ -1176,6 +1218,8 @@ class WebSocketClient:
                                 ResNotifyProgressCaptureRawLiveStacking_message = notify.ResNotifyProgressCaptureRawLiveStacking()
                                 ResNotifyProgressCaptureRawLiveStacking_message.ParseFromString(WsPacket_message.data)
                                 self.takeWidePhotoStarted = True
+                                if self.RestartAstroWideCapture:
+                                    self.AstroWideCapture = True
                                 log.debug("Decoding CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING")
                                 log.debug(f"receive notification target_name >> {ResNotifyProgressCaptureRawLiveStacking_message.target_name}")
                                 log.debug(f"receive notification total_count >> {ResNotifyProgressCaptureRawLiveStacking_message.total_count}")
@@ -1986,6 +2030,35 @@ class WebSocketClient:
                                 if (self.FocusValueDwarf is None or self.FocusValueDwarf != value):
                                    log.notice(f"Focus Position is {value}")
                                    self.FocusValueDwarf = value
+                            # CMD_NOTIFY_RGB_STATE 15221
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_RGB_STATE):
+                                ResNotifyRgbState_message = notify.ResNotifyRgbState()
+                                ResNotifyRgbState_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding RGB STATE ")
+                                value = ResNotifyRgbState_message.state
+                                display_value = getPowerStateName(value)
+                                log.debug(f"receive request state >> {display_value}")
+                                # notify ?
+                                if (self.command == protocol.CMD_RGB_POWER_OPEN_RGB or self.command == protocol.CMD_RGB_POWER_CLOSE_RGB):
+                                    log.success("CMD_NOTIFY_RGB_STATE received >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK TOOGLE RGB INDICATOR", value)
+                                if (self.RgbIndStateDwarf is None or self.RgbIndStateDwarf != value):
+                                   log.notice(f"RGB Indicator is {display_value}")
+                                   self.RgbIndStateDwarf = value
+                            # CMD_NOTIFY_POWER_IND_STATE 15222
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_POWER_IND_STATE):
+                                ResNotifyPowerIndState_message = notify.ResNotifyPowerIndState()
+                                ResNotifyPowerIndState_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding POWER IND ")
+                                log.debug(f"receive request state >> {getPowerStateName(ResNotifyPowerIndState_message.state)} ")
+                                value = ResNotifyPowerIndState_message.state
+                                # notify ?
+                                if (self.command == protocol.CMD_RGB_POWER_POWERIND_ON or self.command == protocol.CMD_RGB_POWER_POWERIND_OFF):
+                                    log.success("CMD_NOTIFY_POWER_IND_STATE received >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK TOOGLE POWER INDICATOR", value)
+                                if (self.PowerIndStateDwarf is None or self.PowerIndStateDwarf != value):
+                                   log.notice(f"Power Indicator is {getPowerStateName(value)}")
+                                   self.PowerIndStateDwarf = value
                             # Unknown
                             elif (WsPacket_message.cmd != self.command):
                                 log.info(f"Receiving command {WsPacket_message.cmd}")
@@ -2069,6 +2142,8 @@ class WebSocketClient:
         self.TemperatureLevelDwarf = None
         self.StreamTypeDwarf = None
         self.FocusValueDwarf = None
+        self.PowerIndStateDwarf = None
+        self.RgbIndStateDwarf = None
         #CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE
         WsPacket_messageTeleGetSystemWorkingState = base__pb2.WsPacket()
         ReqGetSystemWorkingState_message = camera.ReqGetSystemWorkingState()
@@ -2188,8 +2263,18 @@ class WebSocketClient:
         self.reset_timeout = True
 
         # Special Command ASTRO CAPTURE ENDING
+        # Special Command ASTRO CAPTURE ENDING RESTART
         # Special Command ASTRO WIDE CAPTURE ENDING
+        # Special Command ASTRO WIDE CAPTURE ENDING RESTART
         if isinstance(message, str):
+            if message == "ASTRO CAPTURE ENDING RESTART":
+                self.RestartAstroCapture = True
+                self.command = protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING
+                return
+            if message == "ASTRO WIDE CAPTURE ENDING RESTART":
+                self.RestartAstroWideCapture = True
+                self.command = protocol.CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING
+                return
             if message == "ASTRO CAPTURE ENDING" and self.AstroCapture:
                 log.info("TERMINATING Sending empty function.")
                 self.command = protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING
@@ -2668,11 +2753,14 @@ async def init_socket():
                         log.error("Error WebSocket Connection.")
                         stop_event_loop()
                         result = False
+                    elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_SLAVEMODE:
+                        log.error("Can't send command , SLAVE MODE detected.")
+                        result = False
                     elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_TIMEOUT:
                         log.error("command TIMEOUT.")
                         result = False
                     elif result_cnx['result'] == Dwarf_Result.WARNING:
-                        log.error("Can't send command , SLAVE MODE detected.")
+                        log.error("command error: {result_cnx['message']}")
                         result = False
                     else:
                         result = result_cnx['code']
@@ -2728,11 +2816,14 @@ async def send_socket_message(message, command, type_id, module_id):
                             log.error("Error WebSocket Disconnected.")
                             stop_event_loop()
                             result = False
+                        elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_SLAVEMODE:
+                            log.error("Can't send command , SLAVE MODE detected.")
+                            result = False
                         elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_TIMEOUT:
                             log.error("command TIMEOUT.")
                             result = False
                         elif result_cnx['result'] == Dwarf_Result.WARNING:
-                            log.error("Can't send command , SLAVE MODE detected.")
+                            log.error("command error: {result_cnx['message']}")
                             result = False
                         else:
                             result = result_cnx['code']
@@ -2751,7 +2842,8 @@ async def send_socket_message(message, command, type_id, module_id):
             log.info(f"Result : {result}")
 
             #reset Command to avoid new message for it
-            client_instance.command = None
+            if client_instance:
+                client_instance.command = None
 
     except KeyboardInterrupt:
         # Handle KeyboardInterrupt separately
@@ -2781,7 +2873,7 @@ def get_client_status():
     global previous_values
  
     if client_instance is None:
-        return json.dumps({"error": "Client instance is not initialized"})
+        return json.dumps({"error": "Dwarf is not connected"})
 
     status = {
         "HostMode": client_instance.InitHostReceived,
@@ -2801,6 +2893,8 @@ def get_client_status():
         "TemperatureLevelDwarf": client_instance.TemperatureLevelDwarf,
         "StreamTypeDwarf": client_instance.StreamTypeDwarf,
         "FocusValueDwarf": client_instance.FocusValueDwarf,
+        "PowerIndicatorDwarf": client_instance.PowerIndStateDwarf,
+        "RgbIndicatorDwarf": client_instance.RgbIndStateDwarf
     }
 
     # Detect changes
@@ -2822,7 +2916,7 @@ def get_client_status():
         "newValues": new_values
     }
 
-    return status
+    return response
 
 def connect_socket(message, command, type_id, module_id):
     global client_instance

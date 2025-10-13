@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 from filelock import FileLock
+from filelock import Timeout
 
 import mimetypes
 
@@ -67,22 +68,52 @@ class MyHandler(SimpleHTTPRequestHandler):
                 lines = file.readlines()
         
             with open(dwarf_python_api.get_config_data.CONFIG_FILE_TMP, 'w') as file:
+                interface_found = False
                 for line in lines:
                     if (interface == "IP"):
-                      if line.startswith('DWARF_IP'):
+                      if line.startswith('DWARF_IP '):
                           file.write(f'DWARF_IP = "{parameter}"\n')
+                          interface_found = True
                       else:
                           file.write(line)
-                    if (interface == "UI"):
-                      if line.startswith('DWARF_UI'):
+                    elif (interface == "UI"):
+                      if line.startswith('DWARF_UI '):
                           file.write(f'DWARF_UI = "{parameter}"\n')
+                          interface_found = True
                       else:
                           file.write(line)
-                    if (interface == "ID"):
-                      if line.startswith('DWARF_ID'):
+                    elif (interface == "ID"):
+                      if line.startswith('DWARF_ID '):
                           file.write(f'DWARF_ID = "{parameter}"\n')
+                          interface_found = True
                       else:
                           file.write(line)
+                    elif (interface == "UID"):
+                      if line.startswith('DWARF_UID '):
+                          file.write(f'DWARF_UID = "{parameter}"\n')
+                          interface_found = True
+                      else:
+                          file.write(line)
+                    else:
+                        file.write(line)
+
+                # Append line only if not found
+                if not interface_found:
+                    file.seek(0, os.SEEK_END)  # Move to the end of the file
+                    if file.tell() > 0:
+                        file.seek(file.tell() - 1)  # Go to the last character
+                        last_char = file.read(1)
+                        if last_char != '\n':
+                            file.write('\n')  # Add newline if missing
+
+                    if interface == "IP":
+                        file.write(f'DWARF_IP = "{parameter}"\n')
+                    elif interface == "UI":
+                        file.write(f'DWARF_UI = "{parameter}"\n')
+                    elif interface == "ID":
+                        file.write(f'DWARF_ID = "{parameter}"\n')
+                    elif interface == "UID":
+                        file.write(f'DWARF_UID = "{parameter}"\n')
 
             # Copy tmp file
             nb_try = 0
@@ -165,6 +196,8 @@ def connect_bluetooth():
           previous_ui = data_config['ui']
         if data_config['dwarf_id'] != "":
           previous_dwarf_id = data_config['dwarf_id']
+        if data_config['dwarf_uid'] != "":
+          previous_dwarf_uid = data_config['dwarf_uid']
         check_file = True
         last_check_time = None
 
@@ -192,6 +225,8 @@ def connect_bluetooth():
                     log.debug(f"(B) current_ui: {current_ui}")
                     current_dwarf_id = data_config['dwarf_id']
                     log.debug(f"(B) current_dwarf_id: {current_dwarf_id}")
+                    current_dwarf_uid = data_config['dwarf_uid']
+                    log.debug(f"(B) current_dwarf_uid: {current_dwarf_uid}")
                     log.debug("(BC)Lock Off")
 
                 if current_dwarf_id != previous_dwarf_id:
