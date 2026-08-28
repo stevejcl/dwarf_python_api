@@ -136,6 +136,7 @@ async function handleClick(event) {
           "00009999-0000-1000-8000-00805f9b34fb";
         const DwarfII_ID_String = "0000daf2-0000-1000-8000-00805f9b34fb";
         const Dwarf3_ID_String = "0000daf3-0000-1000-8000-00805f9b34fb";
+        const DwarfMini_ID_String = "0000daf5-0000-1000-8000-00805f9b34fb"
         let Dwarf_Name = "Dwarf:";
         let Dwarf_Type = 2;
 
@@ -143,9 +144,9 @@ async function handleClick(event) {
             {
                 filters: [
                     { namePrefix: 'DWARF' },
-                    { services: [DwarfII_ID_String, Dwarf3_ID_String] }
+                    { services: [DwarfII_ID_String, Dwarf3_ID_String, DwarfMini_ID_String] }
                 ],
-                optionalServices: [DwarfII_ID_String, Dwarf3_ID_String]
+                optionalServices: [DwarfII_ID_String, Dwarf3_ID_String, DwarfMini_ID_String]
             }
         );
         let phase = 0;
@@ -166,9 +167,15 @@ async function handleClick(event) {
           Dwarf_Type = 1;
         } catch (error) {
           // If the first service isn't found, try the second one
-          service = await server.getPrimaryService(Dwarf3_ID_String);
-          Dwarf_Name = "Dwarf 3";
-          Dwarf_Type = 2;
+          try {
+            service = await server.getPrimaryService(Dwarf3_ID_String);
+            Dwarf_Name = "Dwarf 3";
+            Dwarf_Type = 2;
+          } catch (error) {
+            service = await server.getPrimaryService(DwarfMini_ID_String);
+            Dwarf_Name = "Dwarf Mini";
+            Dwarf_Type = 4;
+          }
         }
         console.log('Got service:', service.uuid);
         console.log('Dwarf Type:', Dwarf_Name);
@@ -227,7 +234,7 @@ async function handleClick(event) {
                 // set WifiSTA
                 let paramSetWifiSta = 1;
 
-                if (result_data.ip == "192.168.88.1" || result_data.ssid.startsWith("DWARF3_"))
+                if (result_data.ip == "192.168.88.1" || result_data.ssid.startsWith("DWARF3_") || result_data.ssid.startsWith("DWARF_mini_"))
                 { 
                   // set WifiSTA saved in memory
                   paramSetWifiSta = 0
@@ -242,7 +249,7 @@ async function handleClick(event) {
                 console.log("Error STA MODE not Configured! Restart it and Use the mobile App.");
                 actionDisconnect("Error STA MODE not Configured! Restart it and Use the mobile App.");
               }
-              else if ((result_data.ip == "192.168.88.1" || result_data.ssid.startsWith("DWARF3_")) && BleSTASSIDDwarf !== undefined && BleSTAPWDDwarf !== undefined)
+              else if ((result_data.ip == "192.168.88.1" || result_data.ssid.startsWith("DWARF3_") || result_data.ssid.startsWith("DWARF_mini_")) && BleSTASSIDDwarf !== undefined && BleSTAPWDDwarf !== undefined)
               { 
                 // set WifiSTA saved in memory
                 startButton.textContent = "Send Wifi config to " + Dwarf_Name + "..." + device.name;

@@ -13,6 +13,8 @@ enum ModuleId {
     MODULE_NOTIFY = 9; // 15200-15499 Notification module
     MODULE_PANORAMA = 10; // 15500-15599 Panoramic module
     MODULE_SHOOTING_SCHEDULE = 13; // 16100-16300 Shooting schedule module
+    MODULE_DEVICE_CONFIG = 14; // 16400-16499 V3 Device configuration module
+    MODULE_CAMERA_PARAMS = 15; // 16700-16799 V3 Camera parameters module
 }
 
 enum MessageTypeId {
@@ -23,6 +25,8 @@ enum MessageTypeId {
 }
 
 enum DwarfCMD {
+    option allow_alias = true;
+
     NO_CMD = 0; // No Cmd
 
     CMD_CAMERA_TELE_OPEN_CAMERA = 10000; // Turn on the camera
@@ -70,6 +74,9 @@ enum DwarfCMD {
     CMD_CAMERA_TELE_PHOTO_RAW = 10041; // Shoot RAW image
     CMD_CAMERA_TELE_SET_RTSP_BITRATE_TYPE = 10042; // Set rtsp preview bit rate type
 
+    CMD_CAMERA_TELE_SET_PREVIEW_QUALITY = 10050;
+    CMD_V3_CAMERA_TELE_OPEN_CAMERA = 10050; // Deprecated compatibility alias.
+
     CMD_ASTRO_START_CALIBRATION = 11000; // Start calibration
     CMD_ASTRO_STOP_CALIBRATION = 11001; // Stop calibration
     CMD_ASTRO_START_GOTO_DSO = 11002; // Start GOTO Deep Space Object
@@ -101,6 +108,26 @@ enum DwarfCMD {
     CMD_ASTRO_STOP_CAPTURE_WIDE_RAW_DARK_WITH_PARAM = 11026; // Stop shooting dark field with wide-angle specified parameters
     CMD_ASTRO_GET_WIDE_DARK_FRAME_LIST = 11027; // Query the list of wide-angle dark scenes taken
     CMD_ASTRO_DEL_WIDE_DARK_FRAME_LIST = 11028; // Delete the specified wide-angle dark field list
+
+    CMD_ASTRO_START_MAKE_FITS_THUMB = 11033;
+    CMD_V3_ASTRO_SAVE_STACKED_IMAGE = 11033; // Deprecated compatibility alias.
+    CMD_ASTRO_STOP_MAKE_FITS_THUMB = 11034;
+    CMD_V3_ASTRO_LIST_SAVED_IMAGES = 11034; // Deprecated compatibility alias.
+    CMD_ASTRO_STOP_RESTACKED = 11036;
+    CMD_V3_ASTRO_SAVE_COMPLETE = 11036; // Deprecated compatibility alias.
+    CMD_ASTRO_GET_ASTRO_SHOOTING_TIME = 11039;
+    CMD_V3_ASTRO_STATUS_POLLING = 11039; // Deprecated compatibility alias.
+    CMD_ASTRO_GET_QUICK_SET_LIST = 11040;
+    CMD_V3_ASTRO_GET_PARAMS = 11040; // Deprecated compatibility alias.
+    CMD_ASTRO_SET_QUICK_SET = 11041;
+    CMD_V3_ASTRO_SET_PARAMS = 11041; // Deprecated compatibility alias.
+    CMD_ASTRO_GET_CALI_FRAME_LIST = 11043;
+    CMD_V3_ASTRO_GET_PRESETS = 11043; // Deprecated compatibility alias.
+    CMD_ASTRO_START_SKY_TARGET_FINDER = 11047;
+    CMD_V3_ASTRO_SET_LOCATION = 11047; // Deprecated compatibility alias.
+    CMD_ASTRO_STOP_SKY_TARGET_FINDER = 11048;
+    CMD_V3_ASTRO_CONFIRM = 11048; // Deprecated compatibility alias.
+    CMD_ASTRO_CONTINUE_SHOOTING = 11050; // APK 3.4.1: continue after a recoverable shooting warning
 
     CMD_CAMERA_WIDE_OPEN_CAMERA = 12000; // Turn on the camera
     CMD_CAMERA_WIDE_CLOSE_CAMERA = 12001; // Turn off the camera
@@ -135,11 +162,17 @@ enum DwarfCMD {
     CMD_CAMERA_WIDE_START_RECORD = 12030; // Start wide recording
     CMD_CAMERA_WIDE_STOP_RECORD = 12031; // Stop wide recording
 
+    CMD_CAMERA_WIDE_SET_PREVIEW_QUALITY = 12036;
+    CMD_V3_CAMERA_WIDE_OPEN_CAMERA = 12036; // Deprecated compatibility alias.
+
     CMD_SYSTEM_SET_TIME = 13000; // Set the system time
     CMD_SYSTEM_SET_TIME_ZONE = 13001; // Set the time zone
     CMD_SYSTEM_SET_MTP_MODE = 13002; // Set MTP mode
     CMD_SYSTEM_SET_CPU_MODE = 13003; // Set CPU mode
-    CMD_SYSTEM_SET_MASTERLOCK = 13004; // Set HOST mode
+    CMD_SYSTEM_SET_MASTER = 13004; // Set HOST mode
+    CMD_SYSTEM_SET_MASTERLOCK = 13004; // Deprecated compatibility alias.
+    CMD_SYSTEM_SET_LOCATION = 13010;
+    CMD_V3_SYSTEM_SET_GPS_LOCATION = 13010; // Deprecated compatibility alias.
 
     CMD_RGB_POWER_OPEN_RGB = 13500; // Turn on the ring light
     CMD_RGB_POWER_CLOSE_RGB = 13501; // Turn off the ring light
@@ -172,7 +205,8 @@ enum DwarfCMD {
     CMD_UFOTRACK_MODE_START = 14806; // Start sentinel UFO mode
     CMD_UFOTRACK_MODE_STOP = 14807; // Stop Sentinel UFO Mode
     CMD_MOT_WIDE_TRACK_ONE = 14808; // Wide-angle: "Multi-Object Tracking" starts tracking a specific target (firmware will return an identification box and ID, confirm tracking target based on user clicks)
-    CMD_WIDE_TELE_TRACK_SWITCH = 14809; // Object Detection with 30 classes for post-production non-sentinel mode. Choose between wide-angle and telephoto tracking button instructions
+    CMD_SWITCH_MAIN_PREVIEW = 14809;
+    CMD_WIDE_TELE_TRACK_SWITCH = 14809; // Deprecated compatibility alias.
     CMD_UFO_HAND_AOTO_MODE = 14810; // Used for post-UFO mode selection manual or automatic
 
     CMD_FOCUS_AUTO_FOCUS = 15000; // Normal mode autofocus
@@ -181,8 +215,11 @@ enum DwarfCMD {
     CMD_FOCUS_STOP_MANUAL_CONTINU_FOCUS = 15003; // Stop manual continuous focus
     CMD_FOCUS_START_ASTRO_AUTO_FOCUS = 15004; // Start astronomical autofocus
     CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS = 15005; // Stop astronomical autofocus
+    CMD_FOCUS_GET_USER_INFINITY_POS = 15011;
+    CMD_V3_FOCUS_INIT = 15011; // Deprecated compatibility alias.
 
-    CMD_NOTIFY_TELE_WIDI_PICTURE_MATCHING = 15200; // Telephoto wide-angle image matching
+    CMD_NOTIFY_TELE_WIDE_PICTURE_MATCHING = 15200;
+    CMD_NOTIFY_TELE_WIDI_PICTURE_MATCHING = 15200; // Deprecated misspelled alias.
     CMD_NOTIFY_ELE = 15201; // Battery Notification
     CMD_NOTIFY_CHARGE = 15202; // Charge status notification
     CMD_NOTIFY_SDCARD_INFO = 15203; // SD card capacity notification
@@ -228,8 +265,8 @@ enum DwarfCMD {
     CMD_NOTIFY_WIDE_LONG_EXP_PROGRESS = 15242; // Wide-angle long exposure progress
     CMD_NOTIFY_TEMPERATURE = 15243; // Movement temperature
     CMD_NOTIFY_PANORAMA_UPLOAD_COMPRESS_PROGRESS = 15244; // 
-    CMD_NOTIFY_PANORAMA_UPLOAD_UPLOAD_PROGRESS = 15245; // 
-    CMD_NOTIFY_PANORAMA_UPLOAD_COMPLETE = 15246; // 
+    CMD_NOTIFY_PANORAMA_UPLOAD_UPLOAD_PROGRESS = 15245;
+    CMD_NOTIFY_PANORAMA_UPLOAD_COMPLETE = 15245;
     CMD_NOTIFY_STATE_CAPTURE_WIDE_RAW_DARK = 15247; // Wide-angle dark field shooting state
     CMD_NOTIFY_SHOOTING_SCHEDULE_RESULT_AND_STATE = 15248; // 
     CMD_NOTIFY_SHOOTING_TASK_STATE = 15249; // 
@@ -237,28 +274,104 @@ enum DwarfCMD {
     CMD_NOTIFY_WIDE_MULTI_TRACK_RESULT = 15251; // Wide-angle multi-target box result notification
     CMD_NOTIFY_WIDE_TRACK_RESULT = 15252; // Wide-angle single target box result notification
 
-    CMD_NOTIFY_FOCUS = 15257; // Focus Position
+    CMD_NOTIFY_CALIBRATION_RESULT = 15256; // Successful astronomical calibration result
+    CMD_NOTIFY_FOCUS_POSITION = 15257;
+    CMD_NOTIFY_FOCUS = 15257; // Deprecated compatibility alias.
+
+    CMD_NOTIFY_WAIT_SHOOTING_PROGRESS = 15255;
+    CMD_V3_NOTIFY_EXPOSURE_PROGRESS = 15255; // Capture-derived compatibility alias.
+    CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE = 15261;
+    CMD_V3_NOTIFY_DEVICE_STATE = 15261; // Deprecated compatibility alias.
+    CMD_NOTIFY_GENERAL_INT_PARAM = 15264;
+    CMD_V3_NOTIFY_CAMERA_PARAM_STATE = 15264; // Deprecated compatibility alias.
+    CMD_NOTIFY_SWITCH_SHOOTING_MODE = 15267;
+    CMD_V3_NOTIFY_MODE_CHANGE = 15267; // Deprecated compatibility alias.
+    CMD_NOTIFY_WB = 15270;
+    CMD_V3_NOTIFY_STACKING_DATA = 15270; // Deprecated compatibility alias.
+    CMD_NOTIFY_PHOTO_STATE = 15273;
+    CMD_V3_NOTIFY_PHOTO_STATE = 15273; // Deprecated compatibility alias.
+    CMD_NOTIFY_BURST_STATE = 15274;
+    CMD_V3_NOTIFY_BURST_STATE = 15274; // Deprecated compatibility alias.
+    CMD_NOTIFY_RECORD_STATE = 15275;
+    CMD_V3_NOTIFY_VIDEO_STATE = 15275; // Deprecated compatibility alias.
+    CMD_NOTIFY_TIMELAPSE_STATE = 15276;
+    CMD_V3_NOTIFY_TIMELAPSE_STATE = 15276; // Deprecated compatibility alias.
+    CMD_NOTIFY_ASTRO_AUTO_FOCUS_STATE = 15278;
+    CMD_V3_NOTIFY_AUTOFOCUS_STATE = 15278; // Deprecated compatibility alias.
+    CMD_NOTIFY_ASTRO_AUTO_FOCUS_FAST_STATE = 15280;
+    CMD_V3_NOTIFY_AUTOFOCUS_STATE_ALT = 15280; // Deprecated compatibility alias.
+    CMD_NOTIFY_BURST_PROGRESS = 15285;
+    CMD_V3_NOTIFY_PHOTO_BURST_PROGRESS = 15285; // Deprecated compatibility alias.
+    CMD_NOTIFY_RECORD_TIME = 15286;
+    CMD_V3_NOTIFY_VIDEO_PROGRESS = 15286; // Deprecated compatibility alias.
+    CMD_NOTIFY_TIMELAPSE_OUT_TIME = 15287;
+    CMD_V3_NOTIFY_TIMELAPSE_PROGRESS = 15287; // Deprecated compatibility alias.
+    CMD_NOTIFY_LONG_EXP_PROGRESS = 15288;
+    CMD_NOTIFY_STATE_CAPTURE_CALI_FRAME = 15290;
+    CMD_V3_NOTIFY_CALI_FRAME_STATE = 15290; // Deprecated compatibility alias.
+    CMD_NOTIFY_PROGRESS_CAPTURE_CALI_FRAME = 15291;
+    CMD_V3_NOTIFY_CALI_FRAME_PROGRESS = 15291; // Deprecated compatibility alias.
+    CMD_NOTIFY_CMOS_TEMPERATURE = 15292;
+    CMD_V3_NOTIFY_TEMPERATURE2 = 15292; // Deprecated compatibility alias.
+    CMD_NOTIFY_SKY_TARGET_FINDER_STATE = 15296;
+    CMD_V3_NOTIFY_OBSERVATION_STATE = 15296; // Deprecated compatibility alias.
 
     CMD_PANORAMA_START_GRID = 15500; // Start panorama
     CMD_PANORAMA_STOP = 15501; // Stop panorama
     CMD_PANORAMA_START_EULER_RANGE = 15502; // Start panorama Euler Range
+
+    CMD_GET_ALL_SHOOTING_SCHEDULE = 16102;
+    CMD_V3_SCHEDULE_GET = 16102; // Deprecated compatibility alias.
+
+    CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_MODE = 16402;
+    CMD_V3_DEVICE_CONFIG_MODE_QUERY = 16402; // Deprecated compatibility alias.
+    CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_TECH = 16403;
+    CMD_V3_DEVICE_CONFIG_SHOOTING_MODE = 16403; // Deprecated compatibility alias.
+    CMD_GLOBAL_TASK_MANAGER_ENTER_CAMERA = 16404;
+    CMD_V3_DEVICE_CONFIG_MODE_SWITCH = 16404; // Deprecated compatibility alias.
+    CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO = 16405;
+    CMD_V3_DEVICE_CONFIG_GET_CONFIG = 16405; // Deprecated compatibility alias.
+
+    CMD_PARAM_SET_EXPOSURE = 16700;
+    CMD_V3_CAMERA_PARAMS_SET_PARAM = 16700; // Deprecated compatibility alias.
+    CMD_PARAM_SET_GAIN = 16701;
+    CMD_V3_CAMERA_PARAMS_SET_EXP_GAIN = 16701; // Deprecated compatibility alias.
+    CMD_PARAM_SET_GENERAL_INT_PARAM = 16703;
+    CMD_V3_CAMERA_PARAMS_ADJUST = 16703; // Deprecated compatibility alias.
+    CMD_PARAM_SET_AUTO_PARAMS = 16706;
+    CMD_V3_CAMERA_PARAMS_STREAM_CTRL = 16706; // Deprecated compatibility alias.
 }
 
 enum DwarfErrorCode {
-    OK = 0; // OK : No Error
+    option allow_alias = true;
+    OK = 0; // Compatibility alias used by existing clients.
+    WS_OK = 0;
     WS_PARSE_PROTOBUF_ERROR = -1; // Protobuf parsing failed
     WS_SDCARD_NOT_EXIST = -2; // SD card not detected
-    WS_INVALID_PARAM = -3; // Invalid parameter
+    WS_INVAID_PARAM = -3; // Name is misspelled in the vendor API.
     WS_SDCARD_WRITE_ERROR = -4; // Image writing to SD card failed (maybe the card is full)
+    WS_DEVICE_NOT_ACTIVATED = -5;
+    WS_SDCARD_FULL_ERROR = -6;
 
     CODE_CAMERA_TELE_OPENED = -10500; // Camera is turned on
     CODE_CAMERA_TELE_CLOSED = -10501; // Camera is off
     CODE_CAMERA_TELE_ISP_SET_FAILED = -10502; // ISP parameter settings failed
-    CODE_CAMERA_TELE_OPEN_FAILED = -10504; // Camera failed to open
-    CODE_CAMERA_TELE_RECORDING = -10506; // Recording
-    CODE_CAMERA_TELE_WORKING_BUSY_STACK = -10507; // The telephoto camera is busy.
-    CODE_CAMERA_TELE_CAPTURE_RAW_FAILED = -10510; // Failed to catch RAW image
-    CODE_CAMERA_TELE_WORKING_BUSY = -10511; // The telephoto camera is busy with work
+    CODE_CAMERA_TELE_OPEN_FAILED = -10503;
+    CODE_CAMERA_TELE_START_RECORD_FAILED = -10504;
+    CODE_CAMERA_TELE_STOP_RECORD_FAILED = -10505;
+    CODE_CAMERA_TELE_CAPTURE_RAW_FAILED = -10506;
+    CODE_CAMERA_TELE_WORKING_BUSY = -10507;
+    CODE_CAMERA_TELE_GET_IMAGE_FAILED = -10508;
+    CODE_CAMERA_TELE_RUNNING_PHOTO = -10509;
+    CODE_CAMERA_TELE_RUNNING_RECORD = -10510;
+    CODE_CAMERA_TELE_RUNNING_PANORAMA = -10511;
+    CODE_CAMERA_TELE_RUNNING_TIMELAPSE = -10512;
+    CODE_CAMERA_TELE_RUNNING_CAPTURE_DARK = -10513;
+    CODE_CAMERA_TELE_RUNNING_CAPTURE_LIVE_STACKING = -10514;
+    CODE_CAMERA_TELE_EXP_TOO_LONG = -10515;
+    CODE_CAMERA_TELE_SWITCH_WORK_MODE_FAILED = -10516;
+    CODE_CAMERA_TELE_RUNNING_TRACK = -10517;
+    CODE_CAMERA_TELE_RECORD_FILE_ERROR = -10518;
 
     CODE_ASTRO_PLATE_SOLVING_FAILED = -11500; // Plate solving failed
     CODE_ASTRO_FUNCTION_BUSY = -11501; // Astronomical function busy
@@ -266,11 +379,34 @@ enum DwarfErrorCode {
     CODE_ASTRO_DARK_NOT_FOUND = -11503; // Darkfield not found
     CODE_ASTRO_CALIBRATION_FAILED = -11504; // Calibration failed
     CODE_ASTRO_GOTO_FAILED = -11505; // GOTO failed
+    CODE_ASTRO_DARK_RUNNING = -11506; // Dark-frame capture is already running
+    CODE_ASTRO_CALIBRATION_RUNNING = -11507; // Calibration is already running
+    CODE_ASTRO_GOTO_RUNNING = -11508; // GOTO is already running
+    CODE_ASTRO_LIVE_STACKING_RUNNING = -11509; // Live stacking is already running
+    CODE_ASTRO_RESET_PITCH_MOTOR_FAILED = -11510; // Pitch motor reset failed
+    CODE_ASTRO_NEED_CALIBRATION = -11511; // Calibration is required
+    CODE_ASTRO_GOTO_READ_MOTOR_POSITION_AND_PLATE_SOLVING_FAILED = -11512; // GOTO preparation failed
     CODE_ASTRO_NEED_GOTO = -11513; // No GOTO
     CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM = -11514; // Parameters are not suitable
-    
+    CODE_ASTRO_CALIBRATION_PLATE_SOLVING_FAILED_TOO_MUCH = -11515; // Too many calibration plate-solve failures
     CODE_ASTRO_EQ_SOLVING_FAILED = -11516; // EQ calculation failed (only calculation failed to return)
     CODE_ASTRO_SKY_SEARCH_FAILED = -11517; // Sky detection failed
+    CODE_ASTRO_NEED_GOTO_DSO = -11518; // A DSO GOTO is required
+    CODE_ASTRO_RESTACK_CAMERA_MISMATCH = -11519; // Restack camera mismatch
+    CODE_ASTRO_RESTACK_BINNING_MISMATCH = -11520; // Restack binning mismatch
+    CODE_ASTRO_RESTACK_FILTER_MISMATCH = -11521; // Restack filter mismatch
+    CODE_ASTRO_RESTACK_TARGET_MISMATCH = -11522; // Restack target mismatch
+    CODE_ASTRO_RESTACK_DARKFRAME_MISMATCH = -11523; // Restack dark-frame mismatch
+    CODE_ASTRO_RESTACK_FAILED = -11524; // Restack failed
+    CODE_ASTRO_RESTACK_INVALID_DATA = -11525; // Restack input data is invalid
+    CODE_ASTRO_OVEREXPOSURE_WARNING = -11526; // Exposure may be overexposed
+    CODE_ASTRO_EXP_TOO_LONG = -11527; // Exposure is too long
+    CODE_ASTRO_NEED_EQ = -11528; // Equatorial mode is required
+    CODE_ASTRO_STAR_TOO_FEW = -11529; // Too few stars were detected
+    CODE_ASTRO_DARK_TEMP_MISMATCH = -11530; // Matching dark temperature differs from current sensor temperature
+    CODE_ASTRO_SUN_MOON_NOT_FOUND = -11531; // Sun or Moon was not found
+    CODE_ASTRO_GUIDING_FAILED_LOWER_EXPOSURE = -11532; // Guiding failed; lower exposure
+    CODE_ASTRO_GUIDING_FAILED_TARGET_BLOCKED = -11533; // Guiding target is blocked
 
     CODE_CAMERA_WIDE_OPENED = -12500; // Wide-angle camera turned on
     CODE_CAMERA_WIDE_CLOSED = -12501; // The wide-angle camera is turned off
@@ -279,27 +415,68 @@ enum DwarfErrorCode {
     CODE_CAMERA_WIDE_CLOSE_FAILED = -12504; // Failed to turn off camera
     CODE_CAMERA_WIDE_SET_ISP_FAILED = -12505; // Failed to set ISP parameters
     CODE_CAMERA_WIDE_PHOTOGRAPHING = -12506; // Taking pictures
+    CODE_CAMERA_WIDE_TIMELAPSE_RECORDING = -12507;
     CODE_CAMERA_WIDE_EXP_TOO_LONG = -12508; // The exposure time is too long, and recording is not supported.
+    CODE_CAMERA_WIDE_RECORD_FILE_ERROR = -12509;
 
     CODE_SYSTEM_SET_TIME_FAILED = -13300; // Set time failed
     CODE_SYSTEM_SET_TIMEZONE_FAILED = -13301; // Failed to set time zone
-    CODE_SYSTEM_SETTING_TIMEZONE_FAILED = -13302; // Time zone setting failed
-
     CODE_RGB_POWER_UART_INIT_FAILED = -13800; // Serial port Initialization failed
+    CODE_RGB_POWER_UART_SEND_FAILED = -13801;
 
+    CODE_STEP_MOTOR_IS_RUNNING = -14500;
+    CODE_STEP_MOTOR_IS_STOPPED = -14501;
+    CODE_STEP_MOTOR_PARALLEL_IN = -14502;
+    CODE_STEP_MOTOR_PARALLEL_END = -14503;
     CODE_STEP_MOTOR_INVALID_PARAMETER_ID = -14504; // Motor Invalid Id Parameter
+    CODE_STEP_MOTOR_INVALID_PARAMETER_ANGLE = -14505;
+    CODE_STEP_MOTOR_INVALID_PARAMETER_SPEED = -14506;
+    CODE_STEP_MOTOR_INVALID_PARAMETER_SPEED_RAMPING = -14507;
+    CODE_STEP_MOTOR_INVALID_PARAMETER_RESOLUTION = -14508;
+    CODE_STEP_MOTOR_INVALID_PARAMETER_POSITION = -14509;
+    CODE_STEP_MOTOR_OVERTIME_GET_LIMIT_RETURN = -14510;
+    CODE_STEP_MOTOR_OVERTIME_GET_RESET_RETURN = -14511;
+    CODE_STEP_MOTOR_OVERTIME_GET_ABSOLUTE_POSITION_RETURN = -14512;
+    CODE_STEP_MOTOR_OVERTIME_GET_RELATIVE_POSITION_RETURN = -14513;
+    CODE_STEP_MOTOR_OVERTIME_WAIT_TO_STOP = -14514;
+    CODE_STEP_MOTOR_OVERTIME_WAIT_TO_RUN = -14515;
+    CODE_STEP_MOTOR_LIMIT_SPEED_TO_MAX = -14516;
+    CODE_STEP_MOTOR_LIMIT_SPEED_TO_MIN = -14517;
     CODE_STEP_MOTOR_LIMIT_POSITION_WARNING = -14518; // GOTO limit warning
-    CODE_STEP_MOTOR_LIMIT_POSITION_HITTED = -14519; // Star collision limit
-    CODE_STEP_MOTOR_POSITION_NEED_RESET = -14520; // Motor Position need Reset
+    CODE_STEP_MOTOR_LIMIT_POSITION_HIT = -14519;
+    CODE_STEP_MOTOR_NEED_RESET = -14520;
+    CODE_STEP_MOTOR_OVERTIME_GET_PE_SWITCH_RETURN = -14521;
+    CODE_STEP_MOTOR_OVERTIME_TO_RESET = -14522;
+    CODE_STEP_MOTOR_ROLL_LIMIT_ANGLE_WARNING = -14523;
 
     CODE_TRACK_TRACKER_INITING = -14900; // Tracking is initializing
     CODE_TRACK_TRACKER_FAILED = -14901; // Trace failed
+    CODE_TRACK_SENTRY_MODE_INITING = -14902;
+    CODE_TRACK_SENTRY_MODE_FAILED = -14903;
+    CODE_UFOTRACK_MODE_INITING = -14904;
+    CODE_UFO_DAY_AUTO_MODE = -14906;
 
     CODE_FOCUS_ASTRO_AUTO_FOCUS_SLOW_ERROR = -15100; // Slow astronomical autofocus failed
     CODE_FOCUS_ASTRO_AUTO_FOCUS_FAST_ERROR = -15101; // Fast astronomical autofocus failed, you need to perform a slow astronomical autofocus first
+    CODE_FOCUS_EXP_TOO_LONG = -15106;
 
-    CODE_PANORAMA_PHOTO_FAILED = -15600; // Panoramic shooting failed
     CODE_PANORAMA_MOTOR_RESET_FAILED = -15601; // Panoramic shooting motor reset failed
+    CODE_PANORAMA_UPLOAD_USER_STOP = -15602;
+    CODE_PANORAMA_UPLOAD_FILE_CHECK_FAILED = -15603;
+    CODE_PANORAMA_UPLOAD_COMPRESS_FAILED = -15604;
+    CODE_PANORAMA_UPLOAD_UPLOAD_FAILED = -15605;
+    CODE_PANORAMA_UPLOAD_IS_RUNNING = -15607;
+    CODE_PANORAMA_UPLOAD_CAMERA_BUSY = -15608;
+    CODE_PANORAMA_UPLOAD_NOT_IN_STA = -15609;
+    CODE_PANORAMA_COMPOSE_IS_RUNNING = -15615;
+
+    CODE_SHOOTING_SCHEDULE_DEVICE_ID_NOT_MATCH = -16300;
+    CODE_SHOOTING_SCHEDULE_INVALID_SHOOTING_DURATION = -16301;
+    CODE_SHOOTING_SCHEDULE_TIME_CONFLICT = -16302;
+    CODE_SHOOTING_SCHEDULE_DATABASE_OPERATION_FAILED = -16305;
+    CODE_SHOOTING_SCHEDULE_PASSWORD_ERROR = -16306;
+    CODE_SHOOTING_SCHEDULE_INTERRUPTED = -16310;
+    CODE_SHOOTING_SCHEDULE_NOT_SYNCED = -16311;
 }
 
 enum AstroTrackingSpecial {

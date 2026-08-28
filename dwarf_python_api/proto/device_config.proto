@@ -1,0 +1,4 @@
+syntax = "proto3";
+
+// Compatibility file retained so existing build tooling keeps producing
+// device_config_pb2. Exact task-center schemas live in task_center.proto.

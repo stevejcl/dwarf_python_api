@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+// Capture-derived command 15255 payload. The APK names the command
+// CMD_NOTIFY_WAIT_SHOOTING_PROGRESS but does not expose its protobuf handler.
+// Keep this provisional schema isolated until a descriptor or current capture
+// provides stronger evidence.
+message V3ResNotifyExposureProgress {
+    int32 elapsed = 1;
+    int32 total = 2;
+}

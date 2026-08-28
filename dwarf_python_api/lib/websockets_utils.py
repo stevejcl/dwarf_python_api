@@ -20,6 +20,8 @@ import dwarf_python_api.proto.rgb_pb2 as rgb
 import dwarf_python_api.proto.motor_control_pb2 as motor
 # in notify
 import dwarf_python_api.proto.base_pb2 as base__pb2
+# V3: module MODULE_DEVICE_CONFIG (14), astro mode / camera init handshake
+import dwarf_python_api.proto.task_center_pb2 as task_center
 # import data for config.py
 import dwarf_python_api.get_config_data
 
@@ -42,8 +44,20 @@ ERROR_SLAVEMODE = -15
 # Define the static table of valid command-result pairs
 VALID_PAIRS = {
     (protocol.CMD_SYSTEM_SET_MASTERLOCK, protocol.CMD_NOTIFY_WS_HOST_SLAVE_MODE),
+    # V3: the end of a shot (photo/burst/video/timelapse) is now notified
+    # via technique-specific commands (CMD_NOTIFY_PHOTO_STATE etc.),
+    # instead of the old CMD_NOTIFY_TELE_FUNCTION_STATE/WIDE_FUNCTION_STATE
+    # which no longer seems to be emitted by the V3 firmware for these
+    # techniques (see MIGRATION_V3.md). We keep the old pairs for V2
+    # compatibility (in case the firmware still sends them) and add the
+    # new ones.
     (protocol.CMD_CAMERA_TELE_PHOTOGRAPH, protocol.CMD_NOTIFY_TELE_FUNCTION_STATE),
+    (protocol.CMD_CAMERA_TELE_PHOTOGRAPH, protocol.CMD_NOTIFY_PHOTO_STATE),
+    (protocol.CMD_CAMERA_TELE_BURST, protocol.CMD_NOTIFY_BURST_STATE),
+    (protocol.CMD_CAMERA_TELE_START_RECORD, protocol.CMD_NOTIFY_RECORD_STATE),
+    (protocol.CMD_CAMERA_TELE_START_TIMELAPSE_PHOTO, protocol.CMD_NOTIFY_TIMELAPSE_STATE),
     (protocol.CMD_CAMERA_WIDE_PHOTOGRAPH, protocol.CMD_NOTIFY_WIDE_FUNCTION_STATE),
+    (protocol.CMD_CAMERA_WIDE_PHOTOGRAPH, protocol.CMD_NOTIFY_PHOTO_STATE),
     (protocol.CMD_ASTRO_START_GOTO_DSO, protocol.CMD_NOTIFY_STATE_ASTRO_TRACKING),
     (protocol.CMD_ASTRO_START_GOTO_DSO, protocol.CMD_ASTRO_STOP_GOTO),
     (protocol.CMD_ASTRO_START_GOTO_SOLAR_SYSTEM, protocol.CMD_NOTIFY_STATE_ASTRO_TRACKING),
@@ -280,6 +294,13 @@ class WebSocketClient:
         self.FocusValueDwarf = None
         self.PowerIndStateDwarf = None
         self.RgbIndStateDwarf = None
+        # V3: cache of the latest CMD_NOTIFY_GENERAL_INT_PARAM received
+        # (CAMERA_PARAMS module, 15). This is the "push" mechanism through
+        # which the V3 firmware communicates current values (exposure,
+        # gain, etc.) - there is no explicit GET command in this module,
+        # unlike the V2 CAMERA_TELE module. Key = param_id (uint64),
+        # value = dict {"mode": int, "value": int}. See MIGRATION_V3.md.
+        self.cameraParamsDwarf = {}
 
         # TEST_CALIBRATION : Test Calibration Packet or Goto Packet
         # Test Mode : Calibration Packet => TEST_CALIBRATION = True
@@ -443,7 +464,7 @@ class WebSocketClient:
 
                             # CMD_NOTIFY_WS_HOST_SLAVE_MODE = 15223; // Leader/follower mode notification
                             if (WsPacket_message.cmd==protocol.CMD_NOTIFY_WS_HOST_SLAVE_MODE):
-                                ResNotifyHostSlaveMode_message = notify.ResNotifyHostSlaveMode()
+                                ResNotifyHostSlaveMode_message = notify.HostSlaveMode()
                                 ResNotifyHostSlaveMode_message.ParseFromString(WsPacket_message.data)
 
                                 log.info("Decoding CMD_NOTIFY_WS_HOST_SLAVE_MODE")
@@ -486,6 +507,87 @@ class WebSocketClient:
                                     log.success("Success SET HOST")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success SET HOST MODE ", ComResponse_message.code)
 
+                            # --- V3: "entering astro mode" handshake (MODULE_DEVICE_CONFIG module, 14) ---
+                            # Replaces, in V3, the direct camera opening (CMD_CAMERA_TELE_OPEN_CAMERA)
+                            # as the blocking step required before any ASTRO/CAMERA command.
+
+                            # CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO = 16405
+                            if (WsPacket_message.cmd == protocol.CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO):
+                                ResGetDeviceStateInfo_message = task_center.ResGetDeviceStateInfo()
+                                ResGetDeviceStateInfo_message.ParseFromString(WsPacket_message.data)
+
+                                log.info("Decoding CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO")
+                                log.debug(f"receive code >> {ResGetDeviceStateInfo_message.code}")
+                                log.debug(f"receive shooting_mode >> {ResGetDeviceStateInfo_message.shooting_mode}")
+
+                                # Diagnostic: list of (shooting_mode, shooting_techs) pairs
+                                # that the device actually knows about. This is the most
+                                # reliable source to identify which mode value to use for
+                                # simple photo (non-astro), without having to guess it.
+                                log.notice("--- shooting_mode_and_techs (V3 diagnostic) ---")
+                                for smt in ResGetDeviceStateInfo_message.shooting_mode_and_techs:
+                                    log.notice(
+                                        f"  shooting_mode={smt.shooting_mode} "
+                                        f"parent_shooting_mode={smt.parent_shooting_mode} "
+                                        f"shooting_techs={list(smt.shooting_techs)}"
+                                    )
+                                log.notice("--- end shooting_mode_and_techs ---")
+
+                                if (ResGetDeviceStateInfo_message.code != protocol.OK):
+                                    log.error(f"Error CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO CODE {ResGetDeviceStateInfo_message.code} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error GET DEVICE STATE INFO", ResGetDeviceStateInfo_message.code)
+                                else:
+                                    log.success("Success GET DEVICE STATE INFO")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success GET DEVICE STATE INFO", ResGetDeviceStateInfo_message.code)
+
+                            # CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_MODE = 16402
+                            if (WsPacket_message.cmd == protocol.CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_MODE):
+                                ResSwitchShootingMode_message = task_center.ResSwitchShootingMode()
+                                ResSwitchShootingMode_message.ParseFromString(WsPacket_message.data)
+
+                                log.info("Decoding CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_MODE")
+                                log.debug(f"receive code >> {ResSwitchShootingMode_message.code}")
+                                log.debug(f"receive shooting_mode_id >> {ResSwitchShootingMode_message.shooting_mode_id}")
+
+                                if (ResSwitchShootingMode_message.code != protocol.OK):
+                                    log.error(f"Error CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_MODE CODE {ResSwitchShootingMode_message.code} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error SWITCH SHOOTING MODE", ResSwitchShootingMode_message.code)
+                                else:
+                                    log.success(f"Success SWITCH SHOOTING MODE (mode={ResSwitchShootingMode_message.shooting_mode_id})")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success SWITCH SHOOTING MODE", ResSwitchShootingMode_message.shooting_mode_id)
+
+                            # CMD_GLOBAL_TASK_MANAGER_ENTER_CAMERA = 16404 (initialisation camera V3)
+                            if (WsPacket_message.cmd == protocol.CMD_GLOBAL_TASK_MANAGER_ENTER_CAMERA):
+                                ResEnterCamera_message = task_center.ResEnterCamera()
+                                ResEnterCamera_message.ParseFromString(WsPacket_message.data)
+
+                                log.info("Decoding CMD_GLOBAL_TASK_MANAGER_ENTER_CAMERA")
+                                log.debug(f"receive code >> {ResEnterCamera_message.code}")
+                                log.debug(f"receive shooting_mode_id >> {ResEnterCamera_message.shooting_mode_id}")
+
+                                if (ResEnterCamera_message.code != protocol.OK):
+                                    log.error(f"Error CMD_GLOBAL_TASK_MANAGER_ENTER_CAMERA CODE {ResEnterCamera_message.code} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error ENTER CAMERA", ResEnterCamera_message.code)
+                                else:
+                                    log.success(f"Success ENTER CAMERA (mode={ResEnterCamera_message.shooting_mode_id})")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success ENTER CAMERA", ResEnterCamera_message.shooting_mode_id)
+
+                            # CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_TECH = 16403
+                            if (WsPacket_message.cmd == protocol.CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_TECH):
+                                ResSwitchShootingTech_message = task_center.ResSwitchShootingTech()
+                                ResSwitchShootingTech_message.ParseFromString(WsPacket_message.data)
+
+                                log.info("Decoding CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_TECH")
+                                log.debug(f"receive code >> {ResSwitchShootingTech_message.code}")
+                                log.debug(f"receive shooting_tech_id >> {ResSwitchShootingTech_message.shooting_tech_id}")
+
+                                if (ResSwitchShootingTech_message.code != protocol.OK):
+                                    log.error(f"Error CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_TECH CODE {ResSwitchShootingTech_message.code} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error SWITCH SHOOTING TECH", ResSwitchShootingTech_message.code)
+                                else:
+                                    log.success(f"Success SWITCH SHOOTING TECH (tech={ResSwitchShootingTech_message.shooting_tech_id})")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success SWITCH SHOOTING TECH", ResSwitchShootingTech_message.shooting_tech_id)
+
                             # CMD_STEP_MOTOR_RUN = 14000; // Motor motion
                             if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_RUN):
                                 ResNotifyMotor_message = motor.ResMotor()
@@ -497,7 +599,7 @@ class WebSocketClient:
 
                                 # OK = 0; // No Error
                                 if (ResNotifyMotor_message.code != protocol.OK):
-                                    if (ResNotifyMotor_message.code == protocol.CODE_STEP_MOTOR_POSITION_NEED_RESET):
+                                    if (ResNotifyMotor_message.code == protocol.CODE_STEP_MOTOR_NEED_RESET):
                                         log.error(f"Error MOTOR need RESET >> EXIT")
 
                                     # Signal the ping and receive functions to stop
@@ -521,7 +623,7 @@ class WebSocketClient:
 
                                 # OK = 0; // No Error
                                 if (ResNotifyMotorPosition_message.code != protocol.OK):
-                                    if (ResNotifyMotorPosition_message.code == protocol.CODE_STEP_MOTOR_POSITION_NEED_RESET):
+                                    if (ResNotifyMotorPosition_message.code == protocol.CODE_STEP_MOTOR_NEED_RESET):
                                         log.error(f"Error MOTOR need RESET >> EXIT")
 
                                     # Signal the ping and receive functions to stop
@@ -542,7 +644,7 @@ class WebSocketClient:
                                 log.debug(f"receive code data >> {ResNotifyMotor_message.code}")
                                 # OK = 0; // No Error
                                 if (ResNotifyMotor_message.code != protocol.OK):
-                                    if (ResNotifyMotor_message.code == protocol.CODE_STEP_MOTOR_POSITION_NEED_RESET):
+                                    if (ResNotifyMotor_message.code == protocol.CODE_STEP_MOTOR_NEED_RESET):
                                         log.error(f"Error MOTOR need RESET >> EXIT")
 
                                     # Signal the ping and receive functions to stop
@@ -564,7 +666,7 @@ class WebSocketClient:
 
                                 # OK = 0; // No Error
                                 if (ComResponse_message.code != protocol.OK):
-                                    if (ComResponse_message.code == protocol.CODE_STEP_MOTOR_POSITION_NEED_RESET):
+                                    if (ComResponse_message.code == protocol.CODE_STEP_MOTOR_NEED_RESET):
                                         log.error(f"Error MOTOR need RESET >> EXIT")
 
                                     # Signal the ping and receive functions to stop
@@ -575,6 +677,22 @@ class WebSocketClient:
                                     log.info("Success CMD_STEP_MOTOR_RUN OK >> EXIT")
                                     log.success("Success CMD_STEP_MOTOR_RUN")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CMD_STEP_MOTOR_SERVICE_JOYSTICK", ComResponse_message.code)
+
+                            # CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP = 14008 (did not exist yet
+                            # in the dispatcher - identified via network capture).
+                            if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP CODE {getErrorCodeValueName(ComResponse_message.code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP", ComResponse_message.code)
 
                             # CMD_STEP_MOTOR_GET_POSITION = 14011; // Motor Get Position
                             if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_GET_POSITION):
@@ -589,7 +707,7 @@ class WebSocketClient:
 
                                 # OK = 0; // No Error
                                 if (ResMotorPosition_message.code != protocol.OK):
-                                    if (ResMotorPosition_message.code == protocol.CODE_STEP_MOTOR_POSITION_NEED_RESET):
+                                    if (ResMotorPosition_message.code == protocol.CODE_STEP_MOTOR_NEED_RESET):
                                         log.error(f"Error MOTOR need RESET >> EXIT")
 
                                     # Signal the ping and receive functions to stop
@@ -637,6 +755,165 @@ class WebSocketClient:
                                 else:
                                     log.info("OK CMD_CAMERA_TELE_OPEN_CAMERA")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Succcess CMD_CAMERA_TELE_OPEN_CAMERA", ComResponse_message.code)
+
+                            # CMD_CAMERA_TELE_SET_PREVIEW_QUALITY = 10050 (V3, sent by
+                            # perform_set_preview_quality after entering astro/photo mode).
+                            # Not decoded until now -> connect_socket() was waiting 30s for
+                            # nothing on every call. Generic ComResponse reply, same pattern
+                            # as CMD_CAMERA_TELE_OPEN_CAMERA above.
+                            elif (self.command==protocol.CMD_CAMERA_TELE_SET_PREVIEW_QUALITY and WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_SET_PREVIEW_QUALITY):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_CAMERA_TELE_SET_PREVIEW_QUALITY")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error("Error CMD_CAMERA_TELE_SET_PREVIEW_QUALITY")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_TELE_SET_PREVIEW_QUALITY", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_CAMERA_TELE_SET_PREVIEW_QUALITY")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_CAMERA_TELE_SET_PREVIEW_QUALITY", ComResponse_message.code)
+
+                            # CMD_PARAM_SET_EXPOSURE = 16700 / CMD_PARAM_SET_GAIN = 16701 (module
+                            # MODULE_CAMERA_PARAMS, 15) - confirmed by network capture of the
+                            # official app in normal photo mode (see MIGRATION_V3.md). Generic
+                            # ComResponse reply, same pattern as above.
+                            elif (self.command==protocol.CMD_PARAM_SET_EXPOSURE and WsPacket_message.cmd==protocol.CMD_PARAM_SET_EXPOSURE):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_PARAM_SET_EXPOSURE")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error("Error CMD_PARAM_SET_EXPOSURE")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_PARAM_SET_EXPOSURE", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_PARAM_SET_EXPOSURE")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_PARAM_SET_EXPOSURE", ComResponse_message.code)
+
+                            elif (self.command==protocol.CMD_PARAM_SET_GAIN and WsPacket_message.cmd==protocol.CMD_PARAM_SET_GAIN):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_PARAM_SET_GAIN")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error("Error CMD_PARAM_SET_GAIN")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_PARAM_SET_GAIN", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_PARAM_SET_GAIN")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_PARAM_SET_GAIN", ComResponse_message.code)
+
+                            # CMD_PARAM_SET_WB = 16702 (not named in the dwarfAlp proto,
+                            # sequential position + ReqSetWb structure confirmed by network
+                            # capture - see MIGRATION_V3.md).
+                            elif (self.command==16702 and WsPacket_message.cmd==16702):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_PARAM_SET_WB")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error("Error CMD_PARAM_SET_WB")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_PARAM_SET_WB", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_PARAM_SET_WB")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_PARAM_SET_WB", ComResponse_message.code)
+
+                            # CMD_PARAM_SET_GENERAL_INT_PARAM = 16703 (brightness, contrast,
+                            # saturation, hue, sharpness, burst/timelapse settings).
+                            elif (self.command==protocol.CMD_PARAM_SET_GENERAL_INT_PARAM and WsPacket_message.cmd==protocol.CMD_PARAM_SET_GENERAL_INT_PARAM):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_PARAM_SET_GENERAL_INT_PARAM")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error("Error CMD_PARAM_SET_GENERAL_INT_PARAM")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_PARAM_SET_GENERAL_INT_PARAM", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_PARAM_SET_GENERAL_INT_PARAM")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_PARAM_SET_GENERAL_INT_PARAM", ComResponse_message.code)
+
+                            # CMD_PARAM_SET_GENERAL_BOOL_PARAMS = 16705 (NOT CONFIRMED by network
+                            # capture - inferred from sequential position in param.proto, see
+                            # dwarf_utils.py). Generic ComResponse reply as a precaution, same
+                            # pattern as the other CAMERA_PARAMS module commands.
+                            elif (self.command==16705 and WsPacket_message.cmd==16705):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_PARAM_SET_GENERAL_BOOL_PARAMS")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error("Error CMD_PARAM_SET_GENERAL_BOOL_PARAMS")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_PARAM_SET_GENERAL_BOOL_PARAMS", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_PARAM_SET_GENERAL_BOOL_PARAMS")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_PARAM_SET_GENERAL_BOOL_PARAMS", ComResponse_message.code)
+
+                            # CMD_FOCUS_AUTO_FOCUS = 15000, module MODULE_FOCUS (8).
+                            elif (self.command==protocol.CMD_FOCUS_AUTO_FOCUS and WsPacket_message.cmd==protocol.CMD_FOCUS_AUTO_FOCUS):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_FOCUS_AUTO_FOCUS")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error("Error CMD_FOCUS_AUTO_FOCUS")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_FOCUS_AUTO_FOCUS", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_FOCUS_AUTO_FOCUS")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_FOCUS_AUTO_FOCUS", ComResponse_message.code)
+
+                            # CMD_CAMERA_TELE_STOP_BURST/STOP_RECORD/STOP_TIMELAPSE_PHOTO - generic
+                            # ComResponse replies (did not exist yet in the dispatcher).
+                            elif (self.command==10004 and WsPacket_message.cmd==10004):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_TELE_STOP_BURST")
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error("Error CMD_CAMERA_TELE_STOP_BURST")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_TELE_STOP_BURST", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_CAMERA_TELE_STOP_BURST")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_CAMERA_TELE_STOP_BURST", ComResponse_message.code)
+
+                            elif (self.command==protocol.CMD_CAMERA_TELE_STOP_RECORD and WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_STOP_RECORD):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_TELE_STOP_RECORD")
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error("Error CMD_CAMERA_TELE_STOP_RECORD")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_TELE_STOP_RECORD", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_CAMERA_TELE_STOP_RECORD")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_CAMERA_TELE_STOP_RECORD", ComResponse_message.code)
+
+                            elif (self.command==protocol.CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO and WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO")
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error("Error CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO", ComResponse_message.code)
 
                             # CMD_CAMERA_TELE_OPEN_CAMERA = 10000; // // Open the TELE Camera
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_OPEN_CAMERA):
@@ -739,7 +1016,7 @@ class WebSocketClient:
                             # CMD_CAMERA_TELE_PHOTOGRAPH = 10002; // //  End Take photos
                             elif (self.command==protocol.CMD_CAMERA_TELE_PHOTOGRAPH and WsPacket_message.cmd==protocol.CMD_NOTIFY_TELE_FUNCTION_STATE):
     
-                                ResNotifyCamFunctionState_message = notify.ResNotifyCamFunctionState()
+                                ResNotifyCamFunctionState_message = notify.PhotoState()
                                 ResNotifyCamFunctionState_message.ParseFromString(WsPacket_message.data)
 
                                 log.debug("Decoding CMD_NOTIFY_TELE_FUNCTION_STATE")
@@ -758,6 +1035,90 @@ class WebSocketClient:
                                 else:
                                     log.error("Error CMD_CAMERA_TELE_PHOTOGRAPH PROCESS STOP}")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_TELE_PHOTOGRAPH PROCESS STOP", ResNotifyCamFunctionState_message.state)
+                                    await asyncio.sleep(1)
+
+                            # V3: actual end of a TELE shot (photo/burst/video/
+                            # timelapse), confirmed by network capture of the official app.
+                            # Replaces CMD_NOTIFY_TELE_FUNCTION_STATE above, which is no
+                            # longer emitted by the V3 firmware for these techniques.
+                            elif (self.command==protocol.CMD_CAMERA_TELE_PHOTOGRAPH and WsPacket_message.cmd==protocol.CMD_NOTIFY_PHOTO_STATE):
+                                PhotoState_message = notify.PhotoState()
+                                PhotoState_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_NOTIFY_PHOTO_STATE")
+                                log.debug(f"receive notification state >> {PhotoState_message.state}")
+                                log.debug(f"receive notification camera_type >> {PhotoState_message.camera_type}")
+
+                                if (PhotoState_message.state == notify.OPERATION_STATE_IDLE):
+                                    log.info("Success TAKE PHOTO OK >> EXIT")
+                                    log.success("Success TAKE PHOTO")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK TAKE PHOTO", PhotoState_message.state)
+                                    await asyncio.sleep(1)
+                                elif (PhotoState_message.state == notify.OPERATION_STATE_RUNNING):
+                                    log.info("Starting CMD_CAMERA_TELE_PHOTOGRAPH")
+                                else:
+                                    log.error("Error CMD_CAMERA_TELE_PHOTOGRAPH PROCESS STOP")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_TELE_PHOTOGRAPH PROCESS STOP", PhotoState_message.state)
+                                    await asyncio.sleep(1)
+
+                            # V3: end of a burst, same pattern as PHOTO_STATE.
+                            elif (self.command==protocol.CMD_CAMERA_TELE_BURST and WsPacket_message.cmd==protocol.CMD_NOTIFY_BURST_STATE):
+                                BurstState_message = notify.BurstState()
+                                BurstState_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_NOTIFY_BURST_STATE")
+                                log.debug(f"receive notification state >> {BurstState_message.state}")
+
+                                if (BurstState_message.state == notify.OPERATION_STATE_IDLE):
+                                    log.info("Success BURST OK >> EXIT")
+                                    log.success("Success BURST")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK BURST", BurstState_message.state)
+                                    await asyncio.sleep(1)
+                                elif (BurstState_message.state == notify.OPERATION_STATE_RUNNING):
+                                    log.info("Starting CMD_CAMERA_TELE_BURST")
+                                else:
+                                    log.error("Error CMD_CAMERA_TELE_BURST PROCESS STOP")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_TELE_BURST PROCESS STOP", BurstState_message.state)
+                                    await asyncio.sleep(1)
+
+                            # V3: end of a video recording, same pattern as PHOTO_STATE.
+                            elif (self.command==protocol.CMD_CAMERA_TELE_START_RECORD and WsPacket_message.cmd==protocol.CMD_NOTIFY_RECORD_STATE):
+                                RecordState_message = notify.RecordState()
+                                RecordState_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_NOTIFY_RECORD_STATE")
+                                log.debug(f"receive notification state >> {RecordState_message.state}")
+
+                                if (RecordState_message.state == notify.OPERATION_STATE_IDLE):
+                                    log.info("Success RECORD OK >> EXIT")
+                                    log.success("Success RECORD")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK RECORD", RecordState_message.state)
+                                    await asyncio.sleep(1)
+                                elif (RecordState_message.state == notify.OPERATION_STATE_RUNNING):
+                                    log.info("Starting CMD_CAMERA_TELE_START_RECORD")
+                                else:
+                                    log.error("Error CMD_CAMERA_TELE_START_RECORD PROCESS STOP")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_TELE_START_RECORD PROCESS STOP", RecordState_message.state)
+                                    await asyncio.sleep(1)
+
+                            # V3: end of a timelapse, same pattern as PHOTO_STATE.
+                            elif (self.command==protocol.CMD_CAMERA_TELE_START_TIMELAPSE_PHOTO and WsPacket_message.cmd==protocol.CMD_NOTIFY_TIMELAPSE_STATE):
+                                TimeLapseState_message = notify.TimeLapseState()
+                                TimeLapseState_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_NOTIFY_TIMELAPSE_STATE")
+                                log.debug(f"receive notification state >> {TimeLapseState_message.state}")
+
+                                if (TimeLapseState_message.state == notify.OPERATION_STATE_IDLE):
+                                    log.info("Success TIMELAPSE OK >> EXIT")
+                                    log.success("Success TIMELAPSE")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK TIMELAPSE", TimeLapseState_message.state)
+                                    await asyncio.sleep(1)
+                                elif (TimeLapseState_message.state == notify.OPERATION_STATE_RUNNING):
+                                    log.info("Starting CMD_CAMERA_TELE_START_TIMELAPSE_PHOTO")
+                                else:
+                                    log.error("Error CMD_CAMERA_TELE_START_TIMELAPSE_PHOTO PROCESS STOP")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CAMERA_TELE_START_TIMELAPSE_PHOTO PROCESS STOP", TimeLapseState_message.state)
                                     await asyncio.sleep(1)
 
                             # CMD_CAMERA_WIDE_PHOTOGRAPH = 12022; // //  Take photos
@@ -780,7 +1141,7 @@ class WebSocketClient:
                             # CMD_CAMERA_WIDE_PHOTOGRAPH = 12022; // //  End Take photos
                             elif (self.command==protocol.CMD_CAMERA_WIDE_PHOTOGRAPH and WsPacket_message.cmd==protocol.CMD_NOTIFY_WIDE_FUNCTION_STATE):
     
-                                ResNotifyCamFunctionState_message = notify.ResNotifyCamFunctionState()
+                                ResNotifyCamFunctionState_message = notify.PhotoState()
                                 ResNotifyCamFunctionState_message.ParseFromString(WsPacket_message.data)
 
                                 log.debug("Decoding CMD_NOTIFY_WIDE_FUNCTION_STATE")
@@ -803,7 +1164,7 @@ class WebSocketClient:
 
                             # CMD_NOTIFY_STATE_ASTRO_CALIBRATION = 15210; // Astronomical calibration status
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STATE_ASTRO_CALIBRATION):
-                                ResNotifyStateAstroCalibration_message = notify.ResNotifyStateAstroCalibration()
+                                ResNotifyStateAstroCalibration_message = notify.AstroCalibrationState()
                                 ResNotifyStateAstroCalibration_message.ParseFromString(WsPacket_message.data)
 
                                 log.debug("Decoding CMD_NOTIFY_STATE_ASTRO_CALIBRATION")
@@ -830,7 +1191,7 @@ class WebSocketClient:
 
                             # CMD_NOTIFY_STATE_ASTRO_GOTO = 15211; // Astronomical GOTO status
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STATE_ASTRO_GOTO):
-                                ResNotifyStateAstroGoto_message = notify.ResNotifyStateAstroGoto()
+                                ResNotifyStateAstroGoto_message = notify.AstroGotoState()
                                 ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
 
                                 log.debug("Decoding CMD_NOTIFY_STATE_ASTRO_GOTO")
@@ -842,7 +1203,7 @@ class WebSocketClient:
 
                             # CMD_NOTIFY_STATE_ASTRO_TRACKING = 15212; // Astronomical tracking status
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STATE_ASTRO_TRACKING):
-                                ResNotifyStateAstroGoto_message = notify.ResNotifyStateAstroTracking()
+                                ResNotifyStateAstroGoto_message = notify.AstroTrackingState()
                                 ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
 
                                 log.debug("Decoding CMD_NOTIFY_STATE_ASTRO_TRACKING")
@@ -965,7 +1326,7 @@ class WebSocketClient:
                                         log.error("Error GOTO CODE_ASTRO_GOTO_FAILED")
                                     elif (ComResponse_message.code == protocol.CODE_STEP_MOTOR_LIMIT_POSITION_WARNING):
                                         log.error("Error GOTO CODE_STEP_MOTOR_LIMIT_POSITION_WARNING")
-                                    elif (ComResponse_message.code == protocol.CODE_STEP_MOTOR_LIMIT_POSITION_HITTED):
+                                    elif (ComResponse_message.code == protocol.CODE_STEP_MOTOR_LIMIT_POSITION_HIT):
                                         log.error("Error GOTO CODE_STEP_MOTOR_LIMIT_POSITION_HITTED")
                                     else:
                                         log.error(f"Error GOTO CODE {getErrorCodeValueName(ComResponse_message.code)}")
@@ -986,7 +1347,7 @@ class WebSocketClient:
                                         log.error("Error GOTO CODE_ASTRO_GOTO_FAILED")
                                     elif (ComResponse_message.code == protocol.CODE_STEP_MOTOR_LIMIT_POSITION_WARNING):
                                         log.error("Error GOTO CODE_STEP_MOTOR_LIMIT_POSITION_WARNING")
-                                    elif (ComResponse_message.code == protocol.CODE_STEP_MOTOR_LIMIT_POSITION_HITTED):
+                                    elif (ComResponse_message.code == protocol.CODE_STEP_MOTOR_LIMIT_POSITION_HIT):
                                         log.error("Error GOTO CODE_STEP_MOTOR_LIMIT_POSITION_HITTED")
                                     else:
                                         log.error(f"Error GOTO CODE {getErrorCodeValueName(ComResponse_message.code)}")
@@ -1103,7 +1464,7 @@ class WebSocketClient:
                                     await asyncio.sleep(1)
                             # CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING = 15208 // Test Capture Ending
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING):
-                                ResNotifyOperationState_message = notify.ResNotifyOperationState()
+                                ResNotifyOperationState_message = notify.OperationStateNotify()
                                 ResNotifyOperationState_message.ParseFromString(WsPacket_message.data)
 
                                 log.debug("Decoding CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING")
@@ -1149,7 +1510,7 @@ class WebSocketClient:
                                     await asyncio.sleep(1)
                             # CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING = 15236 // Test Capture Ending
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING):
-                                ResNotifyOperationState_message = notify.ResNotifyOperationState()
+                                ResNotifyOperationState_message = notify.OperationStateNotify()
                                 ResNotifyOperationState_message.ParseFromString(WsPacket_message.data)
 
                                 log.debug("Decoding CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING")
@@ -1195,7 +1556,7 @@ class WebSocketClient:
                                     await asyncio.sleep(1)
                             # CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING = 15209 // Test Capture Ending
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING):
-                                ResNotifyProgressCaptureRawLiveStacking_message = notify.ResNotifyProgressCaptureRawLiveStacking()
+                                ResNotifyProgressCaptureRawLiveStacking_message = notify.ProgressCaptureRawLiveStacking()
                                 ResNotifyProgressCaptureRawLiveStacking_message.ParseFromString(WsPacket_message.data)
                                 self.takePhotoStarted = True
                                 if self.RestartAstroCapture:
@@ -1203,7 +1564,7 @@ class WebSocketClient:
                                 log.debug("Decoding CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING")
                                 log.debug(f"receive notification target_name >> {ResNotifyProgressCaptureRawLiveStacking_message.target_name}")
                                 log.debug(f"receive notification total_count >> {ResNotifyProgressCaptureRawLiveStacking_message.total_count}")
-                                update_count_type = ResNotifyProgressCaptureRawLiveStacking_message.update_count_type
+                                update_count_type = ResNotifyProgressCaptureRawLiveStacking_message.update_type
                                 if (update_count_type == 0 or update_count_type == 2):
                                    self.takePhotoCount = ResNotifyProgressCaptureRawLiveStacking_message.current_count
                                 if (update_count_type == 1 or update_count_type == 2):
@@ -1215,7 +1576,7 @@ class WebSocketClient:
                                 await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
                             # CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING = 15237 // Test Capture Ending
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING):
-                                ResNotifyProgressCaptureRawLiveStacking_message = notify.ResNotifyProgressCaptureRawLiveStacking()
+                                ResNotifyProgressCaptureRawLiveStacking_message = notify.ProgressCaptureRawLiveStacking()
                                 ResNotifyProgressCaptureRawLiveStacking_message.ParseFromString(WsPacket_message.data)
                                 self.takeWidePhotoStarted = True
                                 if self.RestartAstroWideCapture:
@@ -1223,7 +1584,7 @@ class WebSocketClient:
                                 log.debug("Decoding CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING")
                                 log.debug(f"receive notification target_name >> {ResNotifyProgressCaptureRawLiveStacking_message.target_name}")
                                 log.debug(f"receive notification total_count >> {ResNotifyProgressCaptureRawLiveStacking_message.total_count}")
-                                update_count_type = ResNotifyProgressCaptureRawLiveStacking_message.update_count_type
+                                update_count_type = ResNotifyProgressCaptureRawLiveStacking_message.update_type
                                 if (update_count_type == 0 or update_count_type == 2):
                                    self.takeWidePhotoCount = ResNotifyProgressCaptureRawLiveStacking_message.current_count
                                 if (update_count_type == 1 or update_count_type == 2):
@@ -1928,12 +2289,13 @@ class WebSocketClient:
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO STOP EQ SOLVING ", ComResponse_message.code)
                             # CMD_NOTIFY_EQ_SOLVING_STATE = 15239; //EQ check status
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_EQ_SOLVING_STATE):
-                                ResNotifyEqSolvingState_message = notify.ResNotifyEqSolvingState()
+                                ResNotifyEqSolvingState_message = notify.EqSolvingState()
                                 ResNotifyEqSolvingState_message.ParseFromString(WsPacket_message.data)
 
                                 log.debug("Decoding CMD_NOTIFY_EQ_SOLVING_STATE")
-                                log.debug(f"receive notification step >> {ResNotifyEqSolvingState_message.step}")
-                                log.debug(f">> {notify.ResNotifyEqSolvingState.Action.Name(ResNotifyEqSolvingState_message.step)}")
+                                # V3 : le message EqSolvingState n'a plus de champ 'step' ni
+                                # d'enum imbrique 'Action' (presents dans l'ancien
+                                # ResNotifyEqSolvingState) - seul 'state' subsiste.
                                 log.debug(f"receive notification state >> {ResNotifyEqSolvingState_message.state}")
                                 log.debug(f">> {getAstroStateName(ResNotifyEqSolvingState_message.state)}")
 
@@ -1944,7 +2306,7 @@ class WebSocketClient:
                                     await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
 
                                 log.info("Continue Decoding CMD_ASTRO_START_EQ_SOLVING")
-                                message = f"EQ SOLVING: Step #{notify.ResNotifyEqSolvingState.Action.Name(ResNotifyEqSolvingState_message.step)} State:{getAstroStateName(ResNotifyEqSolvingState_message.state)}"
+                                message = f"EQ SOLVING: State:{getAstroStateName(ResNotifyEqSolvingState_message.state)}"
                                 await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
 
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_POWER_OFF):
@@ -1975,7 +2337,7 @@ class WebSocketClient:
                                    self.BatteryLevelDwarf = value
                             # CMD_NOTIFY_TEMPERATURE 15243
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_TEMPERATURE):
-                                ResNotifyTemperature_message = notify.ResNotifyTemperature()
+                                ResNotifyTemperature_message = notify.Temperature()
                                 ResNotifyTemperature_message.ParseFromString(WsPacket_message.data)
                                 log.debug("Decoding TEMPERATURE ")
                                 log.debug(f"receive request temperature value >> {ResNotifyTemperature_message.temperature}")
@@ -1985,9 +2347,29 @@ class WebSocketClient:
                                 if (self.TemperatureLevelDwarf is None or abs(self.TemperatureLevelDwarf - value) >= 5):
                                    log.notice(f"Temperature is {value}°C - {(value/5)+32}°F")
                                    self.TemperatureLevelDwarf = value
+                            # CMD_NOTIFY_GENERAL_INT_PARAM = 15264 (CAMERA_PARAMS module, 15).
+                            # V3: "push" mechanism for reading camera parameters (there's no
+                            # dedicated GET command in this module). The firmware broadcasts
+                            # the current value of each parameter (exposure, gain, etc.,
+                            # identified by param_id) on every mode/tech change and on every
+                            # setting change. We simply cache them here; see
+                            # perform_read_exposure_v3()/perform_read_gain_v3() in
+                            # dwarf_utils.py for reading it on the caller's side.
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_GENERAL_INT_PARAM):
+                                GeneralIntParam_message = notify.GeneralIntParam()
+                                GeneralIntParam_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_NOTIFY_GENERAL_INT_PARAM")
+                                log.debug(f"receive param_id >> {hex(GeneralIntParam_message.param_id)}")
+                                log.debug(f"receive mode >> {GeneralIntParam_message.mode}")
+                                log.debug(f"receive value >> {GeneralIntParam_message.value}")
+                                self.cameraParamsDwarf[GeneralIntParam_message.param_id] = {
+                                    "mode": GeneralIntParam_message.mode,
+                                    "value": GeneralIntParam_message.value,
+                                }
+
                             # CMD_NOTIFY_STREAM_TYPE 15234
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STREAM_TYPE):
-                                ResNotifyStreamType_message = notify.ResNotifyStreamType()
+                                ResNotifyStreamType_message = notify.StreamType()
                                 ResNotifyStreamType_message.ParseFromString(WsPacket_message.data)
                                 log.debug("Decoding CMD_NOTIFY_STREAM_TYPE ")
                                 log.debug(f"receive request Stream type (RTSP , JPEG) >> {ResNotifyStreamType_message.stream_type}")
@@ -2004,11 +2386,13 @@ class WebSocketClient:
                                     log.notice("Dwarf Stream Video Type is unknown!")
                                   self.StreamTypeDwarf = value
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_SDCARD_INFO):
-                                ResNotifySDcardInfo_message = notify.ResNotifySDcardInfo()
+                                ResNotifySDcardInfo_message = notify.StorageInfo()
                                 ResNotifySDcardInfo_message.ParseFromString(WsPacket_message.data)
                                 log.debug("Decoding CMD_NOTIFY_SDCARD_INFO")
-                                log.debug(f"receive request response code >> {ResNotifySDcardInfo_message.code}")
-                                log.debug(f">> {getErrorCodeValueName(ResNotifySDcardInfo_message.code)}")
+                                # V3 : StorageInfo n'a plus de champ 'code' (supprime par rapport
+                                # a l'ancien ResNotifySDcardInfo). Champs restants inchanges.
+                                log.debug(f"receive storage_type >> {ResNotifySDcardInfo_message.storage_type}")
+                                log.debug(f"receive is_valid >> {ResNotifySDcardInfo_message.is_valid}")
                                 availableSizeDwarf = ResNotifySDcardInfo_message.available_size
                                 totalSizeDwarf = ResNotifySDcardInfo_message.total_size
                                 # notify ?
@@ -2021,18 +2405,19 @@ class WebSocketClient:
                                    self.totalSizeDwarf = totalSizeDwarf
                             # CMD_NOTIFY_FOCUS 15257
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_FOCUS):
-                                ResNotifyFocus_message = notify.ResNotifyFocus()
+                                ResNotifyFocus_message = notify.FocusPosition()
                                 ResNotifyFocus_message.ParseFromString(WsPacket_message.data)
                                 log.debug("Decoding FOCUS ")
-                                log.debug(f"receive request focus value >> {ResNotifyFocus_message.focus}")
-                                value = ResNotifyFocus_message.focus
+                                # V3: the field is now called 'pos' (previously 'focus').
+                                log.debug(f"receive request focus value >> {ResNotifyFocus_message.pos}")
+                                value = ResNotifyFocus_message.pos
                                 # notify ?
                                 if (self.FocusValueDwarf is None or self.FocusValueDwarf != value):
                                    log.notice(f"Focus Position is {value}")
                                    self.FocusValueDwarf = value
                             # CMD_NOTIFY_RGB_STATE 15221
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_RGB_STATE):
-                                ResNotifyRgbState_message = notify.ResNotifyRgbState()
+                                ResNotifyRgbState_message = notify.RgbState()
                                 ResNotifyRgbState_message.ParseFromString(WsPacket_message.data)
                                 log.debug("Decoding RGB STATE ")
                                 value = ResNotifyRgbState_message.state
@@ -2047,7 +2432,7 @@ class WebSocketClient:
                                    self.RgbIndStateDwarf = value
                             # CMD_NOTIFY_POWER_IND_STATE 15222
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_POWER_IND_STATE):
-                                ResNotifyPowerIndState_message = notify.ResNotifyPowerIndState()
+                                ResNotifyPowerIndState_message = notify.PowerIndState()
                                 ResNotifyPowerIndState_message.ParseFromString(WsPacket_message.data)
                                 log.debug("Decoding POWER IND ")
                                 log.debug(f"receive request state >> {getPowerStateName(ResNotifyPowerIndState_message.state)} ")
@@ -2074,7 +2459,7 @@ class WebSocketClient:
 
                                 if( WsPacket_message.type == 2):
                                     log.debug("Decoding Notification Frame")
-                                    ResNotifyStateAstroGoto_message = notify.ResNotifyStateAstroGoto()
+                                    ResNotifyStateAstroGoto_message = notify.AstroGotoState()
                                     ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
 
                                     log.debug(f"receive notification data >> {ResNotifyStateAstroGoto_message.state}")
@@ -2082,7 +2467,7 @@ class WebSocketClient:
 
                                 if( WsPacket_message.type == 3):
                                     log.debug("Decoding Response Notification Frame")
-                                    ResNotifyStateAstroGoto_message = notify.ResNotifyStateAstroGoto()
+                                    ResNotifyStateAstroGoto_message = notify.AstroGotoState()
                                     ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
 
                                     log.debug(f"receive notification data >> {ResNotifyStateAstroGoto_message.state}")
@@ -2124,9 +2509,12 @@ class WebSocketClient:
     async def send_message_init(self):
         # Create a protobuf message
         # Start Sending
+        # V3: values verified in dwarfAlp/device_profile.py (ProtocolProfile
+        # of both Dwarf3 AND Dwarf mini, both "v3" family):
+        # ws_minor_version=20, ws_device_id=4. Previously 1/1 in V2.
         major_version = 1
-        minor_version = 1
-        device_id = 1  # DWARF II
+        minor_version = 20
+        device_id = 4  # V3 (Dwarf 3 / Dwarf mini)
         #self.takePhotoStarted = False
         #self.takeWidePhotoStarted = False
 
@@ -2144,6 +2532,13 @@ class WebSocketClient:
         self.FocusValueDwarf = None
         self.PowerIndStateDwarf = None
         self.RgbIndStateDwarf = None
+        # V3: cache of the latest CMD_NOTIFY_GENERAL_INT_PARAM received
+        # (CAMERA_PARAMS module, 15). This is the "push" mechanism through
+        # which the V3 firmware communicates current values (exposure,
+        # gain, etc.) - there is no explicit GET command in this module,
+        # unlike the V2 CAMERA_TELE module. Key = param_id (uint64),
+        # value = dict {"mode": int, "value": int}. See MIGRATION_V3.md.
+        self.cameraParamsDwarf = {}
         #CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE
         WsPacket_messageTeleGetSystemWorkingState = base__pb2.WsPacket()
         ReqGetSystemWorkingState_message = camera.ReqGetSystemWorkingState()
@@ -2239,9 +2634,11 @@ class WebSocketClient:
     async def send_message(self, message, command, type_id, module_id):
         # Create a protobuf message
         # Start Sending
+        # V3: same values as send_message_init above (see the comment
+        # there for the source: dwarfAlp/device_profile.py).
         major_version = 1
-        minor_version = 1
-        device_id = 1  # DWARF II
+        minor_version = 20
+        device_id = 4  # V3 (Dwarf 3 / Dwarf mini)
         self.target_name = ""
         self.message = message
         self.command = command
@@ -2894,7 +3291,8 @@ def get_client_status():
         "StreamTypeDwarf": client_instance.StreamTypeDwarf,
         "FocusValueDwarf": client_instance.FocusValueDwarf,
         "PowerIndicatorDwarf": client_instance.PowerIndStateDwarf,
-        "RgbIndicatorDwarf": client_instance.RgbIndStateDwarf
+        "RgbIndicatorDwarf": client_instance.RgbIndStateDwarf,
+        "CameraParamsDwarf": client_instance.cameraParamsDwarf
     }
 
     # Detect changes
@@ -2917,6 +3315,22 @@ def get_client_status():
     }
 
     return response
+
+def get_camera_param_v3(param_id):
+    """V3: reads the last known value (pushed by the firmware via
+    CMD_NOTIFY_GENERAL_INT_PARAM) for a given param_id of the
+    CAMERA_PARAMS module (15). Returns a dict {"mode": int, "value": int}
+    or None if this param_id hasn't been received yet (mode not entered
+    yet, or notification not yet arrived).
+
+    There's no explicit GET command in this module in V3 (confirmed by
+    network capture of the official app): reading goes through this cache
+    passively fed by notifications, not through an active request like
+    perform_get_camera_setting() in V2.
+    """
+    if client_instance is None:
+        return None
+    return client_instance.cameraParamsDwarf.get(param_id)
 
 def connect_socket(message, command, type_id, module_id):
     global client_instance

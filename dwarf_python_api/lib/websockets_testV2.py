@@ -154,7 +154,7 @@ def fct_show_test(show_test = True, show_test1 = False, show_test2 = False):
             log.debug(f">> {getDwarfCMDName(WsPacket_message.cmd)}")
             if (WsPacket_message.type == 3)or(WsPacket_message.type == 2):
                 if ((WsPacket_message.cmd == protocol.CMD_ASTRO_STOP_CALIBRATION) or (WsPacket_message.cmd == protocol.CMD_NOTIFY_STATE_ASTRO_CALIBRATION)):
-                    ResNotifyStateAstroCalibration_message = notify.ResNotifyStateAstroCalibration()
+                    ResNotifyStateAstroCalibration_message = notify.AstroCalibrationState()
                     ResNotifyStateAstroCalibration_message.ParseFromString(WsPacket_message.data)
                     log.debug("receive notification data >>", ResNotifyStateAstroCalibration_message.state)
                     log.debug("receive notification times >>", ResNotifyStateAstroCalibration_message.plate_solving_times)
@@ -163,7 +163,7 @@ def fct_show_test(show_test = True, show_test1 = False, show_test2 = False):
                     ComResponse_message.ParseFromString(WsPacket_message.data)
                     log.debug("receive data >>", ComResponse_message.code)
                 else :
-                    ResNotifyStateAstroGoto_message = notify.ResNotifyStateAstroGoto()
+                    ResNotifyStateAstroGoto_message = notify.AstroGotoState()
                     ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
                     log.debug("receive notification data >>", ResNotifyStateAstroGoto_message.state)
 
@@ -178,7 +178,7 @@ def fct_show_test(show_test = True, show_test1 = False, show_test2 = False):
 
             # Notification Goto State
             if (WsPacket_message.cmd==15211):
-                ResNotifyStateAstroGoto_message = notify.ResNotifyStateAstroGoto()
+                ResNotifyStateAstroGoto_message = notify.AstroGotoState()
                 ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
 
                 log.debug("receive data >>", ResNotifyStateAstroGoto_message.state)
@@ -358,7 +358,7 @@ def decode_packet(python_expression, masked = False, user_maskedcode = ""):
         log.notice("receive data >>", ComResponse_message.code)
     if (WsPacket_message.type == 3)or(WsPacket_message.type == 2):
         if ((WsPacket_message.cmd == protocol.CMD_ASTRO_STOP_CALIBRATION) or (WsPacket_message.cmd == protocol.CMD_NOTIFY_STATE_ASTRO_CALIBRATION)):
-            ResNotifyStateAstroCalibration_message = notify.ResNotifyStateAstroCalibration()
+            ResNotifyStateAstroCalibration_message = notify.AstroCalibrationState()
             ResNotifyStateAstroCalibration_message.ParseFromString(WsPacket_message.data)
             log.notice("receive notification data >>", ResNotifyStateAstroCalibration_message.state)
             log.notice("receive notification times >>", ResNotifyStateAstroCalibration_message.plate_solving_times)
@@ -385,7 +385,7 @@ def decode_packet(python_expression, masked = False, user_maskedcode = ""):
             ComResWithDouble_message_message = base__pb2.ComResWithDouble()
             ComResWithDouble_message_message.ParseFromString(WsPacket_message.data)
             log.notice("receive data >>", ComResWithDouble_message_message.value)
-            ComResTest_message = notify.ResNotifyTimeLapseOutTime()  
+            ComResTest_message = notify.TimeLapseOutTime()  
             log.notice("receive data >>", ComResTest_message.interval)
             log.notice("receive data >>", ComResTest_message.out_time)
             log.notice("receive data >>", ComResTest_message.total_time)
@@ -453,7 +453,7 @@ def decode_packet(python_expression, masked = False, user_maskedcode = ""):
             log.notice("receive data >>", ComResWithInt_message.code)
             log.notice("receive data >>", ComResWithInt_message.value)
         else :
-            ResNotifyStateAstroGoto_message = notify.ResNotifyStateAstroGoto()
+            ResNotifyStateAstroGoto_message = notify.AstroGotoState()
             ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
             log.notice("receive notification all data >>", ResNotifyStateAstroGoto_message)
             log.notice("receive notification data >>", ResNotifyStateAstroGoto_message.state)

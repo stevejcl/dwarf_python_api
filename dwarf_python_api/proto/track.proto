@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+message ReqStartTrack {
+    int32 x = 1;
+    int32 y = 2;
+    int32 w = 3;
+    int32 h = 4;
+    int32 cam_id = 5;
+}
+
+message ReqStopTrack {
+}
+
+message ReqPauseTrack {
+}
+
+message ReqContinueTrack {
+}
+
+message ReqStartSentryMode {
+    int32 type = 1;
+}
+
+message ReqStopSentryMode {
+}
+
+message ReqUFOAutoHandMode {
+    int32 mode = 1;
+}
+
+message ReqStartTrackClick {
+    int32 x = 1;
+    int32 y = 2;
+    int32 cam_id = 3;
+}

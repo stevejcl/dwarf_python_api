@@ -116,7 +116,7 @@ def fill_defaults_from_class(proto_instance):
         result = {}
         for descriptor in message.DESCRIPTOR.fields:
             value = getattr(message, descriptor.name)
-            if descriptor.label == descriptor.LABEL_REPEATED:
+            if descriptor.is_repeated:
                 # Repeated fields
                 result[descriptor.name] = list(value)
             elif descriptor.cpp_type == descriptor.CPPTYPE_MESSAGE:

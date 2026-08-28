@@ -1,3 +1,7 @@
 
 /build
 /dwarf_python_api.egg-info
+*.pyc
+/myenv3
+*.log
+*.old

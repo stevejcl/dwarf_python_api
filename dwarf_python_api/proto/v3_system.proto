@@ -1,0 +1,3 @@
+syntax = "proto3";
+
+// Compatibility file retained for import stability. Exact system schemas live in system.proto.

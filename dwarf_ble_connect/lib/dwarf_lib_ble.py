@@ -9,6 +9,7 @@ import dwarf_python_api.lib.my_logger as log
 DWARF_CHARACTERISTIC_UUID = "00009999-0000-1000-8000-00805f9b34fb"
 DWARFII_SERVICE_UUID = "0000daf2-0000-1000-8000-00805f9b34fb"
 DWARF3_SERVICE_UUID = "0000daf3-0000-1000-8000-00805f9b34fb"
+DWARFMINI_SERVICE_UUID = "0000daf5-0000-1000-8000-00805f9b34fb"
 
 async def discover_dwarf_devices():
     # Discover nearby devices (with a timeout of 15 seconds)
@@ -124,7 +125,8 @@ async def connect_to_bluetooth_device(dwarf_device = None, Bluetooth_PWD = None,
                     data_state["IsFirstStepOK"] = True
                     connection_state["error"] = "Init Pending.. "
                     if (result_data.get('ip') == "192.168.88.1" or
-                      result_data.get('ssid', '').startswith("DWARF3_")) and Wifi_SSID and Wifi_PWD:
+                      result_data.get('ssid', '').startswith("DWARF3_") or 
+                      result_data.get('ssid', '').startswith("DWARF_mini_")) and Wifi_SSID and Wifi_PWD:
                         log.info("Load WiFi configuration (1)...")
                         bufferSetWifiSta = set_wifi_STA_message(0, Bluetooth_PWD, Wifi_SSID, Wifi_PWD)
                     else:
@@ -152,7 +154,8 @@ async def connect_to_bluetooth_device(dwarf_device = None, Bluetooth_PWD = None,
                     connection_state["error"] = "Error STA MODE not Configured! Restart it and Use the mobile App."
                     await action_disconnect(data_state["deviceDwarf"], data_state["characteristicDwarf"])
                 elif (result_data.get('ip') == "192.168.88.1" or
-                  result_data.get('ssid', '').startswith("DWARF3_")) and Wifi_SSID and Wifi_PWD:
+                  result_data.get('ssid', '').startswith("DWARF3_") or 
+                  result_data.get('ssid', '').startswith("DWARF_mini_")) and Wifi_SSID and Wifi_PWD:
                     log.info("Load WiFi configuration (2)...")
                     data_state["IsFirstStepOK"] = True
                     connection_state["error"] = "Pending.. "
@@ -278,6 +281,11 @@ async def connect_to_bluetooth_device(dwarf_device = None, Bluetooth_PWD = None,
                     service_uuid = DWARF3_SERVICE_UUID
                     connection_state["device_dwarf_id"] = 2
                     connection_state["device_dwarf_name"] = "Dwarf3"
+                    service_dwarf = service
+                  elif DWARFMINI_SERVICE_UUID == service.uuid:
+                    service_uuid = DWARFMINI_SERVICE_UUID
+                    connection_state["device_dwarf_id"] = 4
+                    connection_state["device_dwarf_name"] = "Dwarf Mini"
                     service_dwarf = service
 
                 if not service_uuid:
