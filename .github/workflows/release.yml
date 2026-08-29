@@ -26,6 +26,9 @@ jobs:
       - name: Install build tool
         run: python -m pip install --upgrade build
 
+      - name: Clean dist/ before building (avoid re-attaching old committed releases)
+        run: rm -rf dist
+
       - name: Build sdist and wheel
         run: python -m build
 
