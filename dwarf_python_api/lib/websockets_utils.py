@@ -290,6 +290,7 @@ class WebSocketClient:
         self.availableSizeDwarf = None
         self.totalSizeDwarf = None
         self.TemperatureLevelDwarf = None
+        self.CmosTemperatureDwarf = {}  # keyed by camera_type (0=tele, 1=wide)
         self.StreamTypeDwarf = None
         self.FocusValueDwarf = None
         self.PowerIndStateDwarf = None
@@ -2347,6 +2348,24 @@ class WebSocketClient:
                                 if (self.TemperatureLevelDwarf is None or abs(self.TemperatureLevelDwarf - value) >= 5):
                                    log.notice(f"Temperature is {value}°C - {(value/5)+32}°F")
                                    self.TemperatureLevelDwarf = value
+                            # CMD_NOTIFY_CMOS_TEMPERATURE 15292 - camera sensor temperature
+                            # (as opposed to CMD_NOTIFY_TEMPERATURE above, which is the
+                            # device's general/ambient temperature). One notification per
+                            # camera (camera_type: 0=tele, 1=wide).
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_CMOS_TEMPERATURE):
+                                ResNotifyCmosTemperature_message = notify.CmosTemperature()
+                                ResNotifyCmosTemperature_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_NOTIFY_CMOS_TEMPERATURE")
+                                log.debug(f"receive cmos temperature value >> {ResNotifyCmosTemperature_message.temperature}")
+                                log.debug(f"receive camera_type >> {ResNotifyCmosTemperature_message.camera_type}")
+                                cam_type = ResNotifyCmosTemperature_message.camera_type
+                                cam_label = "Wide" if cam_type == 1 else "Tele"
+                                if ResNotifyCmosTemperature_message.HasField("temperature"):
+                                    value = ResNotifyCmosTemperature_message.temperature
+                                    previous = self.CmosTemperatureDwarf.get(cam_type)
+                                    if previous is None or abs(previous - value) >= 5:
+                                       log.notice(f"{cam_label} Camera Sensor Temperature is {value}°C - {(value*9/5)+32}°F")
+                                       self.CmosTemperatureDwarf[cam_type] = value
                             # CMD_NOTIFY_GENERAL_INT_PARAM = 15264 (CAMERA_PARAMS module, 15).
                             # V3: "push" mechanism for reading camera parameters (there's no
                             # dedicated GET command in this module). The firmware broadcasts
@@ -2528,6 +2547,7 @@ class WebSocketClient:
         self.availableSizeDwarf = None
         self.totalSizeDwarf = None
         self.TemperatureLevelDwarf = None
+        self.CmosTemperatureDwarf = {}  # keyed by camera_type (0=tele, 1=wide)
         self.StreamTypeDwarf = None
         self.FocusValueDwarf = None
         self.PowerIndStateDwarf = None
@@ -3288,6 +3308,7 @@ def get_client_status():
         "availableSizeDwarf": client_instance.availableSizeDwarf,
         "totalSizeDwarf": client_instance.totalSizeDwarf,
         "TemperatureLevelDwarf": client_instance.TemperatureLevelDwarf,
+        "CmosTemperatureDwarf": client_instance.CmosTemperatureDwarf,
         "StreamTypeDwarf": client_instance.StreamTypeDwarf,
         "FocusValueDwarf": client_instance.FocusValueDwarf,
         "PowerIndicatorDwarf": client_instance.PowerIndStateDwarf,
@@ -3359,14 +3380,20 @@ def connect_socket(message, command, type_id, module_id):
 
 def disconnect_socket():
     global client_instance, event_loop, event_loop_thread
-
     # To disconnect the client explicitly
     if client_instance and hasattr(client_instance, 'task'):
         future = asyncio.run_coroutine_threadsafe(client_instance.disconnect(), client_instance.task.get_loop())
         log.notice("Disconnect signal sent to the client instance.")
-        future.result()  # This blocks until disconnect completes
+        try:
+            future.result(timeout=5)
+            # bounded wait - avoid hanging forever on exit
+        except concurrent.futures.TimeoutError:
+            log.warning("Disconnect did not complete within 5s (device unreachable or slow WS close handshake) - forcing shutdown anyway.")
+            future.cancel()
+        except Exception as e:            
+            log.warning(f"Disconnect raised an exception, forcing shutdown anyway: {e}")
         stop_event_loop()
     else:
-        log.warning("Client not started")
+        log.warning("Client not started") 
 
 

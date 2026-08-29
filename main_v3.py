@@ -45,6 +45,7 @@ from dwarf_python_api.lib.dwarf_utils import (
     perform_enter_shooting_mode,
     perform_set_exposure_by_name_v3,
     perform_set_gain_v3,
+    perform_set_gain_by_camera_v3,
     perform_set_wb_v3,
     perform_set_wb_preset_by_name_v3,
     perform_set_brightness_v3,
@@ -92,7 +93,33 @@ from dwarf_python_api.lib.dwarf_utils import (
     perform_waitEndAstroPhoto,
     perform_GoLive,
     perform_decoding_test,
-    perform_decode_wireshark
+    perform_decode_wireshark,
+    perform_takeWidePhoto,
+    perform_takeAstroWidePhoto,
+    perform_stopAstroWidePhoto,
+    perform_waitEndAstroWidePhoto,
+    perform_powerOpenRGB,
+    perform_powerCloseRGB,
+    perform_powerIndOn,
+    perform_powerIndOff,
+    read_camera_exposure,
+    read_camera_gain,
+    read_camera_IR,
+    read_camera_count,
+    read_camera_wide_exposure,
+    read_camera_wide_gain,
+    perform_get_all_feature_camera_setting,
+    perform_update_camera_setting,
+)
+from dwarf_python_api.lib.data_utils import (
+    allowed_exposures,
+    allowed_exposuresD3,
+    allowed_exposuresMini,
+)
+from dwarf_python_api.lib.data_wide_utils import (
+    allowed_wide_exposures,
+    allowed_wide_exposuresD3,
+    allowed_wide_exposuresMini,
 )
 import dwarf_python_api.get_config_data
 from dwarf_python_api.lib.websockets_utils import get_client_status
@@ -128,6 +155,7 @@ def display_menu():
     print("C. Camera Functions")
     print("A. Astro Functions (GOTO, calibration, EQ, stacking)")
     print("M. Motor Functions (joystick)")
+    print("L. Light Functions (RGB / power indicator)")
     print("S. Show status (get_client_status)")
     print("D. Force Disconnection")
     print("P. Power Off The Dwarf")
@@ -149,7 +177,7 @@ def display_menu_test():
 
 def get_user_choice():
     try:
-        return input("Enter your choice (1,2,B,C,A,M,S,D,P,R) or 0 to exit: ")
+        return input("Enter your choice (1,2,B,C,A,M,L,S,D,P,R) or 0 to exit: ")
     except KeyboardInterrupt:
         print("Operation interrupted by the user (CTRL+C).")
         return '0'
@@ -244,6 +272,70 @@ def option_24():
     print("")
     # Add your Option D1 functionality here
     return input_frame(False)
+
+
+# ---------------------------------------------------------------------------
+# Input validation helpers - avoid silently sending a wrong/garbage value
+# ---------------------------------------------------------------------------
+# IMPORTANT for exposure: get_exposure_index_by_name()/
+# get_wide_exposure_index_by_name() silently fall back to the table's
+# default index if the name isn't found - so a typo currently resets
+# exposure to its default value with NO warning at all. Validate here
+# first so a bad name is caught and reported instead.
+
+def _exposure_table_for(dwarf_id, camera):
+    """Returns the AllowedExposures* table matching (dwarf_id, camera)."""
+    if camera == "wide":
+        if str(dwarf_id) == "5":
+            return allowed_wide_exposuresMini
+        elif str(dwarf_id) == "3":
+            return allowed_wide_exposuresD3
+        else:
+            return allowed_wide_exposures
+    else:
+        if str(dwarf_id) == "5":
+            return allowed_exposuresMini
+        elif str(dwarf_id) == "3":
+            return allowed_exposuresD3
+        else:
+            return allowed_exposures
+
+
+def validate_exposure_name(name, dwarf_id, camera):
+    """Checks that `name` is one of the valid exposure names for this
+    device/camera. Returns True if valid, otherwise prints the list of
+    valid names and returns False (caller should not proceed)."""
+    table = _exposure_table_for(dwarf_id, camera)
+    valid_names = [v["name"] for v in table.values]
+    if name in valid_names:
+        return True
+    print(f"Invalid exposure name '{name}' for dwarf_id={dwarf_id}, camera={camera}.")
+    print(f"Valid values: {', '.join(valid_names)}")
+    return False
+
+
+def validate_gain_value(value, mode, camera):
+    """Basic sanity range check for a gain value before sending it (V3
+    gain is a direct value, not a table index, so there is no discrete
+    list to check against - only known min/max bounds).
+
+    mode=2 (astro/DSO): 40-240 confirmed for tele by the live HTTP API.
+    Wide astro range NOT independently confirmed - same bounds applied
+    as a cautious default, with a warning rather than a hard block.
+    mode=1 (photo): 0-240 for both tele/wide (AllowedGains*/AllowedGainsWide
+    tables top out at 240).
+    """
+    if mode == 2:
+        min_v, max_v = (40, 240)
+        if camera == "wide":
+            print("NOTE: wide astro gain range not independently confirmed,"
+                  " applying the same tele bounds (40-240) as a precaution.")
+    else:
+        min_v, max_v = (0, 240)
+    if min_v <= value <= max_v:
+        return True
+    print(f"Invalid gain value {value}: expected between {min_v} and {max_v} for mode={mode}, camera={camera}.")
+    return False
 
 
 def update_config(longitude, latitude, timezone):
@@ -435,8 +527,8 @@ def display_menu_camera():
     print("C1.  Enter Simple Photo mode (mode=1, tech=1)")
     print("C2.  Enter astro mode (mode=8, Sun - see Astro submenu A13/A14 for DSO/Moon/Planet)")
     print("C3.  Read all current parameters (live HTTP API)")
-    print("C4.  Set exposure (by name, e.g. 0.5, 1/1000)")
-    print("C5.  Set gain (raw displayed value)")
+    print("C4.  Set exposure (by name, e.g. 0.5, 1/1000) - tele or wide")
+    print("C5.  Set gain (raw displayed value) - tele or wide")
     print("C6.  Set white balance - Kelvin temperature (2800-7500)")
     print("C7.  Set white balance - preset (Incandescent, Fluorescent, ...)")
     print("C8.  Set brightness/contrast/saturation/hue/sharpness")
@@ -450,12 +542,16 @@ def display_menu_camera():
     print("C16. Autofocus (normal/photo mode)")
     print("C17. Astro: set stackCount/mosaicCount")
     print("C18. Astro: enable/disable auto calibration")
+    print("C19. Read saved config camera data (config.ini)")
+    print("C20. Input camera data into config.ini")
+    print("C21. Read current Dwarf camera data (live, tele+wide)")
+    print("C22. Import saved config camera data into the Dwarf")
     print("0.   Return")
 
 
 def get_user_choice_camera():
     try:
-        return input("Enter your choice (C1 to C18) or 0 to return: ")
+        return input("Enter your choice (C1 to C22) or 0 to return: ")
     except KeyboardInterrupt:
         print("Operation interrupted by the user (CTRL+C).")
         return '0'
@@ -486,16 +582,24 @@ def option_C3():
 
 def option_C4():
     print("=== Setting exposure ===")
+    camera_choice = input("Camera: tele/wide (default tele): ").strip() or "tele"
+    dwarf_id = dwarf_python_api.get_config_data.get_config_data().get('dwarf_id')
+    dwarf_id_str = dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id) or "2"
     name = input("Exposure name (e.g. 0.5, 1/1000, 1/30): ").strip()
-    if name:
-        perform_set_exposure_by_name_v3(name)
+    if name and validate_exposure_name(name, dwarf_id_str, camera_choice):
+        perform_set_exposure_by_name_v3(name, dwarf_id=dwarf_id_str, camera=camera_choice)
 
 
 def option_C5():
     print("=== Setting gain ===")
+    camera_choice = input("Camera: tele/wide (default tele): ").strip() or "tele"
+    dwarf_id = dwarf_python_api.get_config_data.get_config_data().get('dwarf_id')
+    dwarf_id_str = dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id) or "2"
     value = input("Gain value (displayed number, e.g. 50): ").strip()
-    if value:
-        perform_set_gain_v3(int(value))
+    if value and value.lstrip('-').isdigit() and validate_gain_value(int(value), mode=1, camera=camera_choice):
+        perform_set_gain_by_camera_v3(int(value), dwarf_id=dwarf_id_str, camera=camera_choice)
+    elif value:
+        print(f"Invalid gain value '{value}': must be a whole number.")
 
 
 def option_C6():
@@ -563,7 +667,9 @@ def option_C11():
 
 def option_C12():
     print("=== Simple photo ===")
-    if perform_takePhoto():
+    camera_choice = input("Camera: tele/wide (default tele): ").strip() or "tele"
+    action = perform_takeWidePhoto if camera_choice == "wide" else perform_takePhoto
+    if action():
         log.success("Photo taken successfully.")
     else:
         log.error("Failed to take the photo.")
@@ -622,6 +728,276 @@ def option_C18():
         perform_set_astro_auto_calibration_v3(False)
 
 
+# ---------------------------------------------------------------------------
+# Config file (config.ini) camera data - ported from the original V2 test
+# app (dwarf_test_apiV2/main.py, options C1/C2/C3/C4). C1 and C2 are
+# unchanged (pure config.ini read/write, no protocol dependency). C3/C4
+# are adapted for V3: reading now uses the live HTTP API instead of the
+# non-responsive V2 GET_ALL_PARAMS commands, and writing uses the
+# confirmed V3 exposure/gain/IR functions where available.
+# ---------------------------------------------------------------------------
+
+def validate_input(input_str, min_val, max_val):
+    """Accepts a plain number or a fraction like '1/10' and checks it
+    falls within [min_val, max_val]."""
+    try:
+        if '/' in input_str:
+            numerator, denominator = input_str.split("/")
+            numerator = int(numerator)
+            denominator = int(denominator)
+            if denominator == 0:
+                print("Invalid input. Denominator cannot be zero.")
+                return False
+            value = numerator / denominator
+        else:
+            value = float(input_str)
+        return min_val <= value <= max_val
+    except ValueError:
+        print("Invalid input. Please provide a valid integer or fraction.")
+        return False
+
+
+def update_cameraconfig(camera_exposure, camera_gain, camera_IR, camera_binning,
+                         camera_format, camera_count, camera_wide_exposure, camera_wide_gain):
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    if camera_exposure:
+        config['CONFIG']['EXPOSURE'] = camera_exposure
+    if camera_gain:
+        config['CONFIG']['GAIN'] = camera_gain
+    if camera_IR:
+        config['CONFIG']['IRCUT'] = camera_IR
+    if camera_binning:
+        config['CONFIG']['BINNING'] = camera_binning
+    if camera_format:
+        config['CONFIG']['FORMAT'] = camera_format
+    if camera_count:
+        config['CONFIG']['COUNT'] = camera_count
+    if camera_wide_exposure:
+        config['CONFIG']['WIDE_EXPOSURE'] = camera_wide_exposure
+    if camera_wide_gain:
+        config['CONFIG']['WIDE_GAIN'] = camera_wide_gain
+    with open('config.ini', 'w') as config_file:
+        config.write(config_file)
+
+
+def option_C19():
+    """Read Saved Config Camera Data (unchanged from V2) - displays the
+    camera settings currently stored in config.ini, without touching the
+    device."""
+    print("=== Read saved config camera data ===")
+    data_config = dwarf_python_api.get_config_data.get_config_data()
+    dwarf_id = data_config['dwarf_id']
+    print("The values in the Config File are : ")
+    print("-----------------------------------")
+    if (camera_exposure := read_camera_exposure()):
+        print("the exposure is:", camera_exposure)
+    if (camera_gain := read_camera_gain()):
+        print("the gain is:", camera_gain)
+    if (camera_IR := read_camera_IR()):
+        if dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id) == "2":
+            print("the IR value is:", "IRCut" if camera_IR == "0" else "IRPass")
+        else:
+            print("the IR value is:", {"0": "VIS", "1": "ASTRO"}.get(camera_IR, "DUAL-BAND"))
+    if (camera_count := read_camera_count()):
+        print("the number of images for the session is:", camera_count)
+    if (camera_wide_exposure := read_camera_wide_exposure()):
+        print("the wide exposure is:", camera_wide_exposure)
+    if (camera_wide_gain := read_camera_wide_gain()):
+        print("the wide gain is:", camera_wide_gain)
+
+
+def option_C20():
+    """Input Camera Data to Config (unchanged from V2) - prompts for each
+    value, validates it, and saves to config.ini. Does not touch the
+    device - use C22 afterwards to push these values to the Dwarf."""
+    print("=== Input camera data into config.ini ===")
+    data_config = dwarf_python_api.get_config_data.get_config_data()
+    dwarf_id = data_config['dwarf_id']
+    dwarf_id_str = dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id)
+    print(f"Connected to Dwarf {dwarf_python_api.get_config_data.config_to_dwarf_id_int(dwarf_id)}")
+
+    max_exp = 15 if dwarf_id_str == "2" else 60
+    camera_exposure_init = read_camera_exposure()
+    prompt = f"Exposure in seconds (0 = auto - {max_exp}), fraction ok (e.g. 1/10)"
+    camera_exposure = input(f"{prompt} [{camera_exposure_init or 1}]: ").strip()
+    if not camera_exposure:
+        camera_exposure = camera_exposure_init or "1"
+    elif not validate_input(camera_exposure, 0, max_exp):
+        print("Input Data Error:", camera_exposure, "- using default 1")
+        camera_exposure = "1"
+
+    camera_gain_init = read_camera_gain()
+    camera_gain = input(f"Gain (0-240) [{camera_gain_init or 80}]: ").strip()
+    if not camera_gain:
+        camera_gain = camera_gain_init or "80"
+    elif not (0 <= int(camera_gain) <= 240):
+        print("Input Data Error:", camera_gain, "- using default 80")
+        camera_gain = "80"
+
+    camera_IR_init = read_camera_IR()
+    if dwarf_id_str == "2":
+        prompt = "IR value: 0=IRCut, 1=IRPass"
+        valid_ir = ("0", "1")
+    else:
+        prompt = "IR value: 0=VIS, 1=Astro, 2=Duo-Band"
+        valid_ir = ("0", "1", "2")
+    camera_IR = input(f"{prompt} [{camera_IR_init or 0}]: ").strip()
+    if not camera_IR:
+        camera_IR = camera_IR_init or "0"
+    elif camera_IR not in valid_ir:
+        print("Input Data Error:", camera_IR, "- using default 0")
+        camera_IR = "0"
+
+    camera_binning = None
+    camera_format = None
+
+    camera_count_init = read_camera_count()
+    camera_count = input(f"Number of images (1-999) [{camera_count_init or 999}]: ").strip()
+    if not camera_count:
+        camera_count = camera_count_init or "999"
+    elif not (1 <= int(camera_count) <= 999):
+        print("Input Data Error:", camera_count, "- using default 999")
+        camera_count = "999"
+
+    max_wide_exp = 60 if dwarf_id_str == "3" else 1
+    camera_wide_exposure_init = read_camera_wide_exposure()
+    camera_wide_exposure = input(f"Wide exposure in seconds (0 = auto - {max_wide_exp}), fraction ok [{camera_wide_exposure_init or 1}]: ").strip()
+    if not camera_wide_exposure:
+        camera_wide_exposure = camera_wide_exposure_init or "1"
+    elif not validate_input(camera_wide_exposure, 0, max_wide_exp):
+        print("Input Data Error:", camera_wide_exposure, "- using default 1")
+        camera_wide_exposure = "1"
+
+    if dwarf_id_str == "3":
+        wg_min, wg_max, wg_default = 0, 240, "0"
+    else:
+        wg_min, wg_max, wg_default = 60, 160, "60"
+    camera_wide_gain_init = read_camera_wide_gain()
+    camera_wide_gain = input(f"Wide gain ({wg_min}-{wg_max}) [{camera_wide_gain_init or wg_default}]: ").strip()
+    if not camera_wide_gain:
+        camera_wide_gain = camera_wide_gain_init or wg_default
+    elif not (wg_min <= int(camera_wide_gain) <= wg_max):
+        print("Input Data Error:", camera_wide_gain, "- using default", wg_default)
+        camera_wide_gain = wg_default
+
+    update_cameraconfig(camera_exposure, camera_gain, camera_IR, camera_binning,
+                         camera_format, camera_count, camera_wide_exposure, camera_wide_gain)
+    print("Saved to config.ini.")
+
+
+def option_C21():
+    """Read Current Dwarf Camera Data (live) - V3: uses the live HTTP API
+    (confirmed reliable for exposure/gain/IR filter) instead of the V2
+    GET_ALL_PARAMS commands, which don't respond on V3 hardware. Binning
+    and image format are omitted - binning is no longer accessible in V3
+    and image format isn't a useful setting here."""
+    print("=== Read current Dwarf camera data (live) ===")
+    data_config = dwarf_python_api.get_config_data.get_config_data()
+    dwarf_id = data_config['dwarf_id']
+    dwarf_id_str = dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id)
+    print(f"Connected to Dwarf {dwarf_python_api.get_config_data.config_to_dwarf_id_int(dwarf_id)}")
+    print("------------------")
+
+    http_result = perform_read_camera_params_http_v3(mode_id=1)  # 1 = Normal/photo
+    result_feature = perform_get_all_feature_camera_setting()
+
+    if isinstance(http_result, dict) and http_result.get("cameras", {}).get(0):
+        tele_cam = http_result["cameras"][0]
+        exposure_info = tele_cam.get("exposure")
+        if exposure_info:
+            auto_mode = exposure_info.get("mode")
+            print(f"The exposure mode is: {'Manual' if auto_mode else 'Auto'}")
+            print("the exposure is:", exposure_info.get("name") or exposure_info.get("value"))
+        else:
+            print("the exposure has not been found")
+
+        gain_info = tele_cam.get("gain")
+        if gain_info:
+            print("the gain is:", gain_info.get("value"))
+        else:
+            print("the gain has not been found")
+
+        if "filterType" in tele_cam:
+            camera_IR = str(tele_cam["filterType"])
+            if dwarf_id_str == "2":
+                print("the IR value is:", "IRCut" if camera_IR == "0" else "IRPass")
+            else:
+                print("the IR value is:", {"0": "VIS", "1": "ASTRO"}.get(camera_IR, "DUAL-BAND"))
+        else:
+            print("the IRfilter has not been found")
+    else:
+        print("the exposure has not been found")
+        print("the gain has not been found")
+        print("the IRfilter has not been found")
+
+    if isinstance(result_feature, dict) and "all_feature_params" in result_feature:
+        matching_entry = next((e for e in result_feature["all_feature_params"] if e["id"] == 1), None)
+        if matching_entry:
+            print("the number of images for the session is:", round(matching_entry["continue_value"]))
+        else:
+            print("the number of images for the session has not been found")
+    else:
+        print("the number of images for the session has not been found")
+
+    # Wide
+    if isinstance(http_result, dict) and http_result.get("cameras", {}).get(1):
+        wide_cam = http_result["cameras"][1]
+        exposure_info = wide_cam.get("exposure")
+        if exposure_info:
+            print("the wide exposure is:", exposure_info.get("name") or exposure_info.get("value"))
+        else:
+            print("the wide exposure has not been found")
+
+        gain_info = wide_cam.get("gain")
+        if gain_info:
+            print("the wide gain is:", gain_info.get("value"))
+        else:
+            print("the wide gain has not been found")
+    else:
+        print("the wide exposure has not been found")
+        print("the wide gain has not been found")
+
+
+def option_C22():
+    """Import Saved Config Camera Data into Dwarf - V3: exposure/gain/IR
+    (tele and wide) go through the confirmed V3 CAMERA_PARAMS functions.
+    Binning and image format are omitted - binning is no longer
+    accessible in V3 and image format isn't a useful setting here.
+    Count still goes through the old perform_update_camera_setting()
+    path (CAMERA_TELE module) - NOT confirmed to still be accepted on V3
+    hardware, no V3-native replacement identified yet."""
+    print("=== Import saved config camera data into the Dwarf ===")
+    data_config = dwarf_python_api.get_config_data.get_config_data()
+    dwarf_id = data_config['dwarf_id']
+    dwarf_id_str = dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id)
+    print(f"Connected to Dwarf {dwarf_python_api.get_config_data.config_to_dwarf_id_int(dwarf_id)}")
+
+    if (camera_exposure := read_camera_exposure()):
+        print("the exposure is:", camera_exposure)
+        perform_set_exposure_by_name_v3(camera_exposure, dwarf_id=dwarf_id_str, camera="tele")
+
+    if (camera_gain := read_camera_gain()):
+        print("the gain is:", camera_gain)
+        perform_set_gain_by_camera_v3(int(camera_gain), dwarf_id=dwarf_id_str, camera="tele")
+
+    if (camera_IR := read_camera_IR()):
+        print("the IR value is:", camera_IR)
+        perform_set_ir_filter_v3(int(camera_IR))
+
+    if (camera_count := read_camera_count()):
+        print("the number of images for the session is:", camera_count)
+        perform_update_camera_setting("count", camera_count)
+
+    if (camera_wide_exposure := read_camera_wide_exposure()):
+        print("the wide exposure is:", camera_wide_exposure)
+        perform_set_exposure_by_name_v3(camera_wide_exposure, dwarf_id=dwarf_id_str, camera="wide")
+
+    if (camera_wide_gain := read_camera_wide_gain()):
+        print("the wide gain is:", camera_wide_gain)
+        perform_set_gain_by_camera_v3(int(camera_wide_gain), dwarf_id=dwarf_id_str, camera="wide")
+
+
 def choice_camera():
     while True:
         display_menu_camera()
@@ -632,6 +1008,7 @@ def choice_camera():
             'C9': option_C9, 'C10': option_C10, 'C11': option_C11, 'C12': option_C12,
             'C13': option_C13, 'C14': option_C14, 'C15': option_C15, 'C16': option_C16,
             'C17': option_C17, 'C18': option_C18,
+            'C19': option_C19, 'C20': option_C20, 'C21': option_C21, 'C22': option_C22,
         }
         if choice == '0':
             print("Return to the main menu")
@@ -682,16 +1059,22 @@ def option_A0():
 
 def option_A1():
     print("=== Set astro exposure ===")
+    camera_choice = input("Camera: tele/wide (default tele): ").strip() or "tele"
+    dwarf_id = dwarf_python_api.get_config_data.get_config_data().get('dwarf_id')
+    dwarf_id_str = dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id) or "2"
     name = input("Exposure name (e.g. 0.5, 180, 1/1000): ").strip()
-    if name:
-        perform_set_astro_exposure_by_name_v3(name)
+    if name and validate_exposure_name(name, dwarf_id_str, camera_choice):
+        perform_set_astro_exposure_by_name_v3(name, dwarf_id=dwarf_id_str, camera=camera_choice)
 
 
 def option_A2():
     print("=== Set astro gain ===")
+    camera_choice = input("Camera: tele/wide (default tele): ").strip() or "tele"
     value = input("Gain value (displayed number, 40-240 for tele): ").strip()
-    if value:
-        perform_set_astro_gain_v3(int(value))
+    if value and value.lstrip('-').isdigit() and validate_gain_value(int(value), mode=2, camera=camera_choice):
+        perform_set_astro_gain_v3(int(value), camera=camera_choice)
+    elif value:
+        print(f"Invalid gain value '{value}': must be a whole number.")
 
 
 def option_A3():
@@ -736,7 +1119,7 @@ def option_A6():
 
 def option_A7():
     print("=== GOTO ===")
-    print("1) RA/Dec target   2) Solar system object")
+    print("1) RA/Dec target   2) Solar system object   3) Quick target (Polaris/Vega/M42/M31/Jupiter)")
     choice = input("Choice: ").strip()
     if choice == '1':
         ra = input("RA (decimal hours): ").strip()
@@ -747,6 +1130,33 @@ def option_A7():
     elif choice == '2':
         target_name = input("Target (Sun/Moon/planet): ").strip()
         select_solar_target(target_name)
+    elif choice == '3':
+        perform_goto_quick_target()
+
+
+# Fixed RA (decimal hours)/Dec (decimal degrees) for quick manual testing -
+# ported from the original V2 test app (dwarf_test_apiV2/main.py).
+QUICK_TARGETS = {
+    "polaris": (2.5390302777777776, 89.26980527777778),
+    "vega": (18.61522686111111, 38.784415833333334),
+    "m42": (5.588475138888889, -5.3923),
+    "m31": (0.7122101388888887, 41.271721388888885),
+}
+
+
+def perform_goto_quick_target():
+    print("Quick targets: Polaris, Vega, M42, M31, Jupiter")
+    name = input("Target: ").strip()
+    key = name.lower()
+    if key == "jupiter":
+        select_solar_target("Jupiter")
+        return
+    if key in QUICK_TARGETS:
+        ra, dec = QUICK_TARGETS[key]
+        perform_goto(ra, dec, name)
+        return
+    print(f"Unknown quick target '{name}' - use option 1 (RA/Dec) or 2 (solar system) instead.")
+
 
 def select_solar_target (target):
    
@@ -809,11 +1219,18 @@ def option_A9():
     print("(-11513) unless a GOTO (A7) has actually been performed first -")
     print("confirmed on real hardware. Entering astro mode (A1-A3 settings)")
     print("alone is NOT enough, you need a real target set via GOTO.")
+    camera_choice = input("Camera: tele/wide (default tele): ").strip() or "tele"
     choice = input("S(tart) / T(op, i.e. stop)? ").strip().upper()
     if choice == 'S':
-        perform_takeAstroPhoto()
+        if camera_choice == "wide":
+            perform_takeAstroWidePhoto()
+        else:
+            perform_takeAstroPhoto()
     elif choice == 'T':
-        perform_stopAstroPhoto()
+        if camera_choice == "wide":
+            perform_stopAstroWidePhoto()
+        else:
+            perform_stopAstroPhoto()
         print("")
         print("REMINDER: once a session is done/stopped, the official app")
         print("shows a 'Finish/Edit' screen - A12 (Go Live) is the API")
@@ -833,8 +1250,11 @@ def option_A10():
 
 def option_A11():
     print("=== Wait until End of Imaging Session ===")
-    # Add your Option C7 functionality here
-    perform_waitEndAstroPhoto()
+    camera_choice = input("Camera: tele/wide (default tele): ").strip() or "tele"
+    if camera_choice == "wide":
+        perform_waitEndAstroWidePhoto()
+    else:
+        perform_waitEndAstroPhoto()
 
 def option_A12():
     print("=== Finish/Finalize session (Go Live) ===")
@@ -1043,6 +1463,62 @@ def choice_test():
             print("Invalid choice. Please enter a correct value.")
 
 
+# ---------------------------------------------------------------------------
+# LED/RGB light sub-menu (MODULE_RGB_POWER, module 5)
+# ---------------------------------------------------------------------------
+
+def display_menu_lights():
+    print("")
+    print("------------------ LIGHTS ------------------")
+    print("L1. Turn RGB lights ON")
+    print("L2. Turn RGB lights OFF")
+    print("L3. Turn power indicator light ON")
+    print("L4. Turn power indicator light OFF")
+    print("0.  Return")
+
+
+def get_user_choice_lights():
+    try:
+        return input("Enter your choice (L1 to L4) or 0 to return: ")
+    except KeyboardInterrupt:
+        print("Operation interrupted by the user (CTRL+C).")
+        return '0'
+
+
+def option_L1():
+    print("=== RGB lights ON ===")
+    perform_powerOpenRGB()
+
+
+def option_L2():
+    print("=== RGB lights OFF ===")
+    perform_powerCloseRGB()
+
+
+def option_L3():
+    print("=== Power indicator light ON ===")
+    perform_powerIndOn()
+
+
+def option_L4():
+    print("=== Power indicator light OFF ===")
+    perform_powerIndOff()
+
+
+def choice_lights():
+    while True:
+        display_menu_lights()
+        choice = get_user_choice_lights().upper()
+        actions = {'L1': option_L1, 'L2': option_L2, 'L3': option_L3, 'L4': option_L4}
+        if choice == '0':
+            print("Return to the main menu")
+            break
+        elif choice in actions:
+            actions[choice]()
+        else:
+            print("Invalid choice. Please enter a correct value.")
+
+
 def choice_motor():
     while True:
         display_menu_motor()
@@ -1117,6 +1593,8 @@ def main():
             choice_astro()
         elif choice == 'M':
             choice_motor()
+        elif choice == 'L':
+            choice_lights()
         elif choice == 'S':
             option_S()
         elif choice == 'D':

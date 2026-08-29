@@ -796,12 +796,39 @@ PARAM_ID_PHOTO_TELE_GAIN = 0x0101000000000002
 PARAM_ID_ASTRO_EXPOSURE = 0x0201000000000001
 PARAM_ID_ASTRO_GAIN = 0x0201000000000002
 
-# Wide camera: deduced by symmetry of the observed pattern (byte "camera"
-# 0x00 for tele, 0x10 for wide, seen in the CMD_NOTIFY_GENERAL_INT_PARAM
-# notifications broadcast by the firmware) - NOT confirmed by a network
-# capture of an explicit setting on the wide camera, needs validation.
+# Wide camera: byte "camera" 0x00 for tele, 0x10 for wide (seen in the
+# CMD_NOTIFY_GENERAL_INT_PARAM notifications broadcast by the firmware).
+# CONFIRMED by network capture (Dwarf 3 AND Dwarf Mini, Aug 2026):
+# explicit CMD_PARAM_SET_EXPOSURE/GAIN on the wide camera in photo mode -
+# identical value on both devices.
+#
+# NOT valid for Dwarf II: a network capture (Aug 2026) of the Dwarf II's
+# wide camera in photo mode shows a DIFFERENT leading byte -
+# 0x0a01100000000001/2 instead of 0x0101100000000001/2 - do not assume
+# the D3/Mini constants below apply to the Dwarf II. Currently unused in
+# astro_dwarf_session (it exposes no separate wide device_type for
+# "Dwarf II"), so this has no active impact, but keep this in mind if
+# Dwarf II wide support is ever added here or in another consumer.
 PARAM_ID_PHOTO_WIDE_EXPOSURE = 0x0101100000000001
 PARAM_ID_PHOTO_WIDE_GAIN = 0x0101100000000002
+PARAM_ID_PHOTO_WIDE_EXPOSURE_D2 = 0x0a01100000000001  # confirmed, not yet used anywhere
+PARAM_ID_PHOTO_WIDE_GAIN_D2 = 0x0a01100000000002      # confirmed, not yet used anywhere
+
+# Astro/DSO mode, wide camera. CONFIRMED by network capture (Dwarf 3 AND
+# Dwarf Mini, Aug 2026): explicit CMD_PARAM_SET_EXPOSURE/GAIN with the
+# wide camera selected in astro mode - identical value on both devices.
+# This supersedes the earlier "NON FIABLE" finding in MIGRATION_V3.md,
+# which was based on the live HTTP API's paramId field - now shown (by
+# this same capture) to be generally unreliable for exp/gain across all
+# modes/devices, not just wide - the wire-level value here is a genuine
+# CMD_PARAM_SET_EXPOSURE/GAIN payload, not the HTTP JSON's paramId.
+#
+# Dwarf II equivalent NOT confirmed and NOT assumed to follow the
+# 0x0201... pattern, given the photo-mode divergence documented above -
+# moot for now since astro_dwarf_session has no wide astro path for
+# "Dwarf II" anyway.
+PARAM_ID_ASTRO_WIDE_EXPOSURE = 0x0201100000000001
+PARAM_ID_ASTRO_WIDE_GAIN = 0x0201100000000002
 
 
 def perform_set_exposure_v3(value, param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, mode=1):
@@ -838,16 +865,36 @@ def perform_set_exposure_v3(value, param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, mode=1
     return False
 
 
-def perform_set_exposure_by_name_v3(name, dwarf_id="2", param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, mode=1):
+def perform_set_exposure_by_name_v3(name, dwarf_id="2", camera="tele", param_id=None, mode=1):
     """Like perform_set_exposure_v3(), but by readable name ("0.5",
     "1/1000", "1/30", ...) instead of the raw index - directly reuses the
-    existing AllowedExposures/AllowedExposuresD3 table (data_utils.py),
-    confirmed still valid in V3 (see MIGRATION_V3.md).
+    existing AllowedExposures/AllowedExposuresD3/AllowedExposuresMini
+    table (data_utils.py), confirmed still valid in V3 (see
+    MIGRATION_V3.md).
 
-    dwarf_id: "3" to use the Dwarf 3 table (AllowedExposuresD3, more long
-    exposure options), otherwise the default table (AllowedExposures).
+    dwarf_id: "3"/"5" to use the Dwarf 3/Mini table (more long exposure
+    options), otherwise the default (Dwarf II) table.
+
+    camera: "tele" (default) or "wide". Wide param_id CONFIRMED by
+    network capture (Dwarf 3 AND Dwarf Mini, Aug 2026):
+    PARAM_ID_PHOTO_WIDE_EXPOSURE. IMPORTANT: the Dwarf II uses a
+    DIFFERENT, also-confirmed wide param_id
+    (PARAM_ID_PHOTO_WIDE_EXPOSURE_D2) - selected automatically here based
+    on dwarf_id == "2".
+
+    param_id: explicit override, bypasses the camera/dwarf_id-based
+    selection above if provided (for callers that already know the exact
+    param_id they need).
     """
-    index = get_exposure_index_by_name(str(name), str(dwarf_id))
+    if param_id is None:
+        if camera == "wide":
+            param_id = PARAM_ID_PHOTO_WIDE_EXPOSURE_D2 if str(dwarf_id) == "2" else PARAM_ID_PHOTO_WIDE_EXPOSURE
+        else:
+            param_id = PARAM_ID_PHOTO_TELE_EXPOSURE
+    if camera == "wide":
+        index = get_wide_exposure_index_by_name(str(name), str(dwarf_id))
+    else:
+        index = get_exposure_index_by_name(str(name), str(dwarf_id))
     return perform_set_exposure_v3(index, param_id=param_id, mode=mode)
 
 
@@ -884,43 +931,64 @@ def perform_set_gain_v3(value, param_id=PARAM_ID_PHOTO_TELE_GAIN, mode=1):
     return False
 
 
+def perform_set_gain_by_camera_v3(value, dwarf_id="2", camera="tele", mode=1):
+    """Convenience wrapper around perform_set_gain_v3() that picks the
+    right param_id for photo mode based on camera ("tele"/"wide") and
+    dwarf_id, instead of requiring the caller to know the raw constant.
+
+    Wide param_id CONFIRMED by network capture (Dwarf 3 AND Dwarf Mini,
+    Aug 2026): PARAM_ID_PHOTO_WIDE_GAIN. IMPORTANT: the Dwarf II uses a
+    DIFFERENT, also-confirmed wide param_id (PARAM_ID_PHOTO_WIDE_GAIN_D2)
+    - selected automatically here based on dwarf_id == "2".
+    """
+    if camera == "wide":
+        param_id = PARAM_ID_PHOTO_WIDE_GAIN_D2 if str(dwarf_id) == "2" else PARAM_ID_PHOTO_WIDE_GAIN
+    else:
+        param_id = PARAM_ID_PHOTO_TELE_GAIN
+    return perform_set_gain_v3(value, param_id=param_id, mode=mode)
+
+
 def perform_set_astro_exposure_v3(value, camera="tele", mode=1):
     """CMD_PARAM_SET_EXPOSURE (16700) for astro/DSO mode, using
-    PARAM_ID_ASTRO_EXPOSURE (confirmed identical between Mini and Dwarf 3,
-    and independently confirmed by dwarfAlp - see MIGRATION_V3.md).
+    PARAM_ID_ASTRO_EXPOSURE/PARAM_ID_ASTRO_WIDE_EXPOSURE (both confirmed
+    by network capture - tele independently confirmed by dwarfAlp, wide
+    confirmed on a Dwarf Mini, Aug 2026 - see MIGRATION_V3.md).
 
     Same index convention as perform_set_exposure_v3() (index into the
-    AllowedExposures/AllowedExposuresD3 table, not raw seconds) - prefer
-    perform_set_astro_exposure_by_name_v3() to set by name.
-
-    camera: only "tele" is confirmed reliable so far (see
-    MIGRATION_V3.md - the wide astro param_id has an inconsistent byte
-    pattern and should not be trusted without further verification).
+    AllowedExposures/AllowedExposuresD3/AllowedExposuresMini table, not
+    raw seconds) - prefer perform_set_astro_exposure_by_name_v3() to set
+    by name. This applies to both "tele" and "wide".
     """
-    param_id = PARAM_ID_ASTRO_EXPOSURE
+    param_id = PARAM_ID_ASTRO_WIDE_EXPOSURE if camera == "wide" else PARAM_ID_ASTRO_EXPOSURE
     return perform_set_exposure_v3(value, param_id=param_id, mode=mode)
 
 
-def perform_set_astro_exposure_by_name_v3(name, dwarf_id="2", mode=1):
+def perform_set_astro_exposure_by_name_v3(name, dwarf_id="2", camera="tele", mode=1):
     """Like perform_set_astro_exposure_v3(), but by readable name ("0.5",
     "1/1000", "180", ...) instead of the raw index."""
-    index = get_exposure_index_by_name(str(name), str(dwarf_id))
-    return perform_set_astro_exposure_v3(index, mode=mode)
+    if camera == "wide":
+        index = get_wide_exposure_index_by_name(str(name), str(dwarf_id))
+    else:
+        index = get_exposure_index_by_name(str(name), str(dwarf_id))
+    return perform_set_astro_exposure_v3(index, camera=camera, mode=mode)
 
 
 def perform_set_astro_gain_v3(value, camera="tele", mode=1):
     """CMD_PARAM_SET_GAIN (16701) for astro/DSO mode, using
-    PARAM_ID_ASTRO_GAIN (confirmed identical between Mini and Dwarf 3, and
-    independently confirmed by dwarfAlp - see MIGRATION_V3.md).
+    PARAM_ID_ASTRO_GAIN/PARAM_ID_ASTRO_WIDE_GAIN (both confirmed by
+    network capture - tele independently confirmed by dwarfAlp, wide
+    confirmed on a Dwarf Mini, Aug 2026 - see MIGRATION_V3.md).
 
     IMPORTANT: as with perform_set_gain_v3(), 'value' is the displayed
-    gain value directly, not a table index.
+    gain value directly, not a table index. Applies to both "tele" and
+    "wide".
 
     Range confirmed by the live HTTP API: 40-240 for tele in astro mode
     (note the minimum of 40, different from the 0 minimum in normal photo
-    mode) - camera="wide" not yet confirmed reliable, see MIGRATION_V3.md.
+    mode) - wide range not yet independently confirmed, use with the same
+    caution as tele until cross-checked.
     """
-    param_id = PARAM_ID_ASTRO_GAIN
+    param_id = PARAM_ID_ASTRO_WIDE_GAIN if camera == "wide" else PARAM_ID_ASTRO_GAIN
     return perform_set_gain_v3(value, param_id=param_id, mode=mode)
 
 
@@ -1938,7 +2006,7 @@ def format_double(value_str):
         if value <= 0:
             return value_str
         elif 0 < value < 1:
-            # Représenter sous la forme "1/x"
+            # ReprÃ©senter sous la forme "1/x"
             denominator = int(1 / value)
             return f"1/{denominator}"
         else:

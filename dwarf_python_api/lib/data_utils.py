@@ -118,12 +118,24 @@ class AllowedExposuresD3:
             {"index": 160, "name": "45"},
             {"index": 162, "name": "60"},
             {"index": 163, "name": "90"},
-            {"index": 165, "name": "120"},
+            {"index": 165, "name": "120"}
+        ]
+
+class AllowedExposuresMini:
+    """Dwarf Mini tele exposure table. Identical to the Dwarf 3 table below
+    the 120s step, but confirmed by live HTTP capture (Aug 2026) to have
+    one extra long-exposure step the D3 does not offer: 180s at index 168.
+    """
+    def __init__(self):
+        self.default_value_index = 75
+        self.values = list(AllowedExposuresD3().values) + [
             {"index": 168, "name": "180"}
         ]
 
 def get_exposure_name_by_index(index, dwarf_type = "2"):
-    if (dwarf_type == "3"):
+    if (dwarf_type == "5"):  # Dwarf Mini (device id "5"): own table (has an extra 180s step vs D3)
+        found_option = next((option for option in allowed_exposuresMini.values if option["index"] == index), None)
+    elif (dwarf_type == "3"):
         found_option = next((option for option in allowed_exposuresD3.values if option["index"] == index), None)
     else:
         found_option = next((option for option in allowed_exposures.values if option["index"] == index), None)
@@ -135,7 +147,10 @@ def get_exposure_value_by_index(index, dwarf_type = "2"):
 
 def get_exposure_index_by_name(name, dwarf_type = "2"):
     found_option = False
-    if (dwarf_type == "3"):
+    if (dwarf_type == "5"):  # Dwarf Mini (device id "5"): own table (has an extra 180s step vs D3)
+        found_option = next((option for option in allowed_exposuresMini.values if option["name"] == name), None)
+        default_value_index = allowed_exposuresMini.default_value_index
+    elif (dwarf_type == "3"):
         found_option = next((option for option in allowed_exposuresD3.values if option["name"] == name), None)
         default_value_index = allowed_exposuresD3.default_value_index
     else:
@@ -208,7 +223,7 @@ class AllowedGainsD3:
         ]
 
 def get_gain_name_by_index(index, dwarf_type = "2"):
-    if (dwarf_type == "3"):
+    if (dwarf_type in ("3", "5")):  # "5" = Dwarf Mini, shares D3 tables
         found_option = next((option for option in allowed_gainsD3.values if option["index"] == index), None)
     else:
         found_option = next((option for option in allowed_gains.values if option["index"] == index), None)
@@ -216,7 +231,7 @@ def get_gain_name_by_index(index, dwarf_type = "2"):
 
 def get_gain_index_by_name(name, dwarf_type = "2"):
     found_option = False
-    if (dwarf_type == "3"):
+    if (dwarf_type in ("3", "5")):  # "5" = Dwarf Mini, shares D3 tables
         found_option = next((option for option in allowed_gainsD3.values if option["name"] == name), None)
         default_value_index = allowed_gainsD3.default_value_index
     else:
@@ -230,6 +245,13 @@ allowed_gains = AllowedGains()
 
 allowed_exposuresD3 = AllowedExposuresD3()
 allowed_gainsD3 = AllowedGainsD3()
+
+# Dwarf Mini exposure table confirmed distinct from D3 (extra 180s step,
+# see AllowedExposuresMini above). Gain still confirmed identical to D3
+# (both now use a direct value, not an index, when writing - see
+# perform_set_gain_v3 / perform_set_astro_gain_v3 in dwarf_utils.py).
+allowed_exposuresMini = AllowedExposuresMini()
+allowed_gainsMini = allowed_gainsD3
 
 
 # ---------------------------------------------------------------------------
