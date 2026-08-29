@@ -314,27 +314,36 @@ def validate_exposure_name(name, dwarf_id, camera):
     return False
 
 
-def validate_gain_value(value, mode, camera):
-    """Basic sanity range check for a gain value before sending it (V3
-    gain is a direct value, not a table index, so there is no discrete
-    list to check against - only known min/max bounds).
+def validate_gain_value(value, mode, dwarf_id, camera):
+    """Sanity range check for a gain value before sending it (V3 gain is
+    a direct value, not a table index, so there is no discrete list to
+    check against - only known min/max bounds, per device/mode/camera,
+    read from the official app's own UI limits.
 
-    mode=2 (astro/DSO): 40-240 confirmed for tele by the live HTTP API.
-    Wide astro range NOT independently confirmed - same bounds applied
-    as a cautious default, with a warning rather than a hard block.
-    mode=1 (photo): 0-240 for both tele/wide (AllowedGains*/AllowedGainsWide
-    tables top out at 240).
+    Confirmed ranges (Aug 2026):
+    - D3 tele:  normal 0-240   / astro 40-240
+    - D3 wide:  normal 0-240   / astro 0-240    (no 40 floor on wide)
+    - Mini tele: normal 0-240  / astro 40-240   (same as D3 tele)
+    - Mini wide: normal 40-2500 (!) / astro 40-240
+      The 2500 ceiling in Mini wide normal mode is confirmed (not a typo)
+      - a full order of magnitude above every other range here, possibly
+      a different gain scale/unit for that specific sensor/mode.
+    - Dwarf II: not confirmed - falls back to the same bounds as tele/D3.
     """
-    if mode == 2:
+    if camera == "wide" and dwarf_id == "3":
+        min_v, max_v = (0, 240)
+    elif camera == "wide" and dwarf_id == "5":
+        if mode == 2:
+            min_v, max_v = (40, 240)
+        else:
+            min_v, max_v = (40, 2500)
+    elif mode == 2:
         min_v, max_v = (40, 240)
-        if camera == "wide":
-            print("NOTE: wide astro gain range not independently confirmed,"
-                  " applying the same tele bounds (40-240) as a precaution.")
     else:
         min_v, max_v = (0, 240)
     if min_v <= value <= max_v:
         return True
-    print(f"Invalid gain value {value}: expected between {min_v} and {max_v} for mode={mode}, camera={camera}.")
+    print(f"Invalid gain value {value}: expected between {min_v} and {max_v} for mode={mode}, dwarf_id={dwarf_id}, camera={camera}.")
     return False
 
 
@@ -596,7 +605,7 @@ def option_C5():
     dwarf_id = dwarf_python_api.get_config_data.get_config_data().get('dwarf_id')
     dwarf_id_str = dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id) or "2"
     value = input("Gain value (displayed number, e.g. 50): ").strip()
-    if value and value.lstrip('-').isdigit() and validate_gain_value(int(value), mode=1, camera=camera_choice):
+    if value and value.lstrip('-').isdigit() and validate_gain_value(int(value), mode=1, dwarf_id=dwarf_id_str, camera=camera_choice):
         perform_set_gain_by_camera_v3(int(value), dwarf_id=dwarf_id_str, camera=camera_choice)
     elif value:
         print(f"Invalid gain value '{value}': must be a whole number.")
@@ -797,6 +806,8 @@ def option_C19():
     if (camera_IR := read_camera_IR()):
         if dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id) == "2":
             print("the IR value is:", "IRCut" if camera_IR == "0" else "IRPass")
+        elif dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id) == "5":
+            print("the IR value is:", "DARK" if camera_IR == "0" else "ASTRO" if camera_IR == "1" else "DUAL-BAND")
         else:
             print("the IR value is:", {"0": "VIS", "1": "ASTRO"}.get(camera_IR, "DUAL-BAND"))
     if (camera_count := read_camera_count()):
@@ -922,6 +933,8 @@ def option_C21():
             camera_IR = str(tele_cam["filterType"])
             if dwarf_id_str == "2":
                 print("the IR value is:", "IRCut" if camera_IR == "0" else "IRPass")
+            elif dwarf_id_str == "5":
+                print("the IR value is:", "DARK" if camera_IR == "0" else "ASTRO" if camera_IR == "1" else "DUAL-BAND")
             else:
                 print("the IR value is:", {"0": "VIS", "1": "ASTRO"}.get(camera_IR, "DUAL-BAND"))
         else:
@@ -1070,8 +1083,10 @@ def option_A1():
 def option_A2():
     print("=== Set astro gain ===")
     camera_choice = input("Camera: tele/wide (default tele): ").strip() or "tele"
+    dwarf_id = dwarf_python_api.get_config_data.get_config_data().get('dwarf_id')
+    dwarf_id_str = dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id) or "2"
     value = input("Gain value (displayed number, 40-240 for tele): ").strip()
-    if value and value.lstrip('-').isdigit() and validate_gain_value(int(value), mode=2, camera=camera_choice):
+    if value and value.lstrip('-').isdigit() and validate_gain_value(int(value), mode=2, dwarf_id=dwarf_id_str, camera=camera_choice):
         perform_set_astro_gain_v3(int(value), camera=camera_choice)
     elif value:
         print(f"Invalid gain value '{value}': must be a whole number.")
