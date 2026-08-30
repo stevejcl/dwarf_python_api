@@ -715,12 +715,12 @@ class WebSocketClient:
 
                                     # Signal the ping and receive functions to stop
                                     log.error(f"Error CMD_STEP_MOTOR_GET_POSITION CODE {getErrorCodeValueName(ResMotorPosition_message.code)}")
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_STEP_MOTOR_GET_POSITION", ComResponse_message.code)
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_STEP_MOTOR_GET_POSITION", ResMotorPosition_message.code)
                                     await asyncio.sleep(1)
                                 else :
                                     log.info("Success CMD_STEP_MOTOR_GET_POSITION OK >> EXIT")
                                     log.success("Success CMD_STEP_MOTOR_GET_POSITION")
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CMD_STEP_MOTOR_GET_POSITION", ComResponse_message.code)
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CMD_STEP_MOTOR_GET_POSITION", ResMotorPosition_message.code)
 
                             # CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE = 10039; // // Get the working status of the whole machine
                             elif (WsPacket_message.cmd==protocol.CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE):
