@@ -1,4 +1,5 @@
 import websockets.client
+import google.protobuf.message
 import asyncio
 import threading
 import contextlib
@@ -6,6 +7,7 @@ import json
 import gzip
 import os
 import time
+import concurrent.futures
 from enum import Enum
 
 import dwarf_python_api.lib.my_logger as log
@@ -1140,12 +1142,12 @@ class WebSocketClient:
                                     log.info("Continue OK CMD_CAMERA_WIDE_PHOTOGRAPH")
 
                             # CMD_CAMERA_WIDE_PHOTOGRAPH = 12022; // //  End Take photos
-                            elif (self.command==protocol.CMD_CAMERA_WIDE_PHOTOGRAPH and WsPacket_message.cmd==protocol.CMD_NOTIFY_WIDE_FUNCTION_STATE):
+                            elif (self.command==protocol.CMD_CAMERA_WIDE_PHOTOGRAPH and WsPacket_message.cmd==protocol.CMD_NOTIFY_PHOTO_STATE):
     
                                 ResNotifyCamFunctionState_message = notify.PhotoState()
                                 ResNotifyCamFunctionState_message.ParseFromString(WsPacket_message.data)
 
-                                log.debug("Decoding CMD_NOTIFY_WIDE_FUNCTION_STATE")
+                                log.debug("Decoding CMD_NOTIFY_PHOTO_STATE")
                                 log.debug(f"receive notification data >> {ResNotifyCamFunctionState_message.state}")
                                 log.debug(f">> {getAstroStateName(ResNotifyCamFunctionState_message.state)}")
 
@@ -1311,6 +1313,23 @@ class WebSocketClient:
                                     log.info("OK CMD_SYSTEM_SET_TIME_ZONE")
                                     log.success("Success CMD_SYSTEM_SET_TIME_ZONE")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Succcess CMD_SYSTEM_SET_TIME_ZONE", ComResponse_message.code)
+
+                            #  CMD_SYSTEM_SET_LOCATION = 13010; // Set the location
+                            elif (WsPacket_message.cmd==protocol.CMD_SYSTEM_SET_LOCATION):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_SYSTEM_SET_LOCATION")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error CMD_SYSTEM_SET_LOCATION {ComResponse_message.code} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_SYSTEM_SET_LOCATION", ComResponse_message.code)
+                                else:
+                                    log.info("OK CMD_SYSTEM_SET_LOCATION")
+                                    log.success("Success CMD_SYSTEM_SET_LOCATION")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Succcess CMD_SYSTEM_SET_LOCATION", ComResponse_message.code)
 
                             # CMD_ASTRO_START_GOTO_DSO = 11002; // Start GOTO Deep Space Object
                             elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_GOTO_DSO):
@@ -2346,7 +2365,7 @@ class WebSocketClient:
                                 value = ResNotifyTemperature_message.temperature
                                 # notify ?
                                 if (self.TemperatureLevelDwarf is None or abs(self.TemperatureLevelDwarf - value) >= 5):
-                                   log.notice(f"Temperature is {value}°C - {(value/5)+32}°F")
+                                   log.notice(f"Temperature is {value}°C - {(value*9/5)+32}°F")
                                    self.TemperatureLevelDwarf = value
                             # CMD_NOTIFY_CMOS_TEMPERATURE 15292 - camera sensor temperature
                             # (as opposed to CMD_NOTIFY_TEMPERATURE above, which is the
@@ -2479,18 +2498,37 @@ class WebSocketClient:
                                 if( WsPacket_message.type == 2):
                                     log.debug("Decoding Notification Frame")
                                     ResNotifyStateAstroGoto_message = notify.AstroGotoState()
-                                    ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
-
-                                    log.debug(f"receive notification data >> {ResNotifyStateAstroGoto_message.state}")
-                                    log.debug(f">> {getAstroStateName(ResNotifyStateAstroGoto_message.state)}")
+                                    try:
+                                        ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
+                                    except Exception as parse_err:
+                                        # Field-confirmed (Aug 2026): the firmware can send a
+                                        # target_name that isn't valid UTF-8 (e.g. an accented
+                                        # character in a French DSO/target name encoded in
+                                        # Latin-1/cp1252 rather than UTF-8) - protobuf's strict
+                                        # string validation then raises DecodeError. Without this
+                                        # try/except, that error used to fall through to the
+                                        # generic handler below, which calls stop_task.set() and
+                                        # kills the entire receive loop/connection over a single
+                                        # malformed notification. Skip just this notification
+                                        # instead.
+                                        log.warning(f"Skipping malformed AstroGotoState notification (type=2): {parse_err}")
+                                        log.debug(f"raw data (hex): {WsPacket_message.data.hex()}")
+                                    else:
+                                        log.debug(f"receive notification data >> {ResNotifyStateAstroGoto_message.state}")
+                                        log.debug(f">> {getAstroStateName(ResNotifyStateAstroGoto_message.state)}")
 
                                 if( WsPacket_message.type == 3):
                                     log.debug("Decoding Response Notification Frame")
                                     ResNotifyStateAstroGoto_message = notify.AstroGotoState()
-                                    ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
-
-                                    log.debug(f"receive notification data >> {ResNotifyStateAstroGoto_message.state}")
-                                    log.debug(f">> {getErrorCodeValueName(ResNotifyStateAstroGoto_message.state)}")
+                                    try:
+                                        ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
+                                    except Exception as parse_err:
+                                        # Same fix as type==2 above.
+                                        log.warning(f"Skipping malformed AstroGotoState notification (type=3): {parse_err}")
+                                        log.debug(f"raw data (hex): {WsPacket_message.data.hex()}")
+                                    else:
+                                        log.debug(f"receive notification data >> {ResNotifyStateAstroGoto_message.state}")
+                                        log.debug(f">> {getErrorCodeValueName(ResNotifyStateAstroGoto_message.state)}")
                         else:
                             log.debug("Ignoring Unkown Type Frames")
                     else:
@@ -2501,11 +2539,28 @@ class WebSocketClient:
             log.debug(f'Rcv: ConnectionClosedOK', e)
             pass
         except websockets.ConnectionClosedError as e:
-            log.error(f'Rcv: ConnectionClosedError', e)
+            close_code = getattr(e.rcvd, "code", None) or getattr(e.sent, "code", None)
+            if close_code == 4409:
+                log.error(
+                    "Dwarf closed the connection: DEVICE_OCCUPIED (close code 4409)."
+                    " Another client (likely the official Dwarflab app) connected"
+                    " while this session was active. Disconnect it there first."
+                )
+            else:
+                log.error(f'Rcv: ConnectionClosedError', e)
             pass
         except asyncio.CancelledError as e:
             log.debug(f'Rcv: Cancelled', e)
             pass
+        except google.protobuf.message.DecodeError as e:
+            # Field-confirmed (Aug 2026): the firmware can send a string
+            # field (e.g. a target_name) that isn't valid UTF-8 - protobuf
+            # raises DecodeError for this. Most known cases (AstroGotoState)
+            # are already caught individually above, but this is a broader
+            # safety net for any other notification type that might hit the
+            # same issue: log and keep the connection alive instead of
+            # killing the whole receive loop over a single malformed field.
+            log.warning(f"Rcv: DecodeError (likely bad UTF-8 in a string field), ignoring this message: {e}")
         except Exception as e:
             # Handle other exceptions
             log.error(f"Rcv: Unhandled exception: {e}")
@@ -2604,37 +2659,94 @@ class WebSocketClient:
             await asyncio.sleep(0.02)
 
             if (WebSocketClient.Init_Send_TeleGetSystemWorkingState):
-                await self.websocket.send(WsPacket_messageTeleGetSystemWorkingState.SerializeToString())
-                log.debug("#----------------#")
-                log.debug(f"Send cmd >> {WsPacket_messageTeleGetSystemWorkingState.cmd}")
-                log.debug(f">> {getDwarfCMDName(WsPacket_messageTeleGetSystemWorkingState.cmd)}")
-
-                log.debug(f"Send type >> {WsPacket_messageTeleGetSystemWorkingState.type}")
-                log.debug(f"msg data len is >> {len(WsPacket_messageTeleGetSystemWorkingState.data)}")
-                log.debug("Sendind End ....");  
-
-                await asyncio.sleep(1)
-
-                await self.websocket.send(WsPacket_messageCameraTeleOpen.SerializeToString())
-                log.debug("#----------------#")
-                log.debug(f"Send cmd >> {WsPacket_messageCameraTeleOpen.cmd}")
-                log.debug(f">> {getDwarfCMDName(WsPacket_messageCameraTeleOpen.cmd)}")
-
-                log.debug(f"Send type >> {WsPacket_messageCameraTeleOpen.type}")
-                log.debug(f"msg data len is >> {len(WsPacket_messageCameraTeleOpen.data)}")
-                log.debug("Sendind End ....");
-
-                await asyncio.sleep(1)
-
-                await self.websocket.send(WsPacket_messageCameraWideOpen.SerializeToString())
-                log.debug("#----------------#")
-                log.debug(f"Send cmd >> {WsPacket_messageCameraWideOpen.cmd}")
-                log.debug(f">> {getDwarfCMDName(WsPacket_messageCameraWideOpen.cmd)}")
-
-                log.debug(f"Send type >> {WsPacket_messageCameraWideOpen.type}")
-                log.debug(f"msg data len is >> {len(WsPacket_messageCameraWideOpen.data)}")
-                log.debug("Sendind End ....");
+                # DISABLED (Aug 2026): this legacy V2 init sequence
+                # (CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE ->
+                # CMD_CAMERA_TELE_OPEN_CAMERA -> CMD_CAMERA_WIDE_OPEN_CAMERA)
+                # is not part of the confirmed V3 handshake
+                # (perform_enter_astro_mode/perform_enter_photo_mode -
+                # SWITCH_SHOOTING_MODE/ENTER_CAMERA/SWITCH_SHOOTING_TECH) and
+                # was found to race with the very first real command sent
+                # right after connecting (e.g. perform_time(),
+                # CMD_SYSTEM_SET_TIME): the device stayed busy with this
+                # sequence long enough that the first command's response
+                # timed out after 30s, forcing a reconnect - confirmed by a
+                # real session log where the automatic retry (which skips
+                # this block, since the flag below is already False by
+                # then) succeeded in under 1s. Left commented out below in
+                # case it turns out to still be needed for some other model
+                # or code path.
                 WebSocketClient.Init_Send_TeleGetSystemWorkingState = False
+
+                # V3: CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO (16405) -
+                # confirmed via network capture of the official app (Aug
+                # 2026) to be sent once, early at connection init, right
+                # after SET_TIME/SET_TIME_ZONE. Purely informational (the
+                # shooting_mode_and_techs diagnostic - see the mode/parent/
+                # tech table in dwarf_utils.py comments) - doesn't change
+                # device state. Sent here (rather than as an explicit step
+                # elsewhere) so every consumer of this library gets it
+                # automatically, matching the official app's own behavior.
+                # (SET_LOCATION is sent separately, at the connection layer
+                # - see astro_dwarf_scheduler.py's start_connection()/
+                # start_STA_connection(), alongside SET_TIME/SET_TIME_ZONE -
+                # not here, to avoid duplicating that responsibility.)
+                #
+                # IMPORTANT: self.command must be set before sending, so the
+                # response gets routed to its proper dedicated cmd-matched
+                # branch above (the one that decodes shooting_mode_and_techs)
+                # instead of falling into the generic "Unknown"/catch-all
+                # branch (elif WsPacket_message.cmd != self.command) further
+                # down, which blindly force-parses anything landing there as
+                # notify.AstroGotoState - wrong for this response, and the
+                # actual cause of a "String field had bad UTF-8" crash seen
+                # in the wild before this fix (field-confirmed, Aug 2026).
+                WsPacket_messageGetDeviceStateInfo = base__pb2.WsPacket()
+                ReqGetDeviceStateInfo_message = task_center.ReqGetDeviceStateInfo()
+                WsPacket_messageGetDeviceStateInfo.data = ReqGetDeviceStateInfo_message.SerializeToString()
+                WsPacket_messageGetDeviceStateInfo.major_version = major_version
+                WsPacket_messageGetDeviceStateInfo.minor_version = minor_version
+                WsPacket_messageGetDeviceStateInfo.device_id = device_id
+                WsPacket_messageGetDeviceStateInfo.module_id = 14  # MODULE_DEVICE_CONFIG
+                WsPacket_messageGetDeviceStateInfo.cmd = 16405  # CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO
+                WsPacket_messageGetDeviceStateInfo.type = 0  # REQUEST
+                WsPacket_messageGetDeviceStateInfo.client_id = self.client_id
+                self.command = protocol.CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO
+
+                await self.websocket.send(WsPacket_messageGetDeviceStateInfo.SerializeToString())
+                log.debug("#----------------#")
+                log.debug(f"Send cmd >> {WsPacket_messageGetDeviceStateInfo.cmd}")
+                log.debug(">> CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO")
+
+                # await self.websocket.send(WsPacket_messageTeleGetSystemWorkingState.SerializeToString())
+                # log.debug("#----------------#")
+                # log.debug(f"Send cmd >> {WsPacket_messageTeleGetSystemWorkingState.cmd}")
+                # log.debug(f">> {getDwarfCMDName(WsPacket_messageTeleGetSystemWorkingState.cmd)}")
+                #
+                # log.debug(f"Send type >> {WsPacket_messageTeleGetSystemWorkingState.type}")
+                # log.debug(f"msg data len is >> {len(WsPacket_messageTeleGetSystemWorkingState.data)}")
+                # log.debug("Sendind End ....");
+                #
+                # await asyncio.sleep(1)
+                #
+                # await self.websocket.send(WsPacket_messageCameraTeleOpen.SerializeToString())
+                # log.debug("#----------------#")
+                # log.debug(f"Send cmd >> {WsPacket_messageCameraTeleOpen.cmd}")
+                # log.debug(f">> {getDwarfCMDName(WsPacket_messageCameraTeleOpen.cmd)}")
+                #
+                # log.debug(f"Send type >> {WsPacket_messageCameraTeleOpen.type}")
+                # log.debug(f"msg data len is >> {len(WsPacket_messageCameraTeleOpen.data)}")
+                # log.debug("Sendind End ....");
+                #
+                # await asyncio.sleep(1)
+                #
+                # await self.websocket.send(WsPacket_messageCameraWideOpen.SerializeToString())
+                # log.debug("#----------------#")
+                # log.debug(f"Send cmd >> {WsPacket_messageCameraWideOpen.cmd}")
+                # log.debug(f">> {getDwarfCMDName(WsPacket_messageCameraWideOpen.cmd)}")
+                #
+                # log.debug(f"Send type >> {WsPacket_messageCameraWideOpen.type}")
+                # log.debug(f"msg data len is >> {len(WsPacket_messageCameraWideOpen.data)}")
+                # log.debug("Sendind End ....");
 
             # await asyncio.sleep(1)
 
@@ -2643,6 +2755,25 @@ class WebSocketClient:
         except asyncio.CancelledError:
             log.debug("End Of Init Message Task.")
             pass
+        except websockets.exceptions.ConnectionClosedError as e:
+            # Field-confirmed (Aug 2026): close code 4409 with reason
+            # "DEVICE_OCCUPIED" is the device's own exclusivity mechanism
+            # in V3 - it closes the connection immediately if another
+            # client (typically the official Dwarflab app) is already
+            # connected. This replaces the V2 MASTER LOCK concept. Give a
+            # clear, actionable message instead of the generic
+            # "Unhandled exception" - this isn't a bug, it's the device
+            # doing exactly what it's supposed to.
+            close_code = getattr(e.rcvd, "code", None) or getattr(e.sent, "code", None)
+            if close_code == 4409:
+                log.error(
+                    "Dwarf refused the connection: DEVICE_OCCUPIED (close code 4409)."
+                    " Another client (likely the official Dwarflab app) is already"
+                    " connected to this device. Disconnect it there first, then retry."
+                )
+            else:
+                log.error(f"Unhandled exception 1a: {e}")
+            WebSocketClient.Init_Send_TeleGetSystemWorkingState = True
         except Exception as e:
             # Handle other exceptions
             log.error(f"Unhandled exception 1a: {e}")
@@ -3380,20 +3511,20 @@ def connect_socket(message, command, type_id, module_id):
 
 def disconnect_socket():
     global client_instance, event_loop, event_loop_thread
+
     # To disconnect the client explicitly
     if client_instance and hasattr(client_instance, 'task'):
         future = asyncio.run_coroutine_threadsafe(client_instance.disconnect(), client_instance.task.get_loop())
         log.notice("Disconnect signal sent to the client instance.")
         try:
-            future.result(timeout=5)
-            # bounded wait - avoid hanging forever on exit
+            future.result(timeout=5)  # bounded wait - avoid hanging forever on exit
         except concurrent.futures.TimeoutError:
             log.warning("Disconnect did not complete within 5s (device unreachable or slow WS close handshake) - forcing shutdown anyway.")
             future.cancel()
-        except Exception as e:            
+        except Exception as e:
             log.warning(f"Disconnect raised an exception, forcing shutdown anyway: {e}")
         stop_event_loop()
     else:
-        log.warning("Client not started") 
+        log.warning("Client not started")
 
 

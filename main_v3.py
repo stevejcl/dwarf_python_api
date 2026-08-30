@@ -39,6 +39,7 @@ from dwarf_python_api.lib.dwarf_utils import (
     set_HostMaster,
     perform_time,
     perform_timezone,
+    perform_set_location,
     perform_get_device_state_info,
     perform_enter_photo_mode,
     perform_enter_astro_mode,
@@ -111,6 +112,8 @@ from dwarf_python_api.lib.dwarf_utils import (
     perform_get_all_feature_camera_setting,
     perform_update_camera_setting,
 )
+from dwarf_python_api.get_live_data_dwarf import get_live_data
+
 from dwarf_python_api.lib.data_utils import (
     allowed_exposures,
     allowed_exposuresD3,
@@ -144,18 +147,18 @@ from dwarf_ble_connect.lib.connect_direct_bluetooth import connect_ble_direct_dw
 def display_menu():
     print("")
     print("----------------------------------")
-    print("    Dwarf API V3 - Test Menu       ")
-    print("  (run connect_bluetooth_cmd.py    ")
-    print("   before this script if not done  ")
-    print("   already)                        ")
+    print("    Dwarf API V3 - Test Menu      ")
+    print("  ( First use menu B with B1 or B2")
+    print("    for bluetooth connection )    ")
     print("----------------------------------")
     print("1. Full connection (MASTER LOCK + time/timezone)")
     print("2. Diagnostic (GET_DEVICE_STATE_INFO)")
     print("B. Bluetooth Functions")
     print("C. Camera Functions")
     print("A. Astro Functions (GOTO, calibration, EQ, stacking)")
-    print("M. Motor Functions (joystick)")
+    print("M. Motor Functions (Polar Position, joystick)")
     print("L. Light Functions (RGB / power indicator)")
+    print("I. Get Live Image Data Function")
     print("S. Show status (get_client_status)")
     print("D. Force Disconnection")
     print("P. Power Off The Dwarf")
@@ -177,7 +180,7 @@ def display_menu_test():
 
 def get_user_choice():
     try:
-        return input("Enter your choice (1,2,B,C,A,M,L,S,D,P,R) or 0 to exit: ")
+        return input("Enter your choice (1,2,B,C,A,M,L,I,S,D,P,R) or 0 to exit: ")
     except KeyboardInterrupt:
         print("Operation interrupted by the user (CTRL+C).")
         return '0'
@@ -198,6 +201,7 @@ def option_1():
         log.warning("MASTER LOCK: no response (expected on V3, non-blocking).")
     perform_time()
     perform_timezone()
+    perform_set_location()
     log.success("Connection complete. Wait a few seconds (firmware warm-up)"
                 " before using Camera functions that read live state.")
 
@@ -900,9 +904,8 @@ def option_C20():
 def option_C21():
     """Read Current Dwarf Camera Data (live) - V3: uses the live HTTP API
     (confirmed reliable for exposure/gain/IR filter) instead of the V2
-    GET_ALL_PARAMS commands, which don't respond on V3 hardware. Binning
-    and image format are omitted - binning is no longer accessible in V3
-    and image format isn't a useful setting here."""
+    GET_ALL_PARAMS commands, which don't respond on V3 hardware."""
+    mode_id = input("modeId to query (1=Normal, 2=DSO, default 1): ").strip() or "1"
     print("=== Read current Dwarf camera data (live) ===")
     data_config = dwarf_python_api.get_config_data.get_config_data()
     dwarf_id = data_config['dwarf_id']
@@ -910,9 +913,7 @@ def option_C21():
     print(f"Connected to Dwarf {dwarf_python_api.get_config_data.config_to_dwarf_id_int(dwarf_id)}")
     print("------------------")
 
-    http_result = perform_read_camera_params_http_v3(mode_id=1)  # 1 = Normal/photo
-    result_feature = perform_get_all_feature_camera_setting()
-
+    http_result = perform_read_camera_params_http_v3(int(mode_id))
     if isinstance(http_result, dict) and http_result.get("cameras", {}).get(0):
         tele_cam = http_result["cameras"][0]
         exposure_info = tele_cam.get("exposure")
@@ -944,15 +945,36 @@ def option_C21():
         print("the gain has not been found")
         print("the IRfilter has not been found")
 
-    if isinstance(result_feature, dict) and "all_feature_params" in result_feature:
-        matching_entry = next((e for e in result_feature["all_feature_params"] if e["id"] == 1), None)
-        if matching_entry:
-            print("the number of images for the session is:", round(matching_entry["continue_value"]))
-        else:
-            print("the number of images for the session has not been found")
-    else:
-        print("the number of images for the session has not been found")
-
+    # stackFormat/displaySource/stackBinning live under the virtual "15"
+    # tech_settings entry - astro-mode specific, so this will typically
+    # print nothing here (mode_id=1, Normal/Photo). Field-confirmed
+    # mapping (Aug 2026): stackFormat 2=FITS/3=TIFF, displaySource
+    # 0=Single (1 not yet observed). stackBinning mapping (0=4k/1=2k) is
+    # an assumption by analogy with the old tele/wide binning values -
+    # not yet confirmed.
+    if isinstance(http_result, dict):
+        stack_settings = http_result.get("tech_settings", {}).get(15)
+        if stack_settings:
+            if "stackFormat" in stack_settings:
+                format_map = {2: "FITS", 3: "TIFF"}
+                value = stack_settings["stackFormat"]
+                print("the image format value is:", format_map.get(value, value))
+            if "displaySource" in stack_settings:
+                display_map = {0: "Single"}  # 1 not yet observed
+                value = stack_settings["displaySource"]
+                print("the display source value is:", display_map.get(value, value))
+            if "stackBinning" in stack_settings:
+                binning_map = {0: "4k"}  # 1=2k assumed, not yet confirmed
+                value = stack_settings["stackBinning"]
+                print("the Binning value is:", binning_map.get(value, value))
+        count_tele_settings = http_result.get("tech_settings", {}).get(0)
+        if count_tele_settings:
+            if "stackCount" in count_tele_settings:
+                value = count_tele_settings["stackCount"]
+                print("the tele stack count value is:", value)
+            if "mosaicCount" in count_tele_settings:
+                value = count_tele_settings["mosaicCount"]
+                print("the mosaic stack count value is:", value)
     # Wide
     if isinstance(http_result, dict) and http_result.get("cameras", {}).get(1):
         wide_cam = http_result["cameras"][1]
@@ -971,6 +993,12 @@ def option_C21():
         print("the wide exposure has not been found")
         print("the wide gain has not been found")
 
+    if isinstance(http_result, dict):
+        count_wide_settings = http_result.get("tech_settings", {}).get(1)
+        if count_wide_settings:
+            if "stackCount" in count_wide_settings:
+                value = count_wide_settings["stackCount"]
+                print("the wide stack count value is:", value)
 
 def option_C22():
     """Import Saved Config Camera Data into Dwarf - V3: exposure/gain/IR
@@ -1610,6 +1638,9 @@ def main():
             choice_motor()
         elif choice == 'L':
             choice_lights()
+        elif choice == 'I':
+            perform_enter_photo_mode()
+            get_live_data()
         elif choice == 'S':
             option_S()
         elif choice == 'D':

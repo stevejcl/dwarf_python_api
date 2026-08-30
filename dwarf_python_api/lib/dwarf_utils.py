@@ -576,7 +576,21 @@ def set_HostMaster():
 # the time this was written - to be confirmed, but it's the strongest
 # hypothesis we have.
 
-SHOOTING_MODE_ASTRO = 8
+# BUG FOUND (Aug 2026, field-confirmed): SHOOTING_MODE_ASTRO was set to 8,
+# which is actually SUN/Solar mode, not general DSO/deep-sky astro. A real
+# session that entered "astro mode" using this constant before a DSO GOTO
+# (target: Bode's Galaxy) left the device in Solar mode according to the
+# official app - confirmed by checking option_A13's own mode table below.
+# Corrected to 2 (DSO). SHOOTING_MODE_SUN added as the properly-named
+# constant for what this used to (incorrectly) represent.
+SHOOTING_MODE_DSO = 2
+SHOOTING_MODE_ASTRO = SHOOTING_MODE_DSO  # kept as an alias - "astro" in this
+                                          # codebase (astro_dwarf_session,
+                                          # perform_enter_astro_mode, etc.)
+                                          # always means DSO, not Solar.
+SHOOTING_MODE_SUN = 8
+SHOOTING_MODE_MOON = 9
+SHOOTING_MODE_PLANET = 10
 SHOOTING_TECH_DEEP_SKY = 2
 
 SHOOTING_MODE_PHOTO = 1
@@ -702,7 +716,7 @@ def perform_enter_astro_mode():
 
     Call right after set_HostMaster() and before any ASTRO command.
 
-    1) perform_switch_shooting_mode(8)  -> astro mode
+    1) perform_switch_shooting_mode(2)  -> DSO/deep-sky astro mode
     2) perform_enter_camera()           -> V3 camera "initialization"
     3) perform_switch_shooting_tech(2)  -> Deep Sky / stacking technique
     4) perform_set_preview_quality(1)   -> preview quality (best effort)
@@ -711,7 +725,15 @@ def perform_enter_astro_mode():
     False otherwise.
 
     Confirmed working on real hardware (Dwarf Mini): SWITCH_SHOOTING_MODE
-    does return 8, ENTER_CAMERA returns 8, SWITCH_SHOOTING_TECH returns 2.
+    does return the mode sent, ENTER_CAMERA returns the mode sent,
+    SWITCH_SHOOTING_TECH returns 2.
+
+    NOTE: mode=8 was previously (incorrectly) used here - that value is
+    actually SUN/Solar mode, not DSO (see SHOOTING_MODE_SUN). A real
+    session confirmed this left the device in Solar mode instead of DSO
+    before a deep-sky GOTO, which is likely why a subsequent EQ Solving
+    step failed. Use perform_enter_shooting_mode(SHOOTING_MODE_SUN, ...)
+    explicitly for solar/lunar/planetary sessions instead.
     """
     return perform_enter_shooting_mode(SHOOTING_MODE_ASTRO, SHOOTING_TECH_DEEP_SKY)
 
@@ -1867,6 +1889,59 @@ def perform_timezone():
         log.error("Dwarf API: Dwarf Device not connected")
 
     return False
+
+def perform_set_location():
+    """CMD_SYSTEM_SET_LOCATION (13010), MODULE_SYSTEM module (4).
+
+    Confirmed via network capture of the official app (Aug 2026): sent at
+    connection init, right after SET_TIME/SET_TIME_ZONE. country_region/
+    province/city/district are display-only strings shown in the app,
+    not used for any astro computation - left empty here since we don't
+    have a reliable local source for them; only latitude/longitude/
+    altitude matter for calibration/GOTO/EQ solving accuracy.
+
+    Reads LATITUDE/LONGITUDE from config.ini (read_latitude/
+    read_longitude) - returns False without sending anything if either
+    is missing, same pattern as perform_timezone().
+    """
+    module_id = 4  # MODULE_SYSTEM
+    type_id = 0  # REQUEST
+
+    latitude = read_latitude()
+    longitude = read_longitude()
+    if latitude is None or longitude is None:
+        log.warning(
+            "LATITUDE/LONGITUDE missing from config.ini: CMD_SYSTEM_SET_LOCATION not"
+            " sent (an invalid value would crash the message construction)."
+            " Set LATITUDE/LONGITUDE in config.ini if needed."
+        )
+        return False
+
+    ReqSetLocation_message = system.ReqSetLocation()
+    ReqSetLocation_message.latitude = latitude
+    ReqSetLocation_message.longitude = longitude
+    ReqSetLocation_message.altitude = 0
+    log.notice(f"Location is : lat={latitude}, long={longitude}")
+
+    command = 13010  # CMD_SYSTEM_SET_LOCATION
+    response = connect_socket(ReqSetLocation_message, command, type_id, module_id)
+
+    if response is not False:
+
+      if response == 0:
+          log.success("Set Location success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
+# NOTE: perform_get_device_state_info() already exists above (near
+# perform_switch_shooting_mode) - confirmed via network capture of the
+# official app (Aug 2026) to also be sent early at connection init,
+# right after SET_TIME/SET_TIME_ZONE and before SET_LOCATION. Calling it
+# early mirrors the official app's own startup sequence.
 
 def perform_calibration():
 

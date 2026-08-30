@@ -95,6 +95,7 @@ def getlistPhoto(cameraPhoto = "TELE", indexStart=0, indexEnd=10):
     start_nameD2 = f"DWARF_{cameraPhoto}"
     remote_directoryD3 = '/Normal_Photos'
     start_nameD3 = f"DWARF3_{cameraPhoto}"
+    start_nameMini = f"DWARF_mini_{cameraPhoto}"  # Mini shares the D3 directory but uses a different filename prefix
     remote_directory = remote_directoryD2
     start_name = start_nameD2
 
@@ -108,7 +109,7 @@ def getlistPhoto(cameraPhoto = "TELE", indexStart=0, indexEnd=10):
         log.success(f"Dwarf 2 connected, Successfully changed to {remote_directoryD2}")
     except error_perm as e:
         remote_directory = remote_directoryD3
-        start_name = start_nameD3
+        start_name = (start_nameD3, start_nameMini)  # accept either prefix - D3 or Mini, same directory
         try:
             ftp.cwd(remote_directory)
             log.success(f"Dwarf 3 connected, Successfully changed to {remote_directory}")
@@ -189,6 +190,7 @@ def getLastPhoto(history, camera="TELE"):
     start_nameD2 = f"DWARF_{camera}"
     remote_directoryD3 = '/Normal_Photos'
     start_nameD3 = f"DWARF3_{camera}"
+    start_nameMini = f"DWARF_mini_{camera}"  # Mini shares the D3 directory but uses a different filename prefix
     remote_directory = remote_directoryD2
     start_name = start_nameD2
 
@@ -202,7 +204,7 @@ def getLastPhoto(history, camera="TELE"):
         log.success(f"Dwarf 2 connected, Successfully changed to {remote_directoryD2}")
     except error_perm as e:
         remote_directory = remote_directoryD3
-        start_name = start_nameD3
+        start_name = (start_nameD3, start_nameMini)  # accept either prefix - D3 or Mini, same directory
         try:
             ftp.cwd(remote_directory)
             log.success(f"Dwarf 3 connected, Successfully changed to {remote_directory}")
@@ -746,4 +748,3 @@ def get_live_data():
 
         else:
             log.error("Invalid choice. Please enter a number between 0 and 11.")
-

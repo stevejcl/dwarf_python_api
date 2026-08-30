@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='dwarf_python_api',
-    version='3.0.0',
+    version='3.0.1',
     author='stevejcl',
     packages= find_packages(include=['dwarf_python_api','dwarf_ble_connect']),  # Include the main package directory
     package_dir={'dwarf_python_api': 'dwarf_python_api','dwarf_ble_connect': 'dwarf_ble_connect'},  # Specify the root of the package
