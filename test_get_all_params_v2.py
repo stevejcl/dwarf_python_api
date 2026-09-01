@@ -33,9 +33,9 @@ import dwarf_python_api.lib.my_logger as log
 from dwarf_python_api.lib.dwarf_utils import (
     set_HostMaster,
     perform_enter_photo_mode,
-    perform_get_all_camera_setting,
     perform_disconnect,
 )
+from dwarf_python_api.lib.dwarf_utilsV2 import perform_get_all_camera_setting
 
 
 def try_get_all_params(label):

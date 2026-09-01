@@ -978,6 +978,14 @@ lecture des parametres en V3 passe exclusivement par les notifications
 passives `CMD_NOTIFY_GENERAL_INT_PARAM` (voir `perform_read_all_camera_params_v3()`
 plus haut) - il n'existe pas d'alternative "GET" active, ni V2 ni V3.
 
+**Idem pour `CMD_CAMERA_TELE_GET_ALL_FEATURE_PARAMS` (10038, `perform_get_all_feature_camera_setting()`)**,
+confirme sans reponse sur materiel reel (Aout 2026) - meme sort que 10036.
+C'etait la source du "nombre d'images" (stackCount) dans `main_v3.py`/
+`dwarf_session.py` cote V2 ; remplace par la lecture `tech_settings[0]["stackCount"]`/
+`tech_settings[1]["stackCount"]`/`tech_settings[0]["mosaicCount"]` via
+`perform_read_camera_params_http_v3()`, confirme fonctionnel avec de
+vraies valeurs (stackCount=10/14, mosaicCount=63).
+
 ## Correction importante : mode=8 n'est PAS "astro generique", c'est le mode Soleil
 
 En explorant la documentation de `dwarfAlp` (`docs/firmware/10-astronomy-functions.md`,
@@ -1258,9 +1266,63 @@ vous faites de l'astro sur la camera grand angle.
 `shootingTechSettings` (cameraId=15, virtuel) revele aussi `stackFormat`
 (`values=[2,3]`, probablement FITS/TIFF - correlé avec la doc dwarfAlp qui
 mentionne ces deux formats), `displaySource` (`[0,1]`) et `stackBinning`
-(`[0,1]`) - pas encore implementes (paramId de stackFormat dans le lot
-"non fiable" ci-dessus, displaySource/stackBinning a verifier egalement
-avant utilisation).
+(`[0,1]`).
+
+**Lecture confirmee (Aout 2026)** : `stackBinning` est bien present et
+lisible via `tech_settings["15"]["stackBinning"]` dans la reponse HTTP -
+contrairement a l'ancienne supposition V2 (champ par camera tele/wide,
+id=0 dans all_feature_params), c'est un reglage partage niveau session
+astro, pas par camera. `stackFormat`/`displaySource` presents au meme
+endroit, meme structure, non testes individuellement mais tres
+probablement fiables aussi vu que `stackBinning` l'est.
+
+**stackFormat : ecriture CONFIRMEE par capture reseau (Aout 2026)** -
+`PARAM_ID_ASTRO_STACK_FORMAT = 0x0202f0000000000f`, valeurs 2 (FITS) et
+3 (TIFF) observees sur deux captures independantes (memes valeurs
+exactes a chaque fois). Supersede l'ancienne valeur "non fiable"
+(144942020819943420 = 0x0202effffffffffc, issue du champ paramId HTTP,
+qui s'est averee fausse). Fonction : `perform_set_astro_stack_format_v3()`.
+
+Ecriture (paramId cote SET) CONFIRMEE pour `displaySource` (Aout 2026) -
+`PARAM_ID_ASTRO_DISPLAY_SOURCE = 0x0202f00000000012`, valeurs 0 et 1
+observees par capture reseau (Dwarf 3). Different du champ paramId HTTP
+peu fiable pour ce meme reglage (144942020819943460 = 0x0202f00000000024),
+confirmant une fois de plus que ce champ JSON n'est pas une source fiable.
+Fonction : `perform_set_astro_display_source_v3()`. Signification de la
+valeur 1 encore non confirmee independamment (probablement "Stacked"/
+live-stack, a verifier au prochain test).
+
+**stackBinning : ecriture CONFIRMEE par capture reseau (Aout 2026)** - le
+controle n'avait pas disparu, juste deplace dans l'interface (retrouve
+grace au support DWARFLAB). `PARAM_ID_ASTRO_STACK_BINNING = 0x020100000000001e`,
+valeurs 0 (4k) et 1 (2k) confirmees. Contrairement a stackFormat/
+displaySource (famille `0x0202f0...`), utilise la meme famille de bytes
+de tete que l'exposition/gain tele (`0x0201...`), avec son propre
+sous-index (`0x1e`). Fonction : `perform_set_astro_stack_binning_v3()`.
+
+**Attention - decalage de lecture HTTP en session reelle (Aout 2026)** :
+l'ecriture WS est acceptee immediatement par le device (code retour 0,
+confirme via `SET IMAGE PARAM (V3)` dans les logs) et **prend reellement
+effet sur la capture** - verifie via les metadonnees JSON du fichier
+capture (`"binning": "2*2"`) et la resolution de l'image resultante
+(1920x1080 pour 2k), ET via une reconnexion complete de l'appli
+officielle apres coup, qui affiche bien la bonne valeur. Mais
+`perform_read_camera_params_http_v3()` (utilisee par `print_camera_data()`
+a des fins de diagnostic uniquement) peut ne JAMAIS refleter le
+changement au sein de la meme session live - pas juste un delai de
+quelques secondes, potentiellement fige jusqu'a une reconnexion franche.
+Confirme au passage (Aout 2026) : le `paramId` que rapporte cette meme
+requete HTTP pour `stackBinning` est le meme `0x0202f00000000024` deja
+identifie comme bugue/duplique avec `displaySource` plus haut - encore
+une preuve que ce champ ne doit jamais servir de source pour le vrai
+`param_id`. Ne pas se fier a cette relecture diagnostique pour le
+binning specifiquement; verifier plutot les metadonnees du fichier
+capture ou une reconnexion complete en cas de doute.
+
+**Mapping confirme (Aout 2026)**, recoupe avec l'app officielle :
+- `stackFormat`: 2 = FITS, 3 = TIFF
+- `displaySource`: 0 = Single (1 = ? pas encore observe, probablement "Stacked"/live-stack)
+- `stackBinning`: 0 = 4k, 1 = 2k (confirme par capture reseau, plus une simple analogie)
 
 ## Ajoute : perform_read_camera_params_http_v3() - "GET all params" fiable via HTTP
 

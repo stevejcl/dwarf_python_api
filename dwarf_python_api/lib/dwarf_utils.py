@@ -482,28 +482,8 @@ def parse_dec_to_float(dec_string):
 
     return dec_decimal
 
-def perform_getstatus():
-
-    # GET STATUS
-    module_id = 1  # MODULE_TELEPHOTO
-    type_id = 0; #REQUEST
-
-    ReqGetSystemWorkingState_message = camera.ReqGetSystemWorkingState()
-
-    command = 10039 #CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE
-    response = connect_socket(ReqGetSystemWorkingState_message, command, type_id, module_id)
-
-    if response is not False: 
-
-      if response == 0:
-          log.success("Get Status success")
-          return True
-      else:
-          log.error(f"Error code: {response}")
-    else:
-        log.error("Dwarf API: Dwarf Device not connected")
-
-    return False
+# perform_getstatus() moved to dwarf_utilsV2.py (Aug 2026) - confirmed
+# non-responsive on V3 hardware, never wired into any menu.
 
 def unset_HostMaster():
 
@@ -1153,11 +1133,20 @@ PARAM_ID_DEVICE_WIDE_MATCHING_FRAME_CALIBRATION = 1389782697508968
 PARAM_ID_DEVICE_DISABLE_HOST_SLAVE = 1389782697508965
 
 # Astro/DSO-specific parameters (modeId=2), discovered via the live HTTP
-# API shootingMode/getParamAndSetting. Confirmed reliable (byte pattern
-# consistent with the rest):
+# API shootingMode/getParamAndSetting.
 PARAM_ID_ASTRO_STACK_COUNT_TELE = 0x0202000000000010    # "stackCount", tele
 PARAM_ID_ASTRO_MOSAIC_COUNT_TELE = 0x0202000000000024   # "mosaicCount", tele
-PARAM_ID_ASTRO_STACK_COUNT_WIDE = 0x0202100000000000    # "stackCount", wide
+# BUG FOUND AND FIXED (Aug 2026, field-confirmed by a failed wide stackCount
+# write): this was 0x0202100000000000 - camera byte correctly flipped to
+# 0x10 for wide, but the trailing sub-parameter byte (0x10, "stackCount")
+# was dropped/zeroed in the process instead of being preserved, unlike
+# the already-confirmed exposure/gain wide pattern where only the camera
+# byte changes and the trailing byte stays identical.
+# CONFIRMED by network capture (Dwarf Mini, Aug 2026): explicit
+# CMD_PARAM_SET_GENERAL_INT_PARAM (16703) calls changing wide stackCount
+# (values 1-8, 51, 64, 351 observed) all carry param_id
+# 0x0202100000000010 - matches the pattern-based fix exactly.
+PARAM_ID_ASTRO_STACK_COUNT_WIDE = 0x0202100000000010    # "stackCount", wide
 PARAM_ID_ASTRO_AUTO_CALIBRATION = 0x0203f00000000064    # "autoCalibration" (bool)
 
 # NOT RELIABLE: these param_id, reported by the HTTP API for the wide
@@ -1169,7 +1158,32 @@ PARAM_ID_ASTRO_AUTO_CALIBRATION = 0x0203f00000000064    # "autoCalibration" (boo
 # NOT use without confirmation via direct WebSocket protocol network
 # capture.
 # PARAM_ID_ASTRO_WIDE_EXPOSURE_UNCONFIRMED = 144414255238610940
-# PARAM_ID_ASTRO_STACK_FORMAT_UNCONFIRMED = 144942020819943420
+
+# CONFIRMED by network capture (Dwarf Mini, Aug 2026, two independent
+# captures agree exactly): CMD_PARAM_SET_GENERAL_INT_PARAM (16703) with
+# param_id 0x0202f0000000000f, values 2 (FITS) and 3 (TIFF) observed.
+# This supersedes the earlier "UNCONFIRMED" guess (144942020819943420 =
+# 0x0202effffffffffc), which was sourced from the live HTTP API's
+# unreliable "paramId" JSON field and turned out to be wrong.
+PARAM_ID_ASTRO_STACK_FORMAT = 0x0202f0000000000f    # "stackFormat" (2=FITS, 3=TIFF)
+
+# CONFIRMED by network capture (Dwarf 3, Aug 2026): two explicit
+# CMD_PARAM_SET_GENERAL_INT_PARAM (16703) calls toggling displaySource
+# between 0 and 1 both carry param_id 0x0202f00000000012 - different
+# from the live HTTP API's unreliable "paramId" JSON field for this same
+# setting (144942020819943460 = 0x0202f00000000024), confirming that
+# field is not to be trusted here either.
+PARAM_ID_ASTRO_DISPLAY_SOURCE = 0x0202f00000000012    # "displaySource" (0=Single, 1=?)
+
+# CONFIRMED by network capture (Dwarf 3, Aug 2026): explicit
+# CMD_PARAM_SET_GENERAL_INT_PARAM (16703) calls toggling stackBinning
+# between 0 and 1. Note the control was reported missing from the
+# official app's UI until DWARFLAB support pointed out where to find it
+# (it moved/is not where it used to be) - the setting itself is not
+# discontinued, just relocated in the UI. Unlike stackFormat/
+# displaySource (0x0202f0... family), this uses the same leading bytes
+# as tele exposure/gain (0x0201...), with its own sub-index (0x1e).
+PARAM_ID_ASTRO_STACK_BINNING = 0x020100000000001e    # "stackBinning" (0=4k, 1=2k)
 
 # CMD_PARAM_SET_GENERAL_BOOL_PARAMS - NOT CONFIRMED by direct network
 # capture, inferred from the sequential position in param.proto
@@ -1367,14 +1381,41 @@ def perform_set_ir_filter_v3(name_or_index):
     """IR/Astro filter: 'VIS Filter' (0, normal), 'Astro Filter' (1),
     'Duo-Band Filter' (2) - official AllowedIRFilter table (data_utils.py).
 
-    Reuses CMD_CAMERA_TELE_SET_IRCUT (10031, CAMERA_TELE module),
-    unchanged V2 command in V3 (already handled by
-    perform_update_camera_setting("IR", ...))."""
-    if isinstance(name_or_index, str):
+    Accepts either a readable name ("Astro Filter") or a raw index (0/1/2,
+    as an int or a numeric string like "1" - BUG FIXED Aug 2026: a plain
+    isinstance(str) check treated numeric strings like "1" as a NAME to
+    look up in the table, silently failing to match and falling back to
+    the table's default index (0) every time - so callers passing a
+    stringified config value (e.g. str(program['setup_camera']['ircut']))
+    always got index 0 regardless of the actual configured value. Now
+    only genuinely non-numeric strings go through the name lookup.
+
+    CMD_CAMERA_TELE_SET_IRCUT (10031, CAMERA_TELE module) - unchanged V2
+    command in V3, confirmed working. Called directly here (Aug 2026) -
+    used to go through perform_update_camera_setting("IR", ...), which is
+    otherwise unused in V3 now that exposure/gain/count have their own
+    confirmed V3 functions; see dwarf_utilsV2.py for that legacy code."""
+    if isinstance(name_or_index, str) and not name_or_index.strip().lstrip('-').isdigit():
         index = get_ir_filter_index_by_name(name_or_index)
     else:
-        index = name_or_index
-    return perform_update_camera_setting("IR", index)
+        index = int(name_or_index)
+
+    module_id = 1  # MODULE_TELE_CAMERA
+    type_id = 0  # REQUEST
+
+    ReqSetIrCut_message = camera.ReqSetIrCut()
+    ReqSetIrCut_message.value = index
+
+    command = 10031  # CMD_CAMERA_TELE_SET_IRCUT
+    response = connect_socket(ReqSetIrCut_message, command, type_id, module_id)
+
+    if response is not False:
+        log.success(f"SET IR FILTER -> {response}")
+        return response
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -1649,7 +1690,7 @@ def perform_waitEndAstroPhoto(retry = False):
 def perform_waitRetryEndAstroPhoto():
     return perform_waitEndAstroPhoto(True)
 
-def perform_waitEndAstroWidePhoto(noretry = False):
+def perform_waitEndAstroWidePhoto(retry = False):
 
     # use special message to get end of shooting
     module_id = 1  # MODULE_CAMERA_TELE
@@ -1711,6 +1752,58 @@ def perform_takeAstroPhoto(ir_index=1, force_start=False):
 
       if response == 0:
           log.success("START CAPTURE RAW LIVE STACKING success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
+
+def perform_start_mosaic_v3(horizontal_scale=2, vertical_scale=2, rotation=0, ir_index=1, force_start=False):
+    """CMD_ASTRO_START_TELE_MOSAIC (11031, tele only - no wide mosaic
+    command exists). 
+    the command constant was entirely missing from protocol.proto until
+    now (Aug 2026), confirmed only via the dwarfAlp registry (present in
+    the official app, request message ReqStartMosaic already existed in
+    astro.proto with no way to reference the command number).
+
+    IMPORTANT - how a mosaic is linked to its target: ReqStartMosaic
+    carries NO target/coordinates field at all (only horizontal_scale,
+    vertical_scale, rotation, ir_index, force_start). Exactly like
+    perform_takeAstroPhoto() for a single-target session, the mosaic is
+    centered on wherever the telescope is CURRENTLY POINTED - i.e. you
+    must perform_goto() to the target first (the mosaic's center), then
+    call this function; the device handles the internal grid of small
+    pointing offsets around that center itself.
+
+    horizontal_scale/vertical_scale: 100 to 180 scale 10 for each dimension
+    rotation: field-name only, meaning/units not confirmed.
+    ir_index/force_start: same semantics as perform_takeAstroPhoto().
+
+    See also perform_set_astro_mosaic_count_v3() (PARAM_ID_ASTRO_MOSAIC_COUNT_TELE)
+    for the total number of subframes to stack per panel - a separate
+    setting from the grid dimensions here, same relationship as
+    stackCount is to a normal single-target session.
+    """
+
+    module_id = 3  # MODULE_ASTRO
+    type_id = 0  # REQUEST
+
+    ReqStartMosaic_message = astro.ReqStartMosaic()
+    ReqStartMosaic_message.horizontal_scale = horizontal_scale
+    ReqStartMosaic_message.vertical_scale = vertical_scale
+    ReqStartMosaic_message.rotation = rotation
+    ReqStartMosaic_message.ir_index = ir_index
+    ReqStartMosaic_message.force_start = force_start
+
+    command = protocol.CMD_ASTRO_START_TELE_MOSAIC
+    response = connect_socket(ReqStartMosaic_message, command, type_id, module_id)
+
+    if response is not False:
+
+      if response == 0:
+          log.success("START MOSAIC success")
           return True
       else:
           log.error(f"Error code: {response}")
@@ -2091,373 +2184,48 @@ def format_double(value_str):
         # The string is not a valid number
         return value_str
 
-def perform_get_all_camera_setting():
+def get_result_value(type, result_cnx, is_double=False):
+    """Restored (Aug 2026) from the pre-V3 (main branch) dwarf_utils.py -
+    was missing entirely from this V3 branch's dwarf_utils.py even
+    though 4 confirmed-working V3 functions here (perform_powerOpenRGB,
+    perform_powerCloseRGB, perform_powerIndOn, perform_powerIndOff) call
+    it directly - a pre-existing bug (NameError at call time, not
+    caught by import/compile checks) unrelated to the dwarf_utilsV2.py
+    migration. Also imported by dwarf_utilsV2.py for its own legacy
+    functions - this is the canonical definition, not a copy."""
 
-  module_id = 1  # MODULE_TELE_CAMERA
-  type_id = 0; #REQUEST
+    if result_cnx is False:
+        log.error("Dwarf API: Dwarf Device not connected")
 
-  ReqGetAllParams_message = camera.ReqGetAllParams ()
+    elif isinstance(result_cnx, int):
+        if result_cnx >= 0:
+            log.success(f"{type} value: {result_cnx}")
+            return result_cnx
+        else:
+            log.error(f"Error code: {result_cnx}")
 
-  command = 10036; #CMD_CAMERA_TELE_GET_ALL_PARAMS
-
-  response = connect_socket(ReqGetAllParams_message, command, type_id, module_id)
-  
-  return response
-
-def perform_get_all_feature_camera_setting():
-
-  module_id = 1  # MODULE_TELE_CAMERA
-  type_id = 0; #REQUEST
-
-  ReqGetAllFeatureParams_message = camera.ReqGetAllFeatureParams ()
-
-  command = 10038; #CMD_CAMERA_TELE_GET_ALL_FEATURE_PARAMS
-
-  response = connect_socket(ReqGetAllFeatureParams_message, command, type_id, module_id)
-
-  return response
-
-def perform_get_all_camera_wide_setting():
-
-  module_id = 2  # MODULE_WIDE_CAMERA
-  type_id = 0; #REQUEST
-
-  ReqGetAllParams_message = camera.ReqGetAllParams ()
-
-  command = 12027; #CMD_CAMERA_WIDE_GET_ALL_PARAMS
-
-  response = connect_socket(ReqGetAllParams_message, command, type_id, module_id)
-  
-  return response
-
-def perform_update_all_camera_setting( type, allValue, dwarf_id = "2"):
-
-  type_id = 0; #REQUEST
-  if (type == "wide"):
-    module_id = 2  # MODULE_WIDE_CAMERA
-  else:
-    module_id = 1  # MODULE_TELE_CAMERA
-
-  ReqSetAllParam_message = camera.ReqSetAllParams ()
-  if (type == "wide"):
-    if (allValue['camera_exposure']):
-      ReqSetAllParam_message.exp_mode = 1
-      ReqSetAllParam_message.exp_index = get_wide_exposure_index_by_name(str(allValue['camera_exposure']), str(dwarf_id))
+    elif isinstance(result_cnx, dict) and 'code' in result_cnx:
+        if result_cnx["code"] == 0 and 'value' in result_cnx:
+            log.success(f"{type} value: {result_cnx['value'] if not is_double else format_double(result_cnx['value'])}")
+            return result_cnx["value"] if not is_double else format_double(result_cnx["value"])
+        else:
+            if result_cnx["code"] == 0:
+                log.success(f"{type} no value")
+                return result_cnx["code"]
+            else:
+                log.error(f"Error code: {result_cnx['code']}")
     else:
-      ReqSetAllParam_message.exp_mode = 0
-      ReqSetAllParam_message.exp_index = 0
-    if (allValue['camera_gain']):
-      ReqSetAllParam_message.gain_mode = 1
-      ReqSetAllParam_message.gain_index = get_wide_gain_index_by_name(str(allValue['camera_gain']),str(dwarf_id))
-    else:
-      ReqSetAllParam_message.gain_mode = 1
-      ReqSetAllParam_message.gain_index = 0
-  else:
-    if (allValue['camera_exposure']):
-      ReqSetAllParam_message.exp_mode = 1
-      ReqSetAllParam_message.exp_index = get_exposure_index_by_name(str(allValue['camera_exposure']), str(dwarf_id))
-    else:
-      ReqSetAllParam_message.exp_mode = 0
-      ReqSetAllParam_message.exp_index = 0
-    if (allValue['camera_gain']):
-      ReqSetAllParam_message.gain_mode = 1
-      ReqSetAllParam_message.gain_index = get_gain_index_by_name(str(allValue['camera_gain']),str(dwarf_id))
-    else:
-      ReqSetAllParam_message.gain_mode = 1
-      ReqSetAllParam_message.gain_index = 0
-
-  ReqSetAllParam_message.ircut_value = 0;
-  ReqSetAllParam_message.wb_mode = 0;
-  ReqSetAllParam_message.wb_index_type = 2;
-  ReqSetAllParam_message.wb_index = 0;
-  ReqSetAllParam_message.brightness = 0;
-  ReqSetAllParam_message.contrast = 0;
-  ReqSetAllParam_message.hue = 0;
-  ReqSetAllParam_message.saturation = 0;
-  ReqSetAllParam_message.sharpness = 50;
-  ReqSetAllParam_message.jpg_quality = 80;
-
-  if (type == "wide"):
-    command = 12028; #CMD_CAMERA_WIDE_SET_ALL_PARAMS
-  else:
-    command = 10035; #CMD_CAMERA_TELE_SET_ALL_PARAMS
-  
-  response = connect_socket(ReqSetAllParam_message, command, type_id, module_id)
-
-  if response is not False: 
-
-      if response == 0:
-          log.success("Update camera setting")
-          return True
-      else:
-          log.error(f"Error code: {response}")
-  else:
-      log.error("Dwarf API: Dwarf Device not connected")
-
-  return False
-
-def get_result_value ( type, result_cnx, is_double = False):
-
-  if result_cnx is False: 
-    log.error("Dwarf API: Dwarf Device not connected")
-
-  elif isinstance(result_cnx, int):
-    if result_cnx >= 0:
-      log.success(f"{type} value: {result_cnx}")
-      return result_cnx
-    else: 
-      log.error(f"Error code: {result_cnx}")
-
-  elif isinstance(result_cnx, dict) and 'code' in result_cnx:
-    if result_cnx["code"] == 0 and 'value' in result_cnx:
-      log.success(f"{type} value: {result_cnx['value'] if not is_double else format_double(result_cnx['value'])}")
-      return result_cnx["value"] if not is_double else format_double(result_cnx["value"])
-    else: 
-      if result_cnx["code"] == 0:
-        log.success(f"{type} no value")
-        return result_cnx["code"]
-      else:
-        log.error(f"Error code: {result_cnx['code']}")
-  else: 
-    log.error(f"Unknown Error ")
-
-  return False
-
-def perform_get_camera_setting( type):
-
-  Test = False
-  if Test:
-    # brightness
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqGetBrightness_message = camera.ReqGetBrightness ()
-
-    command = 10016; #CMD_CAMERA_TELE_GET_BRIGHTNESS
-
-    response = connect_socket(ReqGetBrightness_message, command, type_id, module_id)
-
-    if get_result_value(type, response) is not False:
-      ReqGetContrast_message = camera.ReqGetContrast ()
-
-      command = 10018; #CMD_CAMERA_TELE_GET_CONTRAST
-
-      response = connect_socket(ReqGetContrast_message, command, type_id, module_id)
-
-      return get_result_value(type, response)
-
-  if (type == "exposure"):
-    # exposure
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqGetExp_message = camera.ReqGetExp ()
-
-    command = 10010; #CMD_CAMERA_TELE_GET_EXP
-
-    response = connect_socket(ReqGetExp_message, command, type_id, module_id)
-
-    return get_result_value(type, response, true)
-
-  elif (type == "gain"):
-    # gain
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqGetGain_message = camera.ReqGetGain ()
-
-    command = 10014; #CMD_CAMERA_TELE_GET_GAIN
-
-    response = connect_socket(ReqGetGain_message, command, type_id, module_id)
-
-    return get_result_value(type, response, type)
-
-  elif (type == "IR"):
-    # IR
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqGetIrCut_message = camera.ReqGetIrCut ()
-
-    command = 10032; #CMD_CAMERA_TELE_GET_IRCUT
-
-    response = connect_socket(ReqGetIrCut_message, command, type_id, module_id)
-
-    return get_result_value(type, response)
-
-  elif (type == "wide_exposure"):
-    # exposure
-    module_id = 2  # MODULE_WIDE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqGetExp_message = camera.ReqGetExp ()
-
-    command = 12005; #CMD_CAMERA_WIDE_GET_EXP
-
-    response = connect_socket(ReqGetExp_message, command, type_id, module_id)
-
-    return get_result_value(type, response, True)
-
-  elif (type == "wide_gain"):
-    # gain
-    module_id = 2  # MODULE_WIDE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqGetGain_message = camera.ReqGetGain ()
-
-    command = 12007; #CMD_CAMERA_WIDE_GET_GAIN
-
-    response = connect_socket(ReqGetGain_message, command, type_id, module_id)
-
-    return get_result_value(type, response)
-
-  return False
-
-def perform_update_camera_setting( type, value, dwarf_id = "2"):
-
-  if (type == "exposure"):
-    # exposure_mode
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqSetExpMode_message = camera.ReqSetExpMode ()
-    ReqSetExpMode_message.mode = 1
-
-    command = 10007; #CMD_CAMERA_TELE_SET_EXP_MODE
-
-    response = connect_socket(ReqSetExpMode_message, command, type_id, module_id)
-
-    if response == 0:
-      # exposure
-      ReqSetExp_message = camera.ReqSetExp ()
-      ReqSetExp_message.index = get_exposure_index_by_name(str(value), str(dwarf_id))
-      log.notice(f"Set Exp Index to:  {get_exposure_index_by_name(str(value), str(dwarf_id))}")
-
-      command = 10009; #CMD_CAMERA_TELE_SET_EXP
-
-      response = connect_socket(ReqSetExp_message, command, type_id, module_id)
-
-  elif (type == "gain"):
-    # gain 
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqSetGain_message = camera.ReqSetGain ()
-    ReqSetGain_message.index = get_gain_index_by_name(str(value),str(dwarf_id))
-    log.notice(f"Set Gain Index to:  {get_gain_index_by_name(str(value), str(dwarf_id))}")
-
-    command = 10013; #CMD_CAMERA_TELE_SET_GAIN
-
-    response = connect_socket(ReqSetGain_message, command, type_id, module_id)
-
-  elif (type == "IR"):
-    # gain
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqSetIrCut_message = camera.ReqSetIrCut ()
-    ReqSetIrCut_message.value = int(value)
-
-    command = 10031; #CMD_CAMERA_TELE_SET_IRCUT
-
-    response = connect_socket(ReqSetIrCut_message, command, type_id, module_id)
-
-  elif (type == "binning"):
-    # binning
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqSetFeatureParams_message = camera.ReqSetFeatureParams ()
-    ReqSetFeatureParams_message.param.hasAuto = False;
-    ReqSetFeatureParams_message.param.auto_mode = 1; # Manual
-    ReqSetFeatureParams_message.param.id = 0; # "Astro binning"
-    ReqSetFeatureParams_message.param.mode_index = 0;
-    ReqSetFeatureParams_message.param.index = int(value);
-    ReqSetFeatureParams_message.param.continue_value = 0;
-
-    command = 10037; #CMD_CAMERA_TELE_SET_FEATURE_PARAM
-
-    response = connect_socket(ReqSetFeatureParams_message, command, type_id, module_id)
-
-  elif (type == "fileFormat"):
-    # fileFormat
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqSetFeatureParams_message = camera.ReqSetFeatureParams ()
-    ReqSetFeatureParams_message.param.hasAuto = False;
-    ReqSetFeatureParams_message.param.auto_mode = 1; # Manual
-    ReqSetFeatureParams_message.param.id = 2; # "Astro format"
-    ReqSetFeatureParams_message.param.mode_index = 0;
-    ReqSetFeatureParams_message.param.index = int(value);
-    ReqSetFeatureParams_message.param.continue_value = 0;
-
-    command = 10037; #CMD_CAMERA_TELE_SET_FEATURE_PARAM
-
-    response = connect_socket(ReqSetFeatureParams_message, command, type_id, module_id)
-
-  elif (type == "count"):
-    module_id = 1  # MODULE_TELE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqSetFeatureParams_message = camera.ReqSetFeatureParams ()
-    ReqSetFeatureParams_message.param.hasAuto = False;
-    ReqSetFeatureParams_message.param.auto_mode = 1; # Manual
-    ReqSetFeatureParams_message.param.id = 1; # "Astro img_to_take"
-    ReqSetFeatureParams_message.param.mode_index = 1;
-    ReqSetFeatureParams_message.param.index = 0;
-    ReqSetFeatureParams_message.param.continue_value = int(value);
-
-    command = 10037; #CMD_CAMERA_TELE_SET_FEATURE_PARAM
-
-    response = connect_socket(ReqSetFeatureParams_message, command, type_id, module_id)
-
-  elif (type == "wide_exposure"):
-    # exposure_mode
-    module_id = 2  # MODULE_WIDE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqSetExpMode_message = camera.ReqSetExpMode ()
-    ReqSetExpMode_message.mode = 1
-
-    command = 12002; #CMD_CAMERA_WIDE_SET_EXP_MODE
-
-    response = connect_socket(ReqSetExpMode_message, command, type_id, module_id)
-
-    if response == 0:
-      # exposure
-      ReqSetExp_message = camera.ReqSetExp ()
-      ReqSetExp_message.index = get_wide_exposure_index_by_name(str(value), str(dwarf_id))
-      log.notice(f"Set Wide Exp Index to:  {get_wide_exposure_index_by_name(str(value), str(dwarf_id))}")
-
-      command = 12004; #CMD_CAMERA_WIDE_SET_EXP
-
-      response = connect_socket(ReqSetExp_message, command, type_id, module_id)
-
-  elif (type == "wide_gain"):
-    # gain 
-    module_id = 2  # MODULE_WIDE_CAMERA
-    type_id = 0; #REQUEST
-
-    ReqSetGain_message = camera.ReqSetGain ()
-    ReqSetGain_message.index = get_wide_gain_index_by_name(str(value),str(dwarf_id))
-    log.notice(f"Set Wide Gain Index to:  {get_wide_gain_index_by_name(str(value), str(dwarf_id))}")
-
-    command = 12006; #CMD_CAMERA_WIDE_SET_GAIN
-
-    response = connect_socket(ReqSetGain_message, command, type_id, module_id)
-
-  if response is not False: 
-
-      if response == 0:
-          log.success("Update camera setting")
-          return True
-      else:
-          log.error(f"Error code: {response}")
-  else:
-      log.error("Dwarf API: Dwarf Device not connected")
-
-  return False
+        log.error("Unknown Error ")
+
+    return False
+
+# perform_get_all_camera_setting(), perform_get_all_feature_camera_setting(),
+# perform_get_all_camera_wide_setting(), perform_update_all_camera_setting(),
+# perform_get_camera_setting(), and perform_update_camera_setting() all moved
+# to dwarf_utilsV2.py (Aug 2026) - the three GET_ALL_*_SETTING functions are
+# confirmed non-responsive on V3 hardware, and perform_update_camera_setting()
+# is superseded by confirmed V3 functions for every branch that was actually
+# exercised (see MIGRATION_V3.md).
 
 def decimal_to_dms(decimal_degrees):
     degrees = int(decimal_degrees)
@@ -2765,6 +2533,32 @@ def perform_set_astro_mosaic_count_v3(count):
     """Number of panels for an astro mosaic (tele camera only, no wide
     equivalent observed). Range 1-249 (default 45)."""
     return perform_set_image_param_v3(PARAM_ID_ASTRO_MOSAIC_COUNT_TELE, count)
+
+
+def perform_set_astro_stack_format_v3(value):
+    """Image format for astro stacking sessions - shared setting, not
+    per-camera (tele/wide). Confirmed by network capture (Dwarf Mini,
+    Aug 2026): 2 = FITS, 3 = TIFF."""
+    return perform_set_image_param_v3(PARAM_ID_ASTRO_STACK_FORMAT, value)
+
+
+def perform_set_astro_display_source_v3(value):
+    """Preview display source for astro stacking sessions - shared
+    setting, not per-camera (tele/wide). Confirmed by network capture
+    (Dwarf 3, Aug 2026): values 0 and 1 both accepted. 0 = Single
+    (field-confirmed); the meaning of 1 is not yet confirmed (likely
+    "Stacked"/live-stack preview, based on the setting's name, but not
+    independently verified)."""
+    return perform_set_image_param_v3(PARAM_ID_ASTRO_DISPLAY_SOURCE, value)
+
+
+def perform_set_astro_stack_binning_v3(value):
+    """Binning for astro stacking sessions - shared setting, not
+    per-camera (tele/wide). Confirmed by network capture (Dwarf 3, Aug
+    2026): 0 = 4k, 1 = 2k. The control was reported missing from the
+    official app's UI at one point (relocated, not discontinued - see
+    PARAM_ID_ASTRO_STACK_BINNING)."""
+    return perform_set_image_param_v3(PARAM_ID_ASTRO_STACK_BINNING, value)
 
 
 def perform_set_bool_param_v3(param_id, value):
