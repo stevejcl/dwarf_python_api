@@ -223,8 +223,17 @@ async def connect_to_bluetooth_device(dwarf_device = None, Bluetooth_PWD = None,
                 await deviceDwarf.stop_notify(characteristicDwarf)
 
             if deviceDwarf:
-                # Remove event listener for disconnection
-                deviceDwarf.set_disconnected_callback(None)
+                # Remove event listener for disconnection - guarded for
+                # compat: set_disconnected_callback() was removed in
+                # modern bleak (>=1.0, confirmed on bleak 3.0.2) in favor
+                # of passing disconnected_callback= to the BleakClient
+                # constructor. This call was clearing a callback that was
+                # never actually registered that way here anyway (no
+                # set_disconnected_callback(onDisconnected) call exists
+                # elsewhere in this file) - safe to skip entirely on
+                # versions where the method doesn't exist.
+                if hasattr(deviceDwarf, 'set_disconnected_callback'):
+                    deviceDwarf.set_disconnected_callback(None)
                 # Disconnect from GATT server if available
                 if hasattr(deviceDwarf, 'gatt') and deviceDwarf.gatt:
                     await deviceDwarf.gatt.disconnect()

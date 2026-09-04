@@ -47,20 +47,27 @@ async def connect_ble_dwarf_test(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="",
     log.info ("End of Function connect_ble_dwarf")
     log.info (f"{connection_state}")
 
-def connect_ble_direct_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi_PWD = "", auto_select = ""):
+def connect_ble_direct_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi_PWD = "", auto_select = "", session=None):
     try:
-        result = asyncio.run(connect_ble_dwarf(Bluetooth_PWD, Wifi_SSID, Wifi_PWD, auto_select))
+        result = asyncio.run(connect_ble_dwarf(Bluetooth_PWD, Wifi_SSID, Wifi_PWD, auto_select, session=session))
     except RuntimeError as e:
         if "Event loop is closed" in str(e):
             print("Restarting the event loop...")
             restart_event_loop()
-            return asyncio.run(connect_ble_dwarf(Bluetooth_PWD, Wifi_SSID, Wifi_PWD, auto_select))
+            return asyncio.run(connect_ble_dwarf(Bluetooth_PWD, Wifi_SSID, Wifi_PWD, auto_select, session=session))
         else:
             raise
     finally:
         return result  # Return the result to the caller
 
-async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi_PWD = "", auto_select = ""):
+async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi_PWD = "", auto_select = "", session=None):
+    """`session`: optional DwarfSession (see dwarf_session.py). When given,
+    on a successful connection the discovered ip/dwarf_id/dwarf_uid are
+    applied directly to this session (see dwarf_ble_session.apply_ble_discovery)
+    IN ADDITION TO the config.py write below - the config.py write is kept
+    unconditionally so existing mono-dwarf callers (astro_dwarf_session)
+    keep working unchanged. Return value and all other behavior are
+    unchanged when session is None."""
 
     status_bluetooth = False
 
@@ -177,6 +184,15 @@ async def connect_ble_dwarf(Bluetooth_PWD = "DWARF_12345678", Wifi_SSID="", Wifi
        except dwarf_python_api.get_config_data.ConfigFileNotFoundError as e:
            log.warning(f"Warning: {e}")
 
+       if session is not None:
+           from dwarf_python_api.lib.dwarf_ble_session import apply_ble_discovery
+           apply_ble_discovery(
+               session,
+               ip_address=connection_state.get('ip_address'),
+               dwarf_id=connection_state.get('device_dwarf_id'),
+               dwarf_uid=connection_state.get('device_dwarf_uid'),
+           )
+
     log.notice ("End of Function connect_ble_dwarf")
 
     return status_bluetooth
@@ -220,7 +236,13 @@ def run_ble_connect_in_thread(dwarf_device, bt_pwd, ssid, wifi_pwd):
 # ----------------------------------------
 # Main function using BLE and Tkinter
 # ----------------------------------------
-def connect_ble_dwarf_win(Bluetooth_PWD="DWARF_12345678", Wifi_SSID="", Wifi_PWD=""):
+def connect_ble_dwarf_win(Bluetooth_PWD="DWARF_12345678", Wifi_SSID="", Wifi_PWD="", session=None):
+    """`session`: optional DwarfSession (see dwarf_session.py). When given,
+    on a successful connection the discovered ip/dwarf_id/dwarf_uid are
+    applied directly to this session (see dwarf_ble_session.apply_ble_discovery)
+    IN ADDITION TO the config.py write below - the config.py write is kept
+    unconditionally so existing mono-dwarf callers keep working unchanged.
+    Return value and all other behavior are unchanged when session is None."""
 
     log.notice("Start of Function connect_ble_dwarf_win")
 
@@ -282,16 +304,26 @@ def connect_ble_dwarf_win(Bluetooth_PWD="DWARF_12345678", Wifi_SSID="", Wifi_PWD
                 status_label.config(text="Select a Device...")
                 new_window.update_idletasks()
                 while selection is None:
-                    selection = simpledialog.askinteger(
+                    raw_selection = simpledialog.askinteger(
                         "Select a Device",
                         f"Multiple DWARF devices found:\n\n" +
                         "\n".join([f"{i+1}. {connection_state.get(f'dwarf_devices{i+1}')}" for i, d in enumerate(dwarf_devices)]) +
                         "\n\nEnter the number of the device to select (or 0 to exit):",
                         parent=new_window
                     )
-                    if selection is None or selection < 0 or selection > len(dwarf_devices):
+                    if raw_selection is None:
+                        # User clicked Cancel or closed the dialog - this is
+                        # NOT an invalid entry, it's an explicit request to
+                        # abort. Treating it the same as bad input trapped
+                        # the user in an infinite "Please enter a valid
+                        # number" loop with no way to actually cancel.
+                        log.info("Device selection cancelled by user.")
+                        root.destroy()
+                        return
+                    if raw_selection < 0 or raw_selection > len(dwarf_devices):
                         messagebox.showerror("Invalid Selection", "Please enter a valid number.", parent=new_window)
-                        selection = None
+                        continue
+                    selection = raw_selection
 
                 if selection == 0:
                     log.info("Exiting...")
@@ -350,6 +382,15 @@ def connect_ble_dwarf_win(Bluetooth_PWD="DWARF_12345678", Wifi_SSID="", Wifi_PWD
             dwarf_python_api.get_config_data.update_config_data('dwarf_uid', connection_state.get('device_dwarf_uid'))
         except dwarf_python_api.get_config_data.ConfigFileNotFoundError as e:
             log.warning(f"Warning: {e}")
+
+        if session is not None and connection_state:
+            from dwarf_python_api.lib.dwarf_ble_session import apply_ble_discovery
+            apply_ble_discovery(
+                session,
+                ip_address=connection_state.get('ip_address'),
+                dwarf_id=connection_state.get('device_dwarf_id'),
+                dwarf_uid=connection_state.get('device_dwarf_uid'),
+            )
 
         log.notice(f"{connection_state}")
         log.notice("End of Function connect_ble_dwarf_win")

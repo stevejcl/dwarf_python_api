@@ -48,6 +48,7 @@ Options:
 """
 
 import argparse
+import os
 import sys
 
 import dwarf_python_api.lib.my_logger as log
@@ -57,6 +58,7 @@ from dwarf_python_api.lib.dwarf_utils import (
     read_bluetooth_ble_STA_ssid,
     read_bluetooth_ble_STA_pwd,
 )
+import dwarf_python_api.get_config_data
 
 
 def main():
@@ -65,7 +67,26 @@ def main():
     parser.add_argument("--ssid", default=None, help="SSID of the target WiFi network (STA mode)")
     parser.add_argument("--pwd", default=None, help="Password of the target WiFi network")
     parser.add_argument("--select", default="", help="Exact device name if several are detected")
+    parser.add_argument(
+        "--config-py", default=None,
+        help="Path to a specific config.py to write to (multi-Dwarf setups: one file per device). "
+             "Defaults to ./config.py if omitted, exactly like before.",
+    )
     args = parser.parse_args()
+
+    if args.config_py:
+        # Redirect the disk write to the exact file requested - without
+        # this, update_config_data() (called deep inside
+        # connect_ble_direct_dwarf) always writes to the hardcoded default
+        # ./config.py, REGARDLESS of --config-py, silently discarding this
+        # option. tmp/lock files are derived per config-py path so two
+        # devices connecting concurrently don't share a lock/tmp file.
+        dwarf_python_api.get_config_data.set_config_data(
+            config_file=args.config_py,
+            config_file_tmp=args.config_py + ".tmp",
+            lock_file=args.config_py + ".lock",
+        )
+        log.info(f"Writing to: {os.path.abspath(args.config_py)}")
 
     ble_psd = args.psd or read_bluetooth_ble_psd() or "DWARF_12345678"
     ble_STA_ssid = args.ssid or read_bluetooth_ble_STA_ssid() or ""
@@ -88,12 +109,18 @@ def main():
     result = connect_ble_direct_dwarf(ble_psd, ble_STA_ssid, ble_STA_pwd, args.select)
     log.info(f"Result: {result}")
 
-    # V3: connect_ble_direct_dwarf() returns a plain bool (no longer a
-    # dict with is_connected/ip_address/error). The IP is written directly
-    # to config.ini by the function itself on success, no need to read it
-    # back here.
     if result:
-        log.success("Bluetooth -> WiFi connection succeeded. IP saved in config.ini")
+        # Read back what was actually written, from the SAME file we just
+        # redirected writes to (args.config_py if given, else the default) -
+        # so what's printed here is guaranteed to match what a later,
+        # separate script run (e.g. test_multi_v3_photo.py --config-py
+        # <same path>) will read.
+        written = dwarf_python_api.get_config_data.get_config_data(config_file=args.config_py)
+        log.success(
+            f"Bluetooth -> WiFi connection succeeded. dwarf_uid={written.get('dwarf_uid')!r} "
+            f"ip={written.get('ip')!r} saved to "
+            f"{os.path.abspath(args.config_py) if args.config_py else os.path.abspath('config.py')}"
+        )
         return 0
     else:
         log.error("Bluetooth -> WiFi connection failed.")
