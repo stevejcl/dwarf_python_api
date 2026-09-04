@@ -64,10 +64,17 @@ VALID_PAIRS = {
     (protocol.CMD_ASTRO_START_GOTO_DSO, protocol.CMD_ASTRO_STOP_GOTO),
     (protocol.CMD_ASTRO_START_GOTO_SOLAR_SYSTEM, protocol.CMD_NOTIFY_STATE_ASTRO_TRACKING),
     (protocol.CMD_ASTRO_START_GOTO_SOLAR_SYSTEM, protocol.CMD_ASTRO_STOP_GOTO),
+    (protocol.CMD_ASTRO_STOP_GOTO, protocol.CMD_NOTIFY_STATE_ASTRO_TRACKING),
     (protocol.CMD_ASTRO_START_CALIBRATION,protocol.CMD_ASTRO_STOP_CALIBRATION),
     (protocol.CMD_ASTRO_START_CALIBRATION,protocol.CMD_NOTIFY_STATE_ASTRO_CALIBRATION),
     (protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING),
+    # Field-confirmed (Aug 2026): during a wide session, the firmware
+    # sends CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING (the tele-named
+    # one) instead of/alongside the wide-named one - same pattern as the
+    # photo/progress notifications above.
+    (protocol.CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
+    (protocol.CMD_ASTRO_START_TELE_MOSAIC, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_CAMERA_TELE_SET_EXP_MODE, protocol.CMD_NOTIFY_TELE_SET_PARAM),
     (protocol.CMD_CAMERA_TELE_SET_EXP, protocol.CMD_NOTIFY_TELE_SET_PARAM),
     (protocol.CMD_CAMERA_TELE_SET_GAIN, protocol.CMD_NOTIFY_TELE_SET_PARAM),
@@ -78,6 +85,9 @@ VALID_PAIRS = {
     (protocol.CMD_ASTRO_GO_LIVE, protocol.CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING),
+    # Field-confirmed (Aug 2026): same tele-name-reused-for-wide pattern
+    # as CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING above, but for STOP.
+    (protocol.CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_ASTRO_START_EQ_SOLVING, protocol.CMD_NOTIFY_EQ_SOLVING_STATE),
     (protocol.CMD_RGB_POWER_REBOOT, protocol.CMD_NOTIFY_POWER_OFF),
     (protocol.CMD_RGB_POWER_POWER_DOWN, protocol.CMD_NOTIFY_POWER_OFF),
@@ -284,6 +294,8 @@ class WebSocketClient:
         self.toDoSetWideGain = False
         self.takePhotoCount = 0
         self.takePhotoStacked = 0
+        self.takeMosaicCount = 0
+        self.takeMosaicStacked = 0
         self.takeWidePhotoCount = 0
         self.takeWidePhotoStacked = 0
         self.InitHostReceived = False
@@ -1233,6 +1245,13 @@ class WebSocketClient:
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK  ASTRO SOLAR GOTO TRACKING START", 0)
                                     await asyncio.sleep(1)
 
+                                # ASTRO_STATE_STOPPED = 3; // Stopped 
+                                # Can be sending during CMD_ASTRO_STOP_GOTO
+                                if ((self.command == protocol.CMD_ASTRO_STOP_GOTO) and ResNotifyStateAstroGoto_message.state == notify.ASTRO_STATE_STOPPED):
+                                    log.debug("ASTRO GOTO STOP TRACKING >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK  ASTRO STOP GOTO", 0)
+                                    await asyncio.sleep(1)
+
                             # CMD_ASTRO_START_CALIBRATION = 11000; // Start calibration
                             elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_CALIBRATION):
                                 ComResponse_message = base__pb2.ComResponse()
@@ -1401,6 +1420,14 @@ class WebSocketClient:
 
                                 if (ComResponse_message.code == protocol.CODE_ASTRO_NEED_GOTO):
                                     log.warning("START_CAPTURE : ASTRO_NEED_GOTO message receive")
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_OVEREXPOSURE_WARNING):
+                                    # Field-confirmed (Aug 2026): despite its error-looking response
+                                    # code, this is genuinely just a warning - the device continues
+                                    # stacking normally afterward (current_count/stacked_count keep
+                                    # incrementing). Previously fell through to the generic "!= OK"
+                                    # catch-all below and incorrectly aborted the whole session.
+                                    log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
+                                    self.takePhotoStarted = True
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
                                     log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
                                     if (self.takePhotoStarted):
@@ -1434,6 +1461,10 @@ class WebSocketClient:
 
                                 if (ComResponse_message.code == protocol.CODE_ASTRO_NEED_GOTO):
                                     log.warning("START_CAPTURE : ASTRO_NEED_GOTO message receive")
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_OVEREXPOSURE_WARNING):
+                                    # Same fix as the tele branch above - field-confirmed non-blocking.
+                                    log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
+                                    self.takeWidePhotoStarted = True
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
                                     log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
                                     if (self.takeWidePhotoStarted):
@@ -1456,6 +1487,84 @@ class WebSocketClient:
                                     await asyncio.sleep(1)
                                 else:
                                     self.takeWidePhotoStarted = True
+                            # CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING = 11005; // Start Capture
+                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING")
+                                log.debug(f"receive data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code == protocol.CODE_ASTRO_NEED_GOTO):
+                                    log.warning("START_CAPTURE : ASTRO_NEED_GOTO message receive")
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_OVEREXPOSURE_WARNING):
+                                    # Field-confirmed (Aug 2026): despite its error-looking response
+                                    # code, this is genuinely just a warning - the device continues
+                                    # stacking normally afterward (current_count/stacked_count keep
+                                    # incrementing). Previously fell through to the generic "!= OK"
+                                    # catch-all below and incorrectly aborted the whole session.
+                                    log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
+                                    self.takePhotoStarted = True
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
+                                    log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
+                                    if (self.takePhotoStarted):
+                                        log.notice(f"CAPTURE IN PROGRESS Continue ...")
+                                    else:
+                                        log.error(f"Error START_CAPTURE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error START_CAPTURE", ComResponse_message.code)
+                                        await asyncio.sleep(1)
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM):
+                                    log.warning("START_CAPTURE : CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM message receive")
+                                    if (self.takePhotoStarted):
+                                        log.notice(f"CAPTURE IN PROGRESS Continue ...")
+                                    else:
+                                        log.error(f"Error START_CAPTURE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error START_CAPTURE", ComResponse_message.code)
+                                        await asyncio.sleep(1)
+                                elif (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error START_CAPTURE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error START_CAPTURE", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    self.takePhotoStarted = True
+                            # CMD_ASTRO_START_TELE_MOSAIC = 11016; // Start Mosaic Capture
+                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_START_TELE_MOSAIC):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_ASTRO_START_TELE_MOSAIC")
+                                log.debug(f"receive data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code == protocol.CODE_ASTRO_NEED_GOTO):
+                                    log.warning("START_CAPTURE : ASTRO_NEED_GOTO message receive")
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_OVEREXPOSURE_WARNING):
+                                    # Same fix as the tele branch above - field-confirmed non-blocking.
+                                    log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
+                                    self.takePhotoStarted = True
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
+                                    log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
+                                    if (self.takePhotoStarted):
+                                        log.notice(f"CAPTURE IN PROGRESS Continue ...")
+                                    else:
+                                        log.error(f"Error START_CAPTURE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error START_CAPTURE", ComResponse_message.code)
+                                        await asyncio.sleep(1)
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM):
+                                    log.warning("START_CAPTURE : CODE_ASTRO_NEED_ADJUST_SHOOT_PARAM message receive")
+                                    if (self.takePhotoStarted):
+                                        log.notice(f"CAPTURE IN PROGRESS Continue ...")
+                                    else:
+                                        log.error(f"Error START_CAPTURE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error START_CAPTURE", ComResponse_message.code)
+                                        await asyncio.sleep(1)
+                                elif (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error START_CAPTURE {getErrorCodeValueName(ComResponse_message.code)} >> EXIT")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error START_CAPTURE", ComResponse_message.code)
+                                    await asyncio.sleep(1)
+                                else:
+                                    self.takePhotoStarted = True
                             # CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING = 11006; // Stop Capture
                             elif (WsPacket_message.cmd==protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING):
                                 ComResponse_message = base__pb2.ComResponse()
@@ -1505,29 +1614,66 @@ class WebSocketClient:
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE RUNNING", 0)
                                     await asyncio.sleep(1)
 
+                                if ( self.command==protocol.CMD_ASTRO_START_TELE_MOSAIC and ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING):
+                                    log.info("ASTRO MOSAIC CAPTURE RUNNING")
+                                    log.success("ASTRO MOSAIC CAPTURE RUNNING")
+                                    self.takePhotoStarted = True
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO MOSAIC CAPTURE RUNNING", 0)
+                                    await asyncio.sleep(1)
+
+                                # Field-confirmed (Aug 2026): during a WIDE astro capture session,
+                                # the firmware sends this TELE-named state notification instead of/
+                                # alongside CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING - same
+                                # branches as that handler below, mirrored here so a wide session
+                                # actually gets tracked (self.takeWidePhotoStarted/AstroWideCapture
+                                # were never set otherwise, since the wide-named notification does
+                                # not reliably fire).
+                                if ( self.command==protocol.CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING and ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING):
+                                    log.info("ASTRO WIDE CAPTURE RUNNING")
+                                    log.success("ASTRO WIDE CAPTURE RUNNING")
+                                    self.takeWidePhotoStarted = True
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE RUNNING", 0)
+                                    await asyncio.sleep(1)
+
                                 if ( ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING and self.RestartAstroCapture):
                                     self.AstroCapture = True
 
+                                if ( ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING and self.RestartAstroWideCapture):
+                                    self.AstroWideCapture = True
+
                                 # OPERATION_STATE_STOPPED = 3; // Stopped
-                                if ( self.AstroCapture and self.takePhotoStarted and ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
-                                    log.debug("ASTRO CAPTURE OK STOPPING >> EXIT")
-                                    log.info("Success ASTRO CAPTURE ENDING")
-                                    log.success("Success ASTRO CAPTURE ENDING")
-                                    self.AstroCapture = False
-                                    self.RestartAstroCapture = False
-                                    self.takePhotoStarted = False
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE ENDING", 0)
-                                    await asyncio.sleep(1)
-                                # OPERATION_STATE_STOPPED = 3; // Stopped
-                                if ( self.RestartAstroCapture and ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
-                                    log.debug("ASTRO CAPTURE OK STOPPING >> EXIT")
-                                    log.info("Success ASTRO CAPTURE ENDING")
-                                    log.success("Success ASTRO CAPTURE ENDING")
-                                    self.AstroCapture = False
-                                    self.RestartAstroCapture = False
-                                    self.takePhotoStarted = False
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE ENDING", 0)
-                                    await asyncio.sleep(1)
+                                # Field-confirmed (Aug 2026): only one of tele/wide capture is
+                                # ever genuinely active at a time, so self.takePhotoStarted and
+                                # self.takeWidePhotoStarted are mutually exclusive - use them
+                                # directly as the single source of truth for which session this
+                                # STOPPED notification belongs to (self.command is NOT reliable
+                                # here, since the firmware reuses this tele-named notification for
+                                # wide sessions too - see comment above). A spurious/early STOPPED
+                                # notification where neither flag is set yet (observed field case:
+                                # right after CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING succeeds,
+                                # before any RUNNING confirmation) is now explicitly ignored instead
+                                # of being silently evaluated against every condition below.
+                                if (ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
+                                    if self.takeWidePhotoStarted:
+                                        log.debug("ASTRO WIDE CAPTURE OK STOPPING >> EXIT")
+                                        log.info("Success ASTRO WIDE CAPTURE ENDING")
+                                        log.success("Success ASTRO WIDE CAPTURE ENDING")
+                                        self.AstroWideCapture = False
+                                        self.RestartAstroWideCapture = False
+                                        self.takeWidePhotoStarted = False
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE ENDING", 0)
+                                        await asyncio.sleep(1)
+                                    elif self.takePhotoStarted:
+                                        log.debug("ASTRO CAPTURE OK STOPPING >> EXIT")
+                                        log.info("Success ASTRO CAPTURE ENDING")
+                                        log.success("Success ASTRO CAPTURE ENDING")
+                                        self.AstroCapture = False
+                                        self.RestartAstroCapture = False
+                                        self.takePhotoStarted = False
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE ENDING", 0)
+                                        await asyncio.sleep(1)
+                                    else:
+                                        log.debug("STOPPED notification received but neither tele nor wide capture is currently marked as started - ignoring (likely stale/residual).")
                             # CMD_NOTIFY_STATE_CAPTURE_RAW_WIDE_LIVE_STACKING = 15236 // Test Capture Ending
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_STATE_WIDE_CAPTURE_RAW_LIVE_STACKING):
                                 ResNotifyOperationState_message = notify.OperationStateNotify()
@@ -1555,43 +1701,63 @@ class WebSocketClient:
                                     self.AstroWideCapture = True
 
                                 # OPERATION_STATE_STOPPED = 3; // Stopped
-                                if ( self.AstroWideCapture and ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
-                                    log.debug("ASTRO CAPTURE OK STOPPING >> EXIT")
-                                    log.info("Success ASTRO WIDE CAPTURE ENDING")
-                                    log.success("Success ASTRO WIDE CAPTURE ENDING")
-                                    self.AstroWideCapture = False
-                                    self.RestartAstroWideCapture = False
-                                    self.takeWidePhotoStarted = False
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE ENDING", 0)
-                                    await asyncio.sleep(1)
-                                # OPERATION_STATE_STOPPED = 3; // Stopped
-                                if ( self.RestartAstroWideCapture and ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
-                                    log.debug("ASTRO CAPTURE OK STOPPING >> EXIT")
-                                    log.info("Success ASTRO WIDE CAPTURE ENDING")
-                                    log.success("Success ASTRO WIDE CAPTURE ENDING")
-                                    self.AstroWideCapture = False
-                                    self.RestartAstroWideCapture = False
-                                    self.takeWidePhotoStarted = False
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE ENDING", 0)
-                                    await asyncio.sleep(1)
+                                # Same simplification as the tele-named handler above: use
+                                # self.takeWidePhotoStarted as the authoritative signal, guard
+                                # against a spurious/early STOPPED with an explicit else.
+                                if (ResNotifyOperationState_message.state == notify.OPERATION_STATE_STOPPED):
+                                    if self.takeWidePhotoStarted:
+                                        log.debug("ASTRO WIDE CAPTURE OK STOPPING >> EXIT")
+                                        log.info("Success ASTRO WIDE CAPTURE ENDING")
+                                        log.success("Success ASTRO WIDE CAPTURE ENDING")
+                                        self.AstroWideCapture = False
+                                        self.RestartAstroWideCapture = False
+                                        self.takeWidePhotoStarted = False
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE ENDING", 0)
+                                        await asyncio.sleep(1)
+                                    else:
+                                        log.debug("STOPPED notification received but wide capture is not currently marked as started - ignoring (likely stale/residual).")
                             # CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING = 15209 // Test Capture Ending
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING):
                                 ResNotifyProgressCaptureRawLiveStacking_message = notify.ProgressCaptureRawLiveStacking()
                                 ResNotifyProgressCaptureRawLiveStacking_message.ParseFromString(WsPacket_message.data)
-                                self.takePhotoStarted = True
-                                if self.RestartAstroCapture:
-                                    self.AstroCapture = True
+                                # Field-confirmed (Aug 2026): during a WIDE astro capture session,
+                                # the firmware sends progress under this TELE-named notification
+                                # instead of CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING
+                                # (which never actually fires) - same pattern already fixed for
+                                # simple photos (CMD_NOTIFY_PHOTO_STATE vs WIDE_FUNCTION_STATE).
+                                # Without this check, wide session progress silently accumulated
+                                # into the TELE counters (self.takePhotoCount/Stacked) while the
+                                # WIDE ones (read by perform_read_astro_stacking_status_v3() via
+                                # get_client_status()) stayed at 0 forever.
+                                is_wide_session = (self.command == protocol.CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING)
+                                if is_wide_session:
+                                    self.takeWidePhotoStarted = True
+                                    if self.RestartAstroWideCapture:
+                                        self.AstroWideCapture = True
+                                else:
+                                    self.takePhotoStarted = True
+                                    if self.RestartAstroCapture:
+                                        self.AstroCapture = True
                                 log.debug("Decoding CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING")
                                 log.debug(f"receive notification target_name >> {ResNotifyProgressCaptureRawLiveStacking_message.target_name}")
                                 log.debug(f"receive notification total_count >> {ResNotifyProgressCaptureRawLiveStacking_message.total_count}")
                                 update_count_type = ResNotifyProgressCaptureRawLiveStacking_message.update_type
-                                if (update_count_type == 0 or update_count_type == 2):
-                                   self.takePhotoCount = ResNotifyProgressCaptureRawLiveStacking_message.current_count
-                                if (update_count_type == 1 or update_count_type == 2):
-                                   self.takePhotoStacked = ResNotifyProgressCaptureRawLiveStacking_message.stacked_count
-                                log.info(f"receive notification current_count >> {self.takePhotoCount}")
-                                log.info(f"receive notification stacked_count >> {self.takePhotoStacked}")
-                                message = f"current_count >> {self.takePhotoCount} - stacked_count >> {self.takePhotoStacked}"
+                                if is_wide_session:
+                                    if (update_count_type == 0 or update_count_type == 2):
+                                       self.takeWidePhotoCount = ResNotifyProgressCaptureRawLiveStacking_message.current_count
+                                    if (update_count_type == 1 or update_count_type == 2):
+                                       self.takeWidePhotoStacked = ResNotifyProgressCaptureRawLiveStacking_message.stacked_count
+                                    log.info(f"receive notification current_count >> {self.takeWidePhotoCount}")
+                                    log.info(f"receive notification stacked_count >> {self.takeWidePhotoStacked}")
+                                    message = f"current_count >> {self.takeWidePhotoCount} - stacked_count >> {self.takeWidePhotoStacked}"
+                                else:
+                                    if (update_count_type == 0 or update_count_type == 2):
+                                       self.takePhotoCount = ResNotifyProgressCaptureRawLiveStacking_message.current_count
+                                    if (update_count_type == 1 or update_count_type == 2):
+                                       self.takePhotoStacked = ResNotifyProgressCaptureRawLiveStacking_message.stacked_count
+                                    log.info(f"receive notification current_count >> {self.takePhotoCount}")
+                                    log.info(f"receive notification stacked_count >> {self.takePhotoStacked}")
+                                    message = f"current_count >> {self.takePhotoCount} - stacked_count >> {self.takePhotoStacked}"
                                 # send a notification
                                 await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
                             # CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING = 15237 // Test Capture Ending
@@ -1612,6 +1778,25 @@ class WebSocketClient:
                                 log.info(f"receive notification current_count >> {self.takeWidePhotoCount}")
                                 log.info(f"receive notification stacked_count >> {self.takeWidePhotoStacked}")
                                 message = f"current_count >> {self.takeWidePhotoCount} - stacked_count >> {self.takeWidePhotoStacked}"
+                                # send a notification
+                                await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_PROGRESS_CAPTURE_MOSAIC):
+                                ResNotifyProgressCaptureMosaic_message = notify.ProgressCaptureMosaic()
+                                ResNotifyProgressCaptureMosaic_message.ParseFromString(WsPacket_message.data)
+                                self.takePhotoStarted = True
+                                if self.RestartAstroCapture:
+                                    self.AstroCapture = True
+                                log.debug("Decoding CMD_NOTIFY_PROGRESS_CAPTURE_MOSAIC")
+                                log.debug(f"receive notification target_name >> {ResNotifyProgressCaptureMosaic_message.target_name}")
+                                log.debug(f"receive notification total_count >> {ResNotifyProgressCaptureMosaic_message.total_count}")
+                                update_count_type = ResNotifyProgressCaptureMosaic_message.update_type
+                                if (update_count_type == 0 or update_count_type == 2):
+                                   self.takeMosaicCount = ResNotifyProgressCaptureMosaic_message.current_count
+                                if (update_count_type == 1 or update_count_type == 2):
+                                   self.takeMosaicStacked = ResNotifyProgressCaptureMosaic_message.stacked_count
+                                log.info(f"receive notification current_count >> {self.takeMosaicCount}")
+                                log.info(f"receive notification stacked_count >> {self.takeMosaicStacked}")
+                                message = f"current_count >> {self.takeMosaicCount} - stacked_count >> {self.takePhotoStacked}"
                                 # send a notification
                                 await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
                             # CMD_CAMERA_TELE_SET_ALL_PARAMS
@@ -3432,6 +3617,8 @@ def get_client_status():
         "startEQSolving": client_instance.startEQSolving,
         "takePhotoCount": client_instance.takePhotoCount,
         "takePhotoStacked": client_instance.takePhotoStacked,
+        "takeMosaicCount": client_instance.takeMosaicCount,
+        "takeMosaicStacked": client_instance.takeMosaicStacked,
         "takeWidePhotoCount": client_instance.takeWidePhotoCount,
         "takeWidePhotoStacked": client_instance.takeWidePhotoStacked,
         "ErrorConnection": client_instance.ErrorConnection,

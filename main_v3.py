@@ -60,8 +60,6 @@ from dwarf_python_api.lib.dwarf_utils import (
     perform_set_timelapse_interval_by_name_v3,
     perform_set_timelapse_duration_by_name_v3,
     perform_read_camera_params_http_v3,
-    perform_set_astro_stack_count_v3,
-    perform_set_astro_mosaic_count_v3,
     perform_set_astro_auto_calibration_v3,
     perform_takePhoto,
     perform_start_burst_v3,
@@ -80,6 +78,11 @@ from dwarf_python_api.lib.dwarf_utils import (
     perform_set_astro_exposure_by_name_v3,
     perform_set_astro_gain_v3,
     perform_read_astro_stacking_status_v3,
+    perform_set_astro_stack_count_v3,
+    perform_set_astro_mosaic_count_v3,
+    perform_set_astro_stack_binning_v3,
+    perform_set_astro_stack_format_v3,
+    perform_start_mosaic_v3,
     perform_takeAstroPhoto,
     perform_stopAstroPhoto,
     perform_calibration,
@@ -109,8 +112,6 @@ from dwarf_python_api.lib.dwarf_utils import (
     read_camera_count,
     read_camera_wide_exposure,
     read_camera_wide_gain,
-    perform_get_all_feature_camera_setting,
-    perform_update_camera_setting,
 )
 from dwarf_python_api.get_live_data_dwarf import get_live_data
 
@@ -576,10 +577,8 @@ def option_C1():
 
 
 def option_C2():
-    print("=== Entering astro mode (mode=8, Sun) ===")
-    print("NOTE: this is hardcoded to mode=8 (confirmed = Sun, not generic")
-    print("DSO). For DSO/Moon/Planet/etc., use the Astro submenu instead")
-    print("(A13 for DSO, A14 for Sun/Moon/Planet).")
+    print("=== Entering astro mode (mode=2, DSO) ===")
+    print("use the Astro submenu for others choice")
     perform_enter_astro_mode()
 
 
@@ -719,7 +718,6 @@ def option_C16():
     print("=== Autofocus (normal/photo mode) ===")
     perform_auto_focus_v3()
 
-
 def option_C17():
     print("=== Astro: stackCount / mosaicCount ===")
     camera_choice = input("Camera: tele/wide (default tele): ").strip() or "tele"
@@ -854,6 +852,9 @@ def option_C20():
     if dwarf_id_str == "2":
         prompt = "IR value: 0=IRCut, 1=IRPass"
         valid_ir = ("0", "1")
+    elif dwarf_id_str == "5":
+        prompt = "IR value: 0=DARK, 1=Astro, 2=Duo-Band"
+        valid_ir = ("0", "1", "2")
     else:
         prompt = "IR value: 0=VIS, 1=Astro, 2=Duo-Band"
         valid_ir = ("0", "1", "2")
@@ -864,8 +865,25 @@ def option_C20():
         print("Input Data Error:", camera_IR, "- using default 0")
         camera_IR = "0"
 
-    camera_binning = None
-    camera_format = None
+    camera_binning_init = read_camera_binning()
+    prompt = "Binning value: 0=4k, 1=2k"
+    valid_binning = ("0", "1")
+    camera_binning = input(f"{prompt} [{camera_binning_init or 0}]: ").strip()
+    if not camera_binning:
+        camera_binning = camera_binning_init or "0"
+    elif camera_binning not in valid_binning:
+        print("Input Data Error:", camera_binning, "- using default 0")
+        camera_binning = "0"
+
+    camera_format_init = read_camera_format()
+    prompt = "Format value: 2=FITS, 3=TIFF"
+    valid_format = ("2", "3")
+    camera_format = input(f"{prompt} [{camera_format_init or 2}]: ").strip()
+    if not camera_format:
+        camera_format = camera_format_init or "2"
+    elif camera_format not in valid_format:
+        print("Input Data Error:", camera_format, "- using default 2")
+        camera_format = "2"
 
     camera_count_init = read_camera_count()
     camera_count = input(f"Number of images (1-999) [{camera_count_init or 999}]: ").strip()
@@ -964,7 +982,7 @@ def option_C21():
                 value = stack_settings["displaySource"]
                 print("the display source value is:", display_map.get(value, value))
             if "stackBinning" in stack_settings:
-                binning_map = {0: "4k"}  # 1=2k assumed, not yet confirmed
+                binning_map = {0: "4k", 1: "2k"} 
                 value = stack_settings["stackBinning"]
                 print("the Binning value is:", binning_map.get(value, value))
         count_tele_settings = http_result.get("tech_settings", {}).get(0)
@@ -1002,12 +1020,11 @@ def option_C21():
 
 def option_C22():
     """Import Saved Config Camera Data into Dwarf - V3: exposure/gain/IR
-    (tele and wide) go through the confirmed V3 CAMERA_PARAMS functions.
-    Binning and image format are omitted - binning is no longer
-    accessible in V3 and image format isn't a useful setting here.
-    Count still goes through the old perform_update_camera_setting()
-    path (CAMERA_TELE module) - NOT confirmed to still be accepted on V3
-    hardware, no V3-native replacement identified yet."""
+    (tele and wide), binning, format, and count all go through their
+    confirmed V3 functions.
+    NOTE: binning/format/count are astro-specific settings (require the
+    device to be in Astro/DSO mode - see A13/perform_enter_astro_mode() -
+    or they'll fail with WS_PARSE_PROTOBUF_ERROR)."""
     print("=== Import saved config camera data into the Dwarf ===")
     data_config = dwarf_python_api.get_config_data.get_config_data()
     dwarf_id = data_config['dwarf_id']
@@ -1026,9 +1043,17 @@ def option_C22():
         print("the IR value is:", camera_IR)
         perform_set_ir_filter_v3(int(camera_IR))
 
+    if (camera_binning := read_camera_binning()):
+        print("the Binning value is:", camera_binning)
+        perform_set_astro_stack_binning_v3(int(camera_binning))
+
+    if (camera_format := read_camera_format()):
+        print("the image format value is:", camera_format)
+        perform_set_astro_stack_format_v3(int(camera_format))
+
     if (camera_count := read_camera_count()):
         print("the number of images for the session is:", camera_count)
-        perform_update_camera_setting("count", camera_count)
+        perform_set_astro_stack_count_v3(int(camera_count), camera="tele")
 
     if (camera_wide_exposure := read_camera_wide_exposure()):
         print("the wide exposure is:", camera_wide_exposure)
@@ -1082,12 +1107,15 @@ def display_menu_astro():
     print("A12. Finish/Finalize session (Go Live) - do this before starting a new one")
     print("A13. Enter astro shooting mode (DSO=2, Sun=8, Moon=9, Planet=10...)")
     print("A14. Enter Solar mode (Sun/Moon/Planet shortcut, default Sun)")
+    print("A15. Set binning/file format")
+    print("A16. Set Mosaic Framing")
+    print("A17. Sart Mosaic Session")
     print("0.   Return")
 
 
 def get_user_choice_astro():
     try:
-        return input("Enter your choice (A0 to A14) or 0 to return: ")
+        return input("Enter your choice (A0 to A17) or 0 to return: ")
     except KeyboardInterrupt:
         print("Operation interrupted by the user (CTRL+C).")
         return '0'
@@ -1337,6 +1365,52 @@ def option_A14():
     tech = input("Tech (default 2, present in all astro modes): ").strip() or "2"
     perform_enter_shooting_mode(int(mode), int(tech))
 
+def option_A15():
+    print("=== binning / format ===")
+    binning = input("binning (0:4k, 1:2k, blank = skip): ").strip()
+    file_format = input("file format (2:FITS, 3:TIFF, blank = skip): ").strip()
+    if binning in ("0", "1"):
+        perform_set_astro_stack_binning_v3(int(binning))
+    if file_format in ("2", "3"):
+        perform_set_astro_stack_format_v3(int(file_format))
+
+framingX = 100
+framingY = 100
+def get_framing(prompt):
+    value = input(prompt).strip()
+
+    try:
+        value = int(value)
+        if 100 <= value <= 180 and value % 10 == 0:
+            return value
+    except ValueError:
+        pass
+
+    return 100
+
+
+def option_A16():
+    print("=== Mosaic Framing X/Y ===")
+    global framingX, framingY
+
+    framingX = get_framing("Mosaic Framing X : (100 to 180, blank = 100 1X): ")
+    framingY = get_framing("Mosaic Framing Y : (100 to 180, blank = 100 1X): ")
+    
+
+def option_A17():
+    if framingX == 100 and framingY == 100:
+        print ("Warning; the framing is set at default, you can't do Mosaic session")
+        return
+        
+    print("=== Start Mosaic Session ===")
+    print("=== First You need to choose the Mosaic Framing and the Mosaic Stack Count ===")
+    print("=== Then You need to choose a target  ===")
+    print("=== Then Starting the GOTO  ===")
+    print(f"=== The current Framing is {framingX} x {framingY} ===")
+    confirm = input("Ready to Start the Mosaic ? (y/N): ")
+    if confirm.lower() == 'y':
+        perform_start_mosaic_v3(framingX, framingY)
+
 
 def choice_astro():
     while True:
@@ -1347,7 +1421,8 @@ def choice_astro():
             'A1': option_A1, 'A2': option_A2, 'A3': option_A3, 'A4': option_A4,
             'A5': option_A5, 'A6': option_A6, 'A7': option_A7, 'A8': option_A8,
             'A9': option_A9, 'A10': option_A10, 'A11': option_A11, 'A12': option_A12,
-            'A13': option_A13, 'A14': option_A14,
+            'A13': option_A13, 'A14': option_A14, 'A15': option_A15, 'A16': option_A16,
+            'A17': option_A17
         }
         if choice == '0':
             print("Return to the main menu")

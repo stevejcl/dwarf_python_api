@@ -109,6 +109,15 @@ enum DwarfCMD {
     CMD_ASTRO_GET_WIDE_DARK_FRAME_LIST = 11027; // Query the list of wide-angle dark scenes taken
     CMD_ASTRO_DEL_WIDE_DARK_FRAME_LIST = 11028; // Delete the specified wide-angle dark field list
 
+    // Missing from this file until now (Aug 2026) - confirmed present in
+    // the official app via the dwarfAlp registry, with the request
+    // message already defined in astro.proto but no command constant to
+    // reference it by. Never independently confirmed by network capture.
+    CMD_ASTRO_START_AI_ENHANCE = 11029;
+    CMD_ASTRO_STOP_AI_ENHANCE = 11030;
+    CMD_ASTRO_START_TELE_MOSAIC = 11031;
+    CMD_ASTRO_CHECK_IF_RESTACKABLE = 11032;
+
     CMD_ASTRO_START_MAKE_FITS_THUMB = 11033;
     CMD_V3_ASTRO_SAVE_STACKED_IMAGE = 11033; // Deprecated compatibility alias.
     CMD_ASTRO_STOP_MAKE_FITS_THUMB = 11034;
@@ -274,18 +283,26 @@ enum DwarfCMD {
     CMD_NOTIFY_WIDE_MULTI_TRACK_RESULT = 15251; // Wide-angle multi-target box result notification
     CMD_NOTIFY_WIDE_TRACK_RESULT = 15252; // Wide-angle single target box result notification
 
+    CMD_NOTIFY_WAIT_SHOOTING_PROGRESS = 15255;
+    CMD_V3_NOTIFY_EXPOSURE_PROGRESS = 15255; // Capture-derived compatibility alias.
     CMD_NOTIFY_CALIBRATION_RESULT = 15256; // Successful astronomical calibration result
     CMD_NOTIFY_FOCUS_POSITION = 15257;
     CMD_NOTIFY_FOCUS = 15257; // Deprecated compatibility alias.
-
-    CMD_NOTIFY_WAIT_SHOOTING_PROGRESS = 15255;
-    CMD_V3_NOTIFY_EXPOSURE_PROGRESS = 15255; // Capture-derived compatibility alias.
+    CMD_NOTIFY_UFO_AUTO_HAND_MODE = 15258; // notification	NotifyProto.SentryAutoHand
+    CMD_NOTIFY_CURRENT_PANORAMA_UPLOAD_STATE = 15259; // notification
+    CMD_NOTIFY_LOW_TEMP_PROTECTION_MODE	= 15260; // notification
     CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE = 15261;
     CMD_V3_NOTIFY_DEVICE_STATE = 15261; // Deprecated compatibility alias.
+    CMD_NOTIFY_BODY_STATUS = 15262; // notification	NotifyProto.BodyStatus
+    CMD_NOTIFY_PROGRESS_CAPTURE_MOSAIC = 15263; //notification	NotifyProto.ProgressCaptureMosaic
     CMD_NOTIFY_GENERAL_INT_PARAM = 15264;
     CMD_V3_NOTIFY_CAMERA_PARAM_STATE = 15264; // Deprecated compatibility alias.
+    CMD_NOTIFY_GENERAL_FLOAT_PARAM = 15265; // notification
+    CMD_NOTIFY_GENERAL_BOOL_PARAM = 15266;
     CMD_NOTIFY_SWITCH_SHOOTING_MODE = 15267;
     CMD_V3_NOTIFY_MODE_CHANGE = 15267; // Deprecated compatibility alias.
+    CMD_NOTIFY_TELE_SWITCH_CROP_RATIO = 15268; // notification
+    CMD_NOTIFY_TELE_SHOOTING_TECH_STATE = 15269; //	notification
     CMD_NOTIFY_WB = 15270;
     CMD_V3_NOTIFY_STACKING_DATA = 15270; // Deprecated compatibility alias.
     CMD_NOTIFY_PHOTO_STATE = 15273;
