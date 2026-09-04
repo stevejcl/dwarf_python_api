@@ -70,6 +70,7 @@ class DwarfConfig:
     gain: str = "60"
     ircut: str = "0"
     binning: str = "0"
+    format: str = ""
     count: str = "20"
     wide_exposure: str = ""
     wide_gain: str = ""
@@ -149,6 +150,7 @@ class DwarfConfig:
             gain=ini_get("gain", "60"),
             ircut=ini_get("ircut", "0"),
             binning=ini_get("binning", "0"),
+            format=ini_get("format", ""),
             count=ini_get("count", "20"),
             wide_exposure=ini_get("wide_exposure"),
             wide_gain=ini_get("wide_gain"),

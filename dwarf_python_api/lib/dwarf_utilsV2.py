@@ -26,7 +26,7 @@ history of what was checked and when.
 
 import dwarf_python_api.lib.my_logger as log
 from dwarf_python_api.lib.websockets_utils import connect_socket
-from dwarf_python_api.lib.dwarf_utils import format_double
+from dwarf_python_api.lib.dwarf_utils import format_double, get_result_value
 
 import dwarf_python_api.proto.camera_pb2 as camera
 
@@ -34,39 +34,6 @@ from dwarf_python_api.lib.data_utils import get_exposure_index_by_name
 from dwarf_python_api.lib.data_utils import get_gain_index_by_name
 from dwarf_python_api.lib.data_wide_utils import get_wide_exposure_index_by_name
 from dwarf_python_api.lib.data_wide_utils import get_wide_gain_index_by_name
-
-
-def get_result_value(type, result_cnx, is_double=False):
-    """Restored from the pre-V3 (main branch) dwarf_utils.py (Aug 2026) -
-    only used by the legacy functions in this file, was missing entirely
-    when they were first moved here, breaking every import of this
-    module (and, transitively, dwarf_python_api.lib's own __init__.py,
-    which re-exports perform_update_camera_setting)."""
-
-    if result_cnx is False:
-        log.error("Dwarf API: Dwarf Device not connected")
-
-    elif isinstance(result_cnx, int):
-        if result_cnx >= 0:
-            log.success(f"{type} value: {result_cnx}")
-            return result_cnx
-        else:
-            log.error(f"Error code: {result_cnx}")
-
-    elif isinstance(result_cnx, dict) and 'code' in result_cnx:
-        if result_cnx["code"] == 0 and 'value' in result_cnx:
-            log.success(f"{type} value: {result_cnx['value'] if not is_double else format_double(result_cnx['value'])}")
-            return result_cnx["value"] if not is_double else format_double(result_cnx["value"])
-        else:
-            if result_cnx["code"] == 0:
-                log.success(f"{type} no value")
-                return result_cnx["code"]
-            else:
-                log.error(f"Error code: {result_cnx['code']}")
-    else:
-        log.error("Unknown Error ")
-
-    return False
 
 
 def perform_getstatus():
