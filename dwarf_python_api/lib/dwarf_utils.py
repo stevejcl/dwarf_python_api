@@ -5,6 +5,15 @@ from .websockets_utils import disconnect_socket
 from .websockets_testV2 import fct_show_test
 from .websockets_testV2 import fct_decode_wireshark
 
+# Multi-Dwarf foundation (additive, see MIGRATION_MULTI_V3.md).
+# `session` is optional everywhere it's threaded through below: omit it
+# (or pass None) to keep today's implicit mono-dwarf behavior unchanged.
+from .dwarf_session import get_default_session
+from .dwarf_session_socket import connect_socket as connect_socket_session
+from .dwarf_session_socket import disconnect_socket as disconnect_socket_session
+from .dwarf_session_socket import get_camera_param_v3 as get_camera_param_v3_session
+from .dwarf_session_socket import get_client_status as get_client_status_session
+
 from .data_utils import get_exposure_index_by_name
 from .data_utils import get_gain_index_by_name
 from .data_utils import get_exposure_name_by_index
@@ -38,10 +47,16 @@ import re
 import requests
 import dwarf_python_api.get_config_data
 
-def perform_disconnect():
-    disconnect_socket()
+def perform_disconnect(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        disconnect_socket_session(active_session)
+    else:
+        disconnect_socket()
 
-def perform_reboot():
+def perform_reboot(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # Power Down
     module_id = 5   # MODULE_RGB_POWER
@@ -50,7 +65,12 @@ def perform_reboot():
     ReqPowerReboot_message = rgb_power.ReqReboot ()
 
     command = 13505; # CMD_RGB_POWER_REBOOT
-    response = connect_socket(ReqPowerReboot_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqPowerReboot_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqPowerReboot_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -62,7 +82,8 @@ def perform_reboot():
     else:
         log.error("Dwarf API: Dwarf Device not connected")
 
-def perform_powerdown():
+def perform_powerdown(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # Power Down
     module_id = 5   # MODULE_RGB_POWER
@@ -71,7 +92,12 @@ def perform_powerdown():
     ReqPowerDown_message = rgb_power.ReqPowerDown ()
 
     command = 13502; # CMD_RGB_POWER_POWER_DOWN
-    response = connect_socket(ReqPowerDown_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqPowerDown_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqPowerDown_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -83,7 +109,8 @@ def perform_powerdown():
     else:
         log.error("Dwarf API: Dwarf Device not connected")
 
-def perform_powerOpenRGB():
+def perform_powerOpenRGB(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
     # Turn On RGB Lights
     type = "Turn On RGB Lights"
 
@@ -93,11 +120,17 @@ def perform_powerOpenRGB():
     ReqOpenRgb_message = rgb_power.ReqOpenRgb ()
 
     command = 13500; # CMD_RGB_POWER_OPEN_RGB
-    response = connect_socket(ReqOpenRgb_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqOpenRgb_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqOpenRgb_message, command, type_id, module_id)
 
     return get_result_value(type, response)
 
-def perform_powerCloseRGB():
+def perform_powerCloseRGB(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
     # Turn Off RGB Lights
     type = "Turn Off RGB Lights"
 
@@ -107,11 +140,17 @@ def perform_powerCloseRGB():
     ReqCloseRgb_message = rgb_power.ReqCloseRgb ()
 
     command = 13501; # CMD_RGB_POWER_CLOSE_RGB
-    response = connect_socket(ReqCloseRgb_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqCloseRgb_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqCloseRgb_message, command, type_id, module_id)
 
     return get_result_value(type, response)
 
-def perform_powerIndOn():
+def perform_powerIndOn(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
     # Turn On RGB Lights
     type = "Turn On Power Lights"
 
@@ -121,11 +160,17 @@ def perform_powerIndOn():
     ReqOpenPowerInd_message = rgb_power.ReqOpenPowerInd ()
 
     command = 13503; # CMD_RGB_POWER_POWERIND_ON
-    response = connect_socket(ReqOpenPowerInd_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqOpenPowerInd_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqOpenPowerInd_message, command, type_id, module_id)
 
     return get_result_value(type, response)
 
-def perform_powerIndOff():
+def perform_powerIndOff(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
     # Turn Off RGB Lights
     type = "Turn Off Power Lights"
 
@@ -135,11 +180,22 @@ def perform_powerIndOff():
     ReqClosePowerInd_message = rgb_power.ReqClosePowerInd ()
 
     command = 13504; # CMD_RGB_POWER_POWERIND_OFF
-    response = connect_socket(ReqClosePowerInd_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqClosePowerInd_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqClosePowerInd_message, command, type_id, module_id)
 
     return get_result_value(type, response)
 
-def read_longitude():
+def read_longitude(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.longitude
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.longitude
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -153,7 +209,13 @@ def read_longitude():
         log.error("Data not found in config file.")
         return None
 
-def read_latitude():
+def read_latitude(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.latitude
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.latitude
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -167,7 +229,13 @@ def read_latitude():
         log.error("Data not found in config file.")
         return None
 
-def read_timezone():
+def read_timezone(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.timezone
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.timezone
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -181,7 +249,13 @@ def read_timezone():
         log.error("Data not found in config file.")
         return None
 
-def read_camera_exposure():
+def read_camera_exposure(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.exposure
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.exposure
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -195,7 +269,13 @@ def read_camera_exposure():
         log.error("Data not found in config file.")
         return False
 
-def read_camera_gain():
+def read_camera_gain(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.gain
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.gain
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -209,7 +289,13 @@ def read_camera_gain():
         log.error("Data not found in config file.")
         return False
 
-def read_camera_IR():
+def read_camera_IR(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.ircut
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.ircut
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -223,7 +309,13 @@ def read_camera_IR():
         log.error("Data not found in config file.")
         return False
 
-def read_camera_binning():
+def read_camera_binning(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.binning
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.binning
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -237,7 +329,13 @@ def read_camera_binning():
         log.error("Data not found in config file.")
         return False
 
-def read_camera_format():
+def read_camera_format(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.format
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.format
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -251,7 +349,13 @@ def read_camera_format():
         log.error("Data not found in config file.")
         return False
 
-def read_camera_count():
+def read_camera_count(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.count
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.count
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -265,7 +369,13 @@ def read_camera_count():
         log.error("Data not found in config file.")
         return False
 
-def read_camera_wide_exposure():
+def read_camera_wide_exposure(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.wide_exposure
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.wide_exposure
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -279,7 +389,13 @@ def read_camera_wide_exposure():
         log.error("Data not found in config file.")
         return False
 
-def read_camera_wide_gain():
+def read_camera_wide_gain(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.wide_gain
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.wide_gain
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -293,7 +409,13 @@ def read_camera_wide_gain():
         log.error("Data not found in config file.")
         return False
 
-def read_bluetooth_ble_wifi_type():
+def read_bluetooth_ble_wifi_type(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.ble_wifi_type
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.ble_wifi_type
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -307,7 +429,13 @@ def read_bluetooth_ble_wifi_type():
         log.error("Data not found in config file.")
         return False
  
-def read_bluetooth_autoAP():
+def read_bluetooth_autoAP(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.ble_auto_ap
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.ble_auto_ap
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -321,7 +449,13 @@ def read_bluetooth_autoAP():
         log.error("Data not found in config file.")
         return False
 
-def read_bluetooth_country_list():
+def read_bluetooth_country_list(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.ble_country_list
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.ble_country_list
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -335,7 +469,13 @@ def read_bluetooth_country_list():
         log.error("Data not found in config file.")
         return False
  
-def read_bluetooth_country():
+def read_bluetooth_country(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.ble_country
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.ble_country
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -349,7 +489,13 @@ def read_bluetooth_country():
         log.error("Data not found in config file.")
         return False
  
-def read_bluetooth_ble_psd():
+def read_bluetooth_ble_psd(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.ble_psd
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.ble_psd
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -363,7 +509,13 @@ def read_bluetooth_ble_psd():
         log.error("Data not found in config file.")
         return False
  
-def read_bluetooth_autoSTA():
+def read_bluetooth_autoSTA(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.ble_auto_sta
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.ble_auto_sta
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -377,7 +529,13 @@ def read_bluetooth_autoSTA():
         log.error("Data not found in config file.")
         return False
 
-def read_bluetooth_ble_STA_ssid():
+def read_bluetooth_ble_STA_ssid(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.ble_sta_ssid
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.ble_sta_ssid
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -391,7 +549,13 @@ def read_bluetooth_ble_STA_ssid():
         log.error("Data not found in config file.")
         return False
  
-def read_bluetooth_ble_STA_pwd():
+def read_bluetooth_ble_STA_pwd(session=None):
+    """`session`: optional DwarfSession - if given, reads session.config.ble_sta_pwd
+    directly instead of parsing config.ini (see perform_goto())."""
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        return active_session.config.ble_sta_pwd
+
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -485,7 +649,8 @@ def parse_dec_to_float(dec_string):
 # perform_getstatus() moved to dwarf_utilsV2.py (Aug 2026) - confirmed
 # non-responsive on V3 hardware, never wired into any menu.
 
-def unset_HostMaster():
+def unset_HostMaster(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # SET Host
     module_id = 4  # MODULE_SYSTEM
@@ -495,7 +660,12 @@ def unset_HostMaster():
     ReqsetMasterLock_message.lock = False
     
     command = 13004 #CMD_SYSTEM_SET_MASTERLOCK
-    response = connect_socket(ReqsetMasterLock_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqsetMasterLock_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqsetMasterLock_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -510,7 +680,8 @@ def unset_HostMaster():
 
     return False
 
-def set_HostMaster():
+def set_HostMaster(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # SET Host
     module_id = 4  # MODULE_SYSTEM
@@ -520,7 +691,12 @@ def set_HostMaster():
     ReqsetMasterLock_message.lock = True
     
     command = 13004 #CMD_SYSTEM_SET_MASTERLOCK
-    response = connect_socket(ReqsetMasterLock_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqsetMasterLock_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqsetMasterLock_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -577,9 +753,12 @@ SHOOTING_MODE_PHOTO = 1
 SHOOTING_TECH_PHOTO = 1
 
 
-def perform_get_device_state_info():
+def perform_get_device_state_info(session=None):
     """CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO (16405) - full device state.
-    Purely informational, useful at the start of a connection."""
+    Purely informational, useful at the start of a connection.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
 
     module_id = protocol.MODULE_DEVICE_CONFIG
     type_id = 0 #REQUEST
@@ -587,7 +766,12 @@ def perform_get_device_state_info():
     ReqGetDeviceStateInfo_message = task_center.ReqGetDeviceStateInfo()
 
     command = protocol.CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO
-    response = connect_socket(ReqGetDeviceStateInfo_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqGetDeviceStateInfo_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqGetDeviceStateInfo_message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"GET DEVICE STATE INFO code: {response}")
@@ -598,9 +782,12 @@ def perform_get_device_state_info():
     return False
 
 
-def perform_switch_shooting_mode(mode=SHOOTING_MODE_ASTRO):
+def perform_switch_shooting_mode(mode=SHOOTING_MODE_ASTRO, session=None):
     """CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_MODE (16402).
-    mode=8 = astro mode. Returns the effective shooting_mode_id, or False."""
+    mode=8 = astro mode. Returns the effective shooting_mode_id, or False.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
 
     module_id = protocol.MODULE_DEVICE_CONFIG
     type_id = 0 #REQUEST
@@ -609,7 +796,12 @@ def perform_switch_shooting_mode(mode=SHOOTING_MODE_ASTRO):
     ReqSwitchShootingMode_message.mode = mode
 
     command = protocol.CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_MODE
-    response = connect_socket(ReqSwitchShootingMode_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqSwitchShootingMode_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqSwitchShootingMode_message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"SWITCH SHOOTING MODE -> {response}")
@@ -620,10 +812,13 @@ def perform_switch_shooting_mode(mode=SHOOTING_MODE_ASTRO):
     return False
 
 
-def perform_enter_camera(encode_type=1):
+def perform_enter_camera(encode_type=1, session=None):
     """CMD_GLOBAL_TASK_MANAGER_ENTER_CAMERA (16404).
     This is the V3 command that corresponds to "initializing the camera":
-    without it, subsequent ASTRO/CAMERA commands do not respond."""
+    without it, subsequent ASTRO/CAMERA commands do not respond.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
 
     module_id = protocol.MODULE_DEVICE_CONFIG
     type_id = 0 #REQUEST
@@ -632,7 +827,12 @@ def perform_enter_camera(encode_type=1):
     ReqEnterCamera_message.client_param.encode_type = encode_type
 
     command = protocol.CMD_GLOBAL_TASK_MANAGER_ENTER_CAMERA
-    response = connect_socket(ReqEnterCamera_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqEnterCamera_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqEnterCamera_message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"ENTER CAMERA -> {response}")
@@ -643,9 +843,12 @@ def perform_enter_camera(encode_type=1):
     return False
 
 
-def perform_switch_shooting_tech(tech=SHOOTING_TECH_DEEP_SKY):
+def perform_switch_shooting_tech(tech=SHOOTING_TECH_DEEP_SKY, session=None):
     """CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_TECH (16403).
-    tech=2 = Deep Sky / stacking."""
+    tech=2 = Deep Sky / stacking.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
 
     module_id = protocol.MODULE_DEVICE_CONFIG
     type_id = 0 #REQUEST
@@ -654,7 +857,12 @@ def perform_switch_shooting_tech(tech=SHOOTING_TECH_DEEP_SKY):
     ReqSwitchShootingTech_message.tech = tech
 
     command = protocol.CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_TECH
-    response = connect_socket(ReqSwitchShootingTech_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqSwitchShootingTech_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqSwitchShootingTech_message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"SWITCH SHOOTING TECH -> {response}")
@@ -665,12 +873,15 @@ def perform_switch_shooting_tech(tech=SHOOTING_TECH_DEEP_SKY):
     return False
 
 
-def perform_set_preview_quality(level=1):
+def perform_set_preview_quality(level=1, session=None):
     """CMD_CAMERA_TELE_SET_PREVIEW_QUALITY (10050).
     Sent by the official app right after entering astro mode.
     Best effort: should not block the sequence if the device doesn't
     respond as expected on this particular point (to be confirmed on the
-    first real test)."""
+    first real test).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
 
     module_id = protocol.MODULE_CAMERA_TELE
     type_id = 0 #REQUEST
@@ -679,7 +890,12 @@ def perform_set_preview_quality(level=1):
     ReqSetPreviewQuality_message.level = level
 
     command = protocol.CMD_CAMERA_TELE_SET_PREVIEW_QUALITY
-    response = connect_socket(ReqSetPreviewQuality_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqSetPreviewQuality_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqSetPreviewQuality_message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"SET PREVIEW QUALITY -> {response}")
@@ -690,7 +906,7 @@ def perform_set_preview_quality(level=1):
     return False
 
 
-def perform_enter_astro_mode():
+def perform_enter_astro_mode(session=None):
     """Full V3 connection sequence: equivalent, for astro mode, of the
     (resolve MASTER/SLAVE + open camera) pair from V2.
 
@@ -714,11 +930,13 @@ def perform_enter_astro_mode():
     before a deep-sky GOTO, which is likely why a subsequent EQ Solving
     step failed. Use perform_enter_shooting_mode(SHOOTING_MODE_SUN, ...)
     explicitly for solar/lunar/planetary sessions instead.
+
+    `session`: optional DwarfSession - see perform_goto().
     """
-    return perform_enter_shooting_mode(SHOOTING_MODE_ASTRO, SHOOTING_TECH_DEEP_SKY)
+    return perform_enter_shooting_mode(SHOOTING_MODE_ASTRO, SHOOTING_TECH_DEEP_SKY, session=session)
 
 
-def perform_enter_photo_mode():
+def perform_enter_photo_mode(session=None):
     """Equivalent of perform_enter_astro_mode() for simple photo (no mount
     alignment, no GOTO, no stacking).
 
@@ -728,31 +946,37 @@ def perform_enter_photo_mode():
     corresponding to photo/burst/video/timelapse. NOT YET TESTED on real
     hardware at the time this was written - the strongest hypothesis we
     have, to be confirmed.
+
+    `session`: optional DwarfSession - see perform_goto().
     """
-    return perform_enter_shooting_mode(SHOOTING_MODE_PHOTO, SHOOTING_TECH_PHOTO)
+    return perform_enter_shooting_mode(SHOOTING_MODE_PHOTO, SHOOTING_TECH_PHOTO, session=session)
 
 
-def perform_enter_shooting_mode(mode, tech):
+def perform_enter_shooting_mode(mode, tech, session=None):
     """Generic function used by perform_enter_astro_mode() and
     perform_enter_photo_mode(): switches to the given (mode, tech) pair.
+
+    `session`: optional DwarfSession - see perform_goto(). Threaded through
+    to every step of the sequence so the whole handshake targets the same
+    device.
     """
 
-    mode_result = perform_switch_shooting_mode(mode)
+    mode_result = perform_switch_shooting_mode(mode, session=session)
     if mode_result is False:
         log.error(f"V3: SWITCH SHOOTING MODE({mode}) failed, aborting")
         return False
 
-    enter_result = perform_enter_camera()
+    enter_result = perform_enter_camera(session=session)
     if enter_result is False:
         log.error("V3: ENTER CAMERA failed, aborting")
         return False
 
-    tech_result = perform_switch_shooting_tech(tech)
+    tech_result = perform_switch_shooting_tech(tech, session=session)
     if tech_result is False:
         log.error(f"V3: SWITCH SHOOTING TECH({tech}) failed, aborting")
         return False
 
-    preview_result = perform_set_preview_quality(1)
+    preview_result = perform_set_preview_quality(1, session=session)
     if preview_result is False:
         log.warning("V3: SET PREVIEW QUALITY failed (non-blocking)")
 
@@ -833,7 +1057,7 @@ PARAM_ID_ASTRO_WIDE_EXPOSURE = 0x0201100000000001
 PARAM_ID_ASTRO_WIDE_GAIN = 0x0201100000000002
 
 
-def perform_set_exposure_v3(value, param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, mode=1):
+def perform_set_exposure_v3(value, param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, mode=1, session=None):
     """CMD_PARAM_SET_EXPOSURE (16700), MODULE_CAMERA_PARAMS module (15).
 
     Replaces, in V3, the old CMD_CAMERA_TELE_SET_EXP_MODE +
@@ -846,6 +1070,8 @@ def perform_set_exposure_v3(value, param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, mode=1
     had indeed set "0.5s" at the time of capture). This is NOT the raw
     exposure value (seconds) - use perform_set_exposure_by_name_v3()
     below to set by name ("0.5", "1/1000", ...) rather than by raw index.
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     module_id = protocol.MODULE_CAMERA_PARAMS
     type_id = 0  # REQUEST
@@ -856,7 +1082,12 @@ def perform_set_exposure_v3(value, param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, mode=1
     message.value = value
 
     command = protocol.CMD_PARAM_SET_EXPOSURE
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"SET EXPOSURE (V3) -> {response}")
@@ -867,7 +1098,7 @@ def perform_set_exposure_v3(value, param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, mode=1
     return False
 
 
-def perform_set_exposure_by_name_v3(name, dwarf_id="2", camera="tele", param_id=None, mode=1):
+def perform_set_exposure_by_name_v3(name, dwarf_id="2", camera="tele", param_id=None, mode=1, session=None):
     """Like perform_set_exposure_v3(), but by readable name ("0.5",
     "1/1000", "1/30", ...) instead of the raw index - directly reuses the
     existing AllowedExposures/AllowedExposuresD3/AllowedExposuresMini
@@ -887,6 +1118,8 @@ def perform_set_exposure_by_name_v3(name, dwarf_id="2", camera="tele", param_id=
     param_id: explicit override, bypasses the camera/dwarf_id-based
     selection above if provided (for callers that already know the exact
     param_id they need).
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     if param_id is None:
         if camera == "wide":
@@ -897,10 +1130,10 @@ def perform_set_exposure_by_name_v3(name, dwarf_id="2", camera="tele", param_id=
         index = get_wide_exposure_index_by_name(str(name), str(dwarf_id))
     else:
         index = get_exposure_index_by_name(str(name), str(dwarf_id))
-    return perform_set_exposure_v3(index, param_id=param_id, mode=mode)
+    return perform_set_exposure_v3(index, param_id=param_id, mode=mode, session=session)
 
 
-def perform_set_gain_v3(value, param_id=PARAM_ID_PHOTO_TELE_GAIN, mode=1):
+def perform_set_gain_v3(value, param_id=PARAM_ID_PHOTO_TELE_GAIN, mode=1, session=None):
     """CMD_PARAM_SET_GAIN (16701), MODULE_CAMERA_PARAMS module (15).
 
     Replaces, in V3, the old CMD_CAMERA_TELE_SET_GAIN_MODE +
@@ -912,6 +1145,8 @@ def perform_set_gain_v3(value, param_id=PARAM_ID_PHOTO_TELE_GAIN, mode=1):
     AllowedGains/AllowedGainsD3 table (where "50" is at index 15).
     Confirmed by network capture: the user went from 60 to 50 in the app,
     and the value sent was indeed 50.
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     module_id = protocol.MODULE_CAMERA_PARAMS
     type_id = 0  # REQUEST
@@ -922,7 +1157,12 @@ def perform_set_gain_v3(value, param_id=PARAM_ID_PHOTO_TELE_GAIN, mode=1):
     message.value = value
 
     command = protocol.CMD_PARAM_SET_GAIN
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"SET GAIN (V3) -> {response}")
@@ -933,7 +1173,7 @@ def perform_set_gain_v3(value, param_id=PARAM_ID_PHOTO_TELE_GAIN, mode=1):
     return False
 
 
-def perform_set_gain_by_camera_v3(value, dwarf_id="2", camera="tele", mode=1):
+def perform_set_gain_by_camera_v3(value, dwarf_id="2", camera="tele", mode=1, session=None):
     """Convenience wrapper around perform_set_gain_v3() that picks the
     right param_id for photo mode based on camera ("tele"/"wide") and
     dwarf_id, instead of requiring the caller to know the raw constant.
@@ -942,15 +1182,17 @@ def perform_set_gain_by_camera_v3(value, dwarf_id="2", camera="tele", mode=1):
     Aug 2026): PARAM_ID_PHOTO_WIDE_GAIN. IMPORTANT: the Dwarf II uses a
     DIFFERENT, also-confirmed wide param_id (PARAM_ID_PHOTO_WIDE_GAIN_D2)
     - selected automatically here based on dwarf_id == "2".
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     if camera == "wide":
         param_id = PARAM_ID_PHOTO_WIDE_GAIN_D2 if str(dwarf_id) == "2" else PARAM_ID_PHOTO_WIDE_GAIN
     else:
         param_id = PARAM_ID_PHOTO_TELE_GAIN
-    return perform_set_gain_v3(value, param_id=param_id, mode=mode)
+    return perform_set_gain_v3(value, param_id=param_id, mode=mode, session=session)
 
 
-def perform_set_astro_exposure_v3(value, camera="tele", mode=1):
+def perform_set_astro_exposure_v3(value, camera="tele", mode=1, session=None):
     """CMD_PARAM_SET_EXPOSURE (16700) for astro/DSO mode, using
     PARAM_ID_ASTRO_EXPOSURE/PARAM_ID_ASTRO_WIDE_EXPOSURE (both confirmed
     by network capture - tele independently confirmed by dwarfAlp, wide
@@ -960,22 +1202,27 @@ def perform_set_astro_exposure_v3(value, camera="tele", mode=1):
     AllowedExposures/AllowedExposuresD3/AllowedExposuresMini table, not
     raw seconds) - prefer perform_set_astro_exposure_by_name_v3() to set
     by name. This applies to both "tele" and "wide".
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     param_id = PARAM_ID_ASTRO_WIDE_EXPOSURE if camera == "wide" else PARAM_ID_ASTRO_EXPOSURE
-    return perform_set_exposure_v3(value, param_id=param_id, mode=mode)
+    return perform_set_exposure_v3(value, param_id=param_id, mode=mode, session=session)
 
 
-def perform_set_astro_exposure_by_name_v3(name, dwarf_id="2", camera="tele", mode=1):
+def perform_set_astro_exposure_by_name_v3(name, dwarf_id="2", camera="tele", mode=1, session=None):
     """Like perform_set_astro_exposure_v3(), but by readable name ("0.5",
-    "1/1000", "180", ...) instead of the raw index."""
+    "1/1000", "180", ...) instead of the raw index.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     if camera == "wide":
         index = get_wide_exposure_index_by_name(str(name), str(dwarf_id))
     else:
         index = get_exposure_index_by_name(str(name), str(dwarf_id))
-    return perform_set_astro_exposure_v3(index, camera=camera, mode=mode)
+    return perform_set_astro_exposure_v3(index, camera=camera, mode=mode, session=session)
 
 
-def perform_set_astro_gain_v3(value, camera="tele", mode=1):
+def perform_set_astro_gain_v3(value, camera="tele", mode=1, session=None):
     """CMD_PARAM_SET_GAIN (16701) for astro/DSO mode, using
     PARAM_ID_ASTRO_GAIN/PARAM_ID_ASTRO_WIDE_GAIN (both confirmed by
     network capture - tele independently confirmed by dwarfAlp, wide
@@ -989,9 +1236,11 @@ def perform_set_astro_gain_v3(value, camera="tele", mode=1):
     (note the minimum of 40, different from the 0 minimum in normal photo
     mode) - wide range not yet independently confirmed, use with the same
     caution as tele until cross-checked.
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     param_id = PARAM_ID_ASTRO_WIDE_GAIN if camera == "wide" else PARAM_ID_ASTRO_GAIN
-    return perform_set_gain_v3(value, param_id=param_id, mode=mode)
+    return perform_set_gain_v3(value, param_id=param_id, mode=mode, session=session)
 
 
 # ---------------------------------------------------------------------------
@@ -1020,7 +1269,7 @@ def perform_set_astro_gain_v3(value, camera="tele", mode=1):
 # Call perform_enter_photo_mode()/perform_enter_astro_mode() (which
 # triggers this initial broadcast) before reading, or you'll get None.
 
-def perform_read_exposure_v3(param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, dwarf_id="2"):
+def perform_read_exposure_v3(param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, dwarf_id="2", session=None):
     """Reads the last known exposure (cache, see above).
 
     Returns a dict {"mode": int, "name": str, "index": int} or None if
@@ -1031,8 +1280,16 @@ def perform_read_exposure_v3(param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, dwarf_id="2"
     name: readable name ("0.5", "1/1000", ...) via the existing
           AllowedExposures/AllowedExposuresD3 table (data_utils.py),
           still valid in V3 (see MIGRATION_V3.md).
+
+    `session`: optional DwarfSession - see perform_goto(). The cache read
+    is per-session (each session's WebSocketClient has its own
+    cameraParamsDwarf dict) - no cross-device leak risk either way.
     """
-    param_data = get_camera_param_v3(param_id)
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        param_data = get_camera_param_v3_session(active_session, param_id)
+    else:
+        param_data = get_camera_param_v3(param_id)
     if param_data is None:
         return None
     index = param_data["value"]
@@ -1043,7 +1300,7 @@ def perform_read_exposure_v3(param_id=PARAM_ID_PHOTO_TELE_EXPOSURE, dwarf_id="2"
     }
 
 
-def perform_read_gain_v3(param_id=PARAM_ID_PHOTO_TELE_GAIN):
+def perform_read_gain_v3(param_id=PARAM_ID_PHOTO_TELE_GAIN, session=None):
     """Reads the last known gain (cache, see above).
 
     Returns a dict {"mode": int, "value": int} or None if nothing has been
@@ -1051,14 +1308,20 @@ def perform_read_gain_v3(param_id=PARAM_ID_PHOTO_TELE_GAIN):
 
     IMPORTANT (as with perform_set_gain_v3): 'value' is directly the
     displayed value (not a table index).
+
+    `session`: optional DwarfSession - see perform_read_exposure_v3().
     """
-    param_data = get_camera_param_v3(param_id)
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        param_data = get_camera_param_v3_session(active_session, param_id)
+    else:
+        param_data = get_camera_param_v3(param_id)
     if param_data is None:
         return None
     return {"mode": param_data["mode"], "value": param_data["value"]}
 
 
-def perform_read_all_camera_params_v3(dwarf_id="2"):
+def perform_read_all_camera_params_v3(dwarf_id="2", session=None):
     """Gathers all known camera parameters into a single readable dict,
     from the cache passively fed by CMD_NOTIFY_GENERAL_INT_PARAM (see
     perform_read_exposure_v3()/perform_read_gain_v3() for details on the
@@ -1072,20 +1335,27 @@ def perform_read_all_camera_params_v3(dwarf_id="2"):
     Only covers the "photo tele" parameters confirmed so far (see
     MIGRATION_V3.md): not yet the wide equivalents, nor the astro
     parameters (PARAM_ID_ASTRO_EXPOSURE/GAIN, different structure).
+
+    `session`: optional DwarfSession - see perform_read_exposure_v3().
     """
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        get_param = lambda pid: get_camera_param_v3_session(active_session, pid)
+    else:
+        get_param = get_camera_param_v3
     return {
-        "exposure": perform_read_exposure_v3(dwarf_id=dwarf_id),
-        "gain": perform_read_gain_v3(),
-        "wb": get_camera_param_v3(PARAM_ID_PHOTO_TELE_WB),
-        "brightness": get_camera_param_v3(PARAM_ID_PHOTO_TELE_BRIGHTNESS),
-        "contrast": get_camera_param_v3(PARAM_ID_PHOTO_TELE_CONTRAST),
-        "saturation": get_camera_param_v3(PARAM_ID_PHOTO_TELE_SATURATION),
-        "hue": get_camera_param_v3(PARAM_ID_PHOTO_TELE_HUE),
-        "sharpness": get_camera_param_v3(PARAM_ID_PHOTO_TELE_SHARPNESS),
-        "burst_count": get_camera_param_v3(PARAM_ID_BURST_COUNT),
-        "burst_interval": get_camera_param_v3(PARAM_ID_BURST_INTERVAL),
-        "timelapse_interval": get_camera_param_v3(PARAM_ID_TIMELAPSE_INTERVAL),
-        "timelapse_duration": get_camera_param_v3(PARAM_ID_TIMELAPSE_DURATION),
+        "exposure": perform_read_exposure_v3(dwarf_id=dwarf_id, session=session),
+        "gain": perform_read_gain_v3(session=session),
+        "wb": get_param(PARAM_ID_PHOTO_TELE_WB),
+        "brightness": get_param(PARAM_ID_PHOTO_TELE_BRIGHTNESS),
+        "contrast": get_param(PARAM_ID_PHOTO_TELE_CONTRAST),
+        "saturation": get_param(PARAM_ID_PHOTO_TELE_SATURATION),
+        "hue": get_param(PARAM_ID_PHOTO_TELE_HUE),
+        "sharpness": get_param(PARAM_ID_PHOTO_TELE_SHARPNESS),
+        "burst_count": get_param(PARAM_ID_BURST_COUNT),
+        "burst_interval": get_param(PARAM_ID_BURST_INTERVAL),
+        "timelapse_interval": get_param(PARAM_ID_TIMELAPSE_INTERVAL),
+        "timelapse_duration": get_param(PARAM_ID_TIMELAPSE_DURATION),
     }
 
 
@@ -1195,7 +1465,7 @@ PARAM_ID_ASTRO_STACK_BINNING = 0x020100000000001e    # "stackBinning" (0=4k, 1=2
 CMD_PARAM_SET_GENERAL_BOOL_PARAMS = 16705
 
 
-def perform_auto_focus_v3():
+def perform_auto_focus_v3(session=None):
     """CMD_FOCUS_AUTO_FOCUS (15000), MODULE_FOCUS module (8).
 
     Triggers autofocus (normal/photo mode - ReqNormalAutoFocus, distinct
@@ -1203,6 +1473,8 @@ def perform_auto_focus_v3():
     arrives as a notification (CMD_NOTIFY_FOCUS_POSITION, already cached
     by the existing mechanism - see self.FocusValueDwarf /
     get_client_status()).
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     module_id = protocol.MODULE_FOCUS
     type_id = 0  # REQUEST
@@ -1210,7 +1482,12 @@ def perform_auto_focus_v3():
     message = focus.ReqNormalAutoFocus()
 
     command = protocol.CMD_FOCUS_AUTO_FOCUS
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"AUTO FOCUS (V3) -> {response}")
@@ -1221,7 +1498,7 @@ def perform_auto_focus_v3():
     return False
 
 
-def perform_set_wb_v3(value, mode=2, param_id=PARAM_ID_PHOTO_TELE_WB):
+def perform_set_wb_v3(value, mode=2, param_id=PARAM_ID_PHOTO_TELE_WB, session=None):
     """CMD_PARAM_SET_WB (16702), MODULE_CAMERA_PARAMS module (15).
 
     White balance setting. 'value' is the preset index (exact order not
@@ -1229,6 +1506,8 @@ def perform_set_wb_v3(value, mode=2, param_id=PARAM_ID_PHOTO_TELE_WB):
     "Fluorescent" in the app at the time of capture, to be confirmed for
     the other presets). 'mode' seems to distinguish auto (probably 0) from
     manual/preset (2, the observed value).
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     module_id = protocol.MODULE_CAMERA_PARAMS
     type_id = 0  # REQUEST
@@ -1239,7 +1518,12 @@ def perform_set_wb_v3(value, mode=2, param_id=PARAM_ID_PHOTO_TELE_WB):
     message.value = value
 
     command = CMD_PARAM_SET_WB
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"SET WB (V3) -> {response}")
@@ -1250,7 +1534,7 @@ def perform_set_wb_v3(value, mode=2, param_id=PARAM_ID_PHOTO_TELE_WB):
     return False
 
 
-def perform_set_wb_preset_by_name_v3(name, param_id=PARAM_ID_PHOTO_TELE_WB):
+def perform_set_wb_preset_by_name_v3(name, param_id=PARAM_ID_PHOTO_TELE_WB, session=None):
     """Like perform_set_wb_v3(), but by readable preset name - official
     AllowedWBPreset table (data_utils.py), confirmed by network capture:
     'Incandescent', 'Warm Fluorescent', 'Fluorescent', 'Sunlight',
@@ -1258,17 +1542,22 @@ def perform_set_wb_preset_by_name_v3(name, param_id=PARAM_ID_PHOTO_TELE_WB):
 
     Automatically sets mode=2 (confirmed = "preset" mode, as opposed to
     the "manual Kelvin temperature" mode covered by perform_set_wb_v3()
-    with a value from AllowedWBTemp)."""
+    with a value from AllowedWBTemp).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     index = get_wb_preset_index_by_name(name)
-    return perform_set_wb_v3(index, mode=2, param_id=param_id)
+    return perform_set_wb_v3(index, mode=2, param_id=param_id, session=session)
 
 
-def perform_set_image_param_v3(param_id, value):
+def perform_set_image_param_v3(param_id, value, session=None):
     """CMD_PARAM_SET_GENERAL_INT_PARAM (16703), MODULE_CAMERA_PARAMS module (15).
 
     Generic function for the 5 image parameters confirmed by network
     capture (prefer the named wrappers below):
     brightness, contrast, saturation, hue, sharpness.
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     module_id = protocol.MODULE_CAMERA_PARAMS
     type_id = 0  # REQUEST
@@ -1278,7 +1567,12 @@ def perform_set_image_param_v3(param_id, value):
     message.value = value
 
     command = protocol.CMD_PARAM_SET_GENERAL_INT_PARAM
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"SET IMAGE PARAM (V3) {hex(param_id)} -> {response}")
@@ -1289,95 +1583,128 @@ def perform_set_image_param_v3(param_id, value):
     return False
 
 
-def perform_set_brightness_v3(value, param_id=PARAM_ID_PHOTO_TELE_BRIGHTNESS):
+def perform_set_brightness_v3(value, param_id=PARAM_ID_PHOTO_TELE_BRIGHTNESS, session=None):
     """Brightness. Confirmed by network capture: value=58 matches
-    "Brightness: 58" shown in the app at the time of capture."""
-    return perform_set_image_param_v3(param_id, value)
+    "Brightness: 58" shown in the app at the time of capture.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_image_param_v3(param_id, value, session=session)
 
 
-def perform_set_contrast_v3(value, param_id=PARAM_ID_PHOTO_TELE_CONTRAST):
-    """Contrast. Confirmed: value=52 matches "Contrast: 52"."""
-    return perform_set_image_param_v3(param_id, value)
+def perform_set_contrast_v3(value, param_id=PARAM_ID_PHOTO_TELE_CONTRAST, session=None):
+    """Contrast. Confirmed: value=52 matches "Contrast: 52".
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_image_param_v3(param_id, value, session=session)
 
 
-def perform_set_saturation_v3(value, param_id=PARAM_ID_PHOTO_TELE_SATURATION):
-    """Saturation. Confirmed: value=56 matches "Saturation: 56"."""
-    return perform_set_image_param_v3(param_id, value)
+def perform_set_saturation_v3(value, param_id=PARAM_ID_PHOTO_TELE_SATURATION, session=None):
+    """Saturation. Confirmed: value=56 matches "Saturation: 56".
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_image_param_v3(param_id, value, session=session)
 
 
-def perform_set_hue_v3(value, param_id=PARAM_ID_PHOTO_TELE_HUE):
+def perform_set_hue_v3(value, param_id=PARAM_ID_PHOTO_TELE_HUE, session=None):
     """Hue. Confirmed: value=-88 matches "Hue: -88" (accepts negative
-    values, int32 field)."""
-    return perform_set_image_param_v3(param_id, value)
+    values, int32 field).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_image_param_v3(param_id, value, session=session)
 
 
-def perform_set_sharpness_v3(value, param_id=PARAM_ID_PHOTO_TELE_SHARPNESS):
+def perform_set_sharpness_v3(value, param_id=PARAM_ID_PHOTO_TELE_SHARPNESS, session=None):
     """Sharpness. Confirmed: value=68 matches
-    "Sharpness: 68"."""
-    return perform_set_image_param_v3(param_id, value)
+    "Sharpness: 68".
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_image_param_v3(param_id, value, session=session)
 
 
-def perform_set_burst_interval_v3(seconds, param_id=PARAM_ID_BURST_INTERVAL):
+def perform_set_burst_interval_v3(seconds, param_id=PARAM_ID_BURST_INTERVAL, session=None):
     """CMD_PARAM_SET_GENERAL_INT_PARAM with PARAM_ID_BURST_INTERVAL.
 
     CONFIRMED by a dedicated network capture ("burst 20s / 5 photos"
     session): value=20 sent for a 20-second interval - raw seconds, not
     the index of the AllowedBurstInterval table.
+
+    `session`: optional DwarfSession - see perform_goto().
     """
-    return perform_set_image_param_v3(param_id, seconds)
+    return perform_set_image_param_v3(param_id, seconds, session=session)
 
 
-def perform_set_burst_interval_by_name_v3(name, param_id=PARAM_ID_BURST_INTERVAL):
+def perform_set_burst_interval_by_name_v3(name, param_id=PARAM_ID_BURST_INTERVAL, session=None):
     """Like perform_set_burst_interval_v3(), but by readable name ('Off',
     '1 s', '2 s', ..., '60 s' - AllowedBurstInterval table, data_utils.py),
-    with automatic conversion to raw seconds."""
+    with automatic conversion to raw seconds.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     seconds = get_burst_interval_seconds_by_name(name)
-    return perform_set_burst_interval_v3(seconds, param_id=param_id)
+    return perform_set_burst_interval_v3(seconds, param_id=param_id, session=session)
 
 
-def perform_set_burst_count_v3(count, param_id=PARAM_ID_BURST_COUNT):
+def perform_set_burst_count_v3(count, param_id=PARAM_ID_BURST_COUNT, session=None):
     """CMD_PARAM_SET_GENERAL_INT_PARAM with PARAM_ID_BURST_COUNT.
 
     CONFIRMED by a dedicated network capture ("burst 20s / 5 photos"
     session): value=5 sent for 5 photos - RAW photo count, not the index
     of the AllowedBurstCount table (where "5" is at index 3).
+
+    `session`: optional DwarfSession - see perform_goto().
     """
-    return perform_set_image_param_v3(param_id, count)
+    return perform_set_image_param_v3(param_id, count, session=session)
 
 
-def perform_set_timelapse_interval_v3(seconds, param_id=PARAM_ID_TIMELAPSE_INTERVAL):
+def perform_set_timelapse_interval_v3(seconds, param_id=PARAM_ID_TIMELAPSE_INTERVAL, session=None):
     """Interval between two timelapse shots, in seconds.
 
     Confirmed by network capture: the last value sent before starting
     (value=4) matches exactly the 'interval' field of the
     CMD_NOTIFY_TIMELAPSE_OUT_TIME notifications received during execution.
+
+    `session`: optional DwarfSession - see perform_goto().
     """
-    return perform_set_image_param_v3(param_id, seconds)
+    return perform_set_image_param_v3(param_id, seconds, session=session)
 
 
-def perform_set_timelapse_interval_by_name_v3(name, param_id=PARAM_ID_TIMELAPSE_INTERVAL):
+def perform_set_timelapse_interval_by_name_v3(name, param_id=PARAM_ID_TIMELAPSE_INTERVAL, session=None):
     """Like perform_set_timelapse_interval_v3(), by readable name ('0.5 s',
-    '1 s', ..., '60 s' - AllowedTimelapseInterval table, data_utils.py)."""
+    '1 s', ..., '60 s' - AllowedTimelapseInterval table, data_utils.py).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     seconds = get_timelapse_interval_seconds_by_name(name)
-    return perform_set_timelapse_interval_v3(seconds, param_id=param_id)
+    return perform_set_timelapse_interval_v3(seconds, param_id=param_id, session=session)
 
 
-def perform_set_timelapse_duration_v3(value, param_id=PARAM_ID_TIMELAPSE_DURATION):
+def perform_set_timelapse_duration_v3(value, param_id=PARAM_ID_TIMELAPSE_DURATION, session=None):
     """Total timelapse duration, very likely in raw seconds
     (0 = unlimited?) - consistent with the values observed in the capture
-    (2400 = 40 min, 120 = 2 min, official AllowedTimelapseTotalTime table)."""
-    return perform_set_image_param_v3(param_id, value)
+    (2400 = 40 min, 120 = 2 min, official AllowedTimelapseTotalTime table).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_image_param_v3(param_id, value, session=session)
 
 
-def perform_set_timelapse_duration_by_name_v3(name, param_id=PARAM_ID_TIMELAPSE_DURATION):
+def perform_set_timelapse_duration_by_name_v3(name, param_id=PARAM_ID_TIMELAPSE_DURATION, session=None):
     """Like perform_set_timelapse_duration_v3(), by readable name ('2 min',
     '5 min', ..., '\u221e' for unlimited - AllowedTimelapseTotalTime table,
-    data_utils.py)."""
+    data_utils.py).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     seconds = get_timelapse_totaltime_seconds_by_name(name)
-    return perform_set_timelapse_duration_v3(seconds, param_id=param_id)
+    return perform_set_timelapse_duration_v3(seconds, param_id=param_id, session=session)
 
 
-def perform_set_ir_filter_v3(name_or_index):
+def perform_set_ir_filter_v3(name_or_index, session=None):
     """IR/Astro filter: 'VIS Filter' (0, normal), 'Astro Filter' (1),
     'Duo-Band Filter' (2) - official AllowedIRFilter table (data_utils.py).
 
@@ -1394,7 +1721,10 @@ def perform_set_ir_filter_v3(name_or_index):
     command in V3, confirmed working. Called directly here (Aug 2026) -
     used to go through perform_update_camera_setting("IR", ...), which is
     otherwise unused in V3 now that exposure/gain/count have their own
-    confirmed V3 functions; see dwarf_utilsV2.py for that legacy code."""
+    confirmed V3 functions; see dwarf_utilsV2.py for that legacy code.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     if isinstance(name_or_index, str) and not name_or_index.strip().lstrip('-').isdigit():
         index = get_ir_filter_index_by_name(name_or_index)
     else:
@@ -1407,7 +1737,12 @@ def perform_set_ir_filter_v3(name_or_index):
     ReqSetIrCut_message.value = index
 
     command = 10031  # CMD_CAMERA_TELE_SET_IRCUT
-    response = connect_socket(ReqSetIrCut_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqSetIrCut_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqSetIrCut_message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"SET IR FILTER -> {response}")
@@ -1436,13 +1771,15 @@ def perform_set_ir_filter_v3(name_or_index):
 # require a "fire-and-forget" sending mode without waiting for a response
 # on every frame, not implemented here.
 
-def perform_motor_joystick_v3(vector_angle, vector_length):
+def perform_motor_joystick_v3(vector_angle, vector_length, session=None):
     """CMD_STEP_MOTOR_SERVICE_JOYSTICK (14006), MODULE_MOTOR module (6).
 
     vector_angle: angle in degrees (0-360).
     vector_length: movement amplitude, observed between 0.01 and roughly 1
     in the capture (proportional to how far the virtual joystick is from
     its center).
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     module_id = protocol.MODULE_MOTOR
     type_id = 0  # REQUEST
@@ -1452,7 +1789,12 @@ def perform_motor_joystick_v3(vector_angle, vector_length):
     message.vector_length = vector_length
 
     command = protocol.CMD_STEP_MOTOR_SERVICE_JOYSTICK
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         return response
@@ -1462,16 +1804,24 @@ def perform_motor_joystick_v3(vector_angle, vector_length):
     return False
 
 
-def perform_motor_joystick_stop_v3():
+def perform_motor_joystick_stop_v3(session=None):
     """CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP (14008), MODULE_MOTOR module (6).
-    Stops the current movement (empty message, confirmed by network capture)."""
+    Stops the current movement (empty message, confirmed by network capture).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     module_id = protocol.MODULE_MOTOR
     type_id = 0  # REQUEST
 
     message = motor.ReqMotorServiceJoystickStop()
 
     command = protocol.CMD_STEP_MOTOR_SERVICE_JOYSTICK_STOP
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         return response
@@ -1480,9 +1830,14 @@ def perform_motor_joystick_stop_v3():
 
     return False
 
-    return False
+def _resolve_session(session):
+    """Resolve an explicit session, falling back to the mono-dwarf default
+    (DwarfManager's default DwarfSession) when none is given. Returns None
+    if no session is available at all (neither passed nor registered)."""
+    return session or get_default_session()
 
-def perform_goto(ra, dec, target, goto_only=False, rotation=None):
+
+def perform_goto(ra, dec, target, goto_only=False, rotation=None, session=None):
     """CMD_ASTRO_START_GOTO_DSO (11002).
 
     V3: ReqGotoDSO gained 2 new fields compared to V2 (which only had
@@ -1496,6 +1851,10 @@ def perform_goto(ra, dec, target, goto_only=False, rotation=None):
         network capture.
     Both default to the same behavior as before (goto_only=False,
     rotation unset) if not specified.
+
+    `session`: optional DwarfSession (see dwarf_session.py). When given,
+    the command is sent on that specific device's connection instead of
+    the mono-dwarf default - required for multi-Dwarf control.
     """
 
     # GOTO
@@ -1511,7 +1870,12 @@ def perform_goto(ra, dec, target, goto_only=False, rotation=None):
         ReqGotoDSO_message.rotation = rotation
 
     command = 11002 #CMD_ASTRO_START_GOTO_DSO
-    response = connect_socket(ReqGotoDSO_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqGotoDSO_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqGotoDSO_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1525,7 +1889,7 @@ def perform_goto(ra, dec, target, goto_only=False, rotation=None):
 
     return False
 
-def perform_goto_stellar(target_id, target_name, force_start=False):
+def perform_goto_stellar(target_id, target_name, force_start=False, session=None):
     """CMD_ASTRO_START_GOTO_SOLAR_SYSTEM (11003).
 
     V3: ReqGotoSolarSystem gained 1 new field compared to V2 (which only
@@ -1535,13 +1899,18 @@ def perform_goto_stellar(target_id, target_name, force_start=False):
         same force_start pattern seen on ReqCaptureRawLiveStacking. NOT YET
         CONFIRMED by network capture.
     Defaults to False (same behavior as before) if not specified.
+
+    `session`: optional DwarfSession - see perform_goto(). Now properly
+    per-session: read_longitude()/read_latitude() are session-aware since
+    the read_* migration (see MIGRATION_MULTI_V3.md), so each device can
+    have its own latitude/longitude.
     """
 
-    if read_longitude() is None:
+    if read_longitude(session=session) is None:
         log.error("Longitude is not defined! ")
         return
 
-    if read_latitude() is None:
+    if read_latitude(session=session) is None:
         log.error("Latitude is not defined! ")
         return
 
@@ -1551,13 +1920,18 @@ def perform_goto_stellar(target_id, target_name, force_start=False):
 
     ReqGotoSolarSystem_message = astro.ReqGotoSolarSystem()
     ReqGotoSolarSystem_message.index = target_id
-    ReqGotoSolarSystem_message.lon = read_longitude()
-    ReqGotoSolarSystem_message.lat = read_latitude()
+    ReqGotoSolarSystem_message.lon = read_longitude(session=session)
+    ReqGotoSolarSystem_message.lat = read_latitude(session=session)
     ReqGotoSolarSystem_message.target_name = target_name
     ReqGotoSolarSystem_message.force_start = force_start
 
     command = 11003 #CMD_ASTRO_START_GOTO_SOLAR_SYSTEM
-    response = connect_socket(ReqGotoSolarSystem_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqGotoSolarSystem_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqGotoSolarSystem_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1571,7 +1945,8 @@ def perform_goto_stellar(target_id, target_name, force_start=False):
 
     return False
 
-def perform_open_camera():
+def perform_open_camera(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # OPEN TELE PHOTO
     module_id = 1  # MODULE_CAMERA_TELE
@@ -1580,7 +1955,12 @@ def perform_open_camera():
     ReqPhoto_message = camera.ReqPhoto()
 
     command = 10000 #CMD_CAMERA_TELE_OPEN_CAMERA
-    response = connect_socket(ReqPhoto_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqPhoto_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqPhoto_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1594,7 +1974,11 @@ def perform_open_camera():
 
     return False
 
-def perform_takePhoto():
+def perform_takePhoto(session=None):
+    """CMD_CAMERA_TELE_PHOTOGRAPH (10002).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
 
     # START TAKE TELE PHOTO
     module_id = 1  # MODULE_CAMERA_TELE
@@ -1603,7 +1987,12 @@ def perform_takePhoto():
     ReqPhoto_message = camera.ReqPhoto()
 
     command = 10002 #CMD_CAMERA_TELE_PHOTOGRAPH
-    response = connect_socket(ReqPhoto_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqPhoto_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqPhoto_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1617,7 +2006,8 @@ def perform_takePhoto():
 
     return False
 
-def perform_open_widecamera():
+def perform_open_widecamera(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # OPEN WIDE PHOTO
     module_id = 2  # MODULE_CAMERA_WIDE
@@ -1626,7 +2016,12 @@ def perform_open_widecamera():
     ReqPhoto_message = camera.ReqPhoto()
 
     command = 12000 #CMD_CAMERA_WIDE_OPEN_CAMERA
-    response = connect_socket(ReqPhoto_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqPhoto_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqPhoto_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1640,7 +2035,8 @@ def perform_open_widecamera():
 
     return False
 
-def perform_takeWidePhoto():
+def perform_takeWidePhoto(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # START WIDE TELE PHOTO
     module_id = 2  # MODULE_CAMERA_WIDE
@@ -1649,7 +2045,12 @@ def perform_takeWidePhoto():
     ReqPhoto_message = camera.ReqPhoto()
 
     command = 12022 #CMD_CAMERA_WIDE_PHOTOGRAPH
-    response = connect_socket(ReqPhoto_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqPhoto_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqPhoto_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1663,7 +2064,12 @@ def perform_takeWidePhoto():
 
     return False
 
-def perform_waitEndAstroPhoto(retry = False):
+def perform_waitEndAstroPhoto(retry = False, session=None):
+    """`session`: optional DwarfSession - see perform_goto(). Note this call
+    blocks (synchronously) until the device reports completion or the
+    connection layer's timeout is hit, so when running several DwarfSessions
+    concurrently, call this from a dedicated thread per session rather than
+    sequentially from the same thread."""
 
     # use special message to get end of shooting
     module_id = 1  # MODULE_CAMERA_TELE
@@ -1671,7 +2077,11 @@ def perform_waitEndAstroPhoto(retry = False):
 
     message = "ASTRO CAPTURE ENDING" if not retry else "ASTRO CAPTURE ENDING RESTART"
 
-    response = connect_socket(message, None, type_id, module_id)
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, None, type_id, module_id)
+    else:
+        response = connect_socket(message, None, type_id, module_id)
 
     if response is not False: 
 
@@ -1687,10 +2097,11 @@ def perform_waitEndAstroPhoto(retry = False):
         log.error("Dwarf API: Dwarf Device not connected")
     return False
 
-def perform_waitRetryEndAstroPhoto():
-    return perform_waitEndAstroPhoto(True)
+def perform_waitRetryEndAstroPhoto(session=None):
+    return perform_waitEndAstroPhoto(True, session=session)
 
-def perform_waitEndAstroWidePhoto(retry = False):
+def perform_waitEndAstroWidePhoto(retry = False, session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # use special message to get end of shooting
     module_id = 1  # MODULE_CAMERA_TELE
@@ -1698,7 +2109,11 @@ def perform_waitEndAstroWidePhoto(retry = False):
 
     message = "ASTRO WIDE CAPTURE ENDING" if not retry else "ASTRO WIDE CAPTURE ENDING RESTART"
 
-    response = connect_socket(message, None, type_id, module_id)
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, None, type_id, module_id)
+    else:
+        response = connect_socket(message, None, type_id, module_id)
 
     if response is not False: 
 
@@ -1714,10 +2129,10 @@ def perform_waitEndAstroWidePhoto(retry = False):
         log.error("Dwarf API: Dwarf Device not connected")
     return False
 
-def perform_waitRetryEndAstroWidePhoto():
-    return perform_waitEndAstroWidePhoto(True)
+def perform_waitRetryEndAstroWidePhoto(session=None):
+    return perform_waitEndAstroWidePhoto(True, session=session)
 
-def perform_takeAstroPhoto(ir_index=1, force_start=False):
+def perform_takeAstroPhoto(ir_index=1, force_start=False, session=None):
     """CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING (11005).
 
     V3: ReqCaptureRawLiveStacking was completely EMPTY in V2, it gained 2
@@ -1735,6 +2150,8 @@ def perform_takeAstroPhoto(ir_index=1, force_start=False):
         mechanism to use AFTER a warning has already been raised, while
         force_start here skips the warning check upfront. Defaults to
         False (same behavior as before).
+
+    `session`: optional DwarfSession - see perform_goto().
     """
 
     # START CAPTURE RAW LIVE STACKING
@@ -1746,7 +2163,12 @@ def perform_takeAstroPhoto(ir_index=1, force_start=False):
     ReqCaptureRawLiveStacking_message.force_start = force_start
 
     command = 11005 #CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING
-    response = connect_socket(ReqCaptureRawLiveStacking_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqCaptureRawLiveStacking_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqCaptureRawLiveStacking_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1760,9 +2182,9 @@ def perform_takeAstroPhoto(ir_index=1, force_start=False):
 
     return False
 
-def perform_start_mosaic_v3(horizontal_scale=2, vertical_scale=2, rotation=0, ir_index=1, force_start=False):
+def perform_start_mosaic_v3(horizontal_scale=2, vertical_scale=2, rotation=0, ir_index=1, force_start=False, session=None):
     """CMD_ASTRO_START_TELE_MOSAIC (11031, tele only - no wide mosaic
-    command exists). 
+    command exists). NOT independently confirmed by network capture -
     the command constant was entirely missing from protocol.proto until
     now (Aug 2026), confirmed only via the dwarfAlp registry (present in
     the official app, request message ReqStartMosaic already existed in
@@ -1777,7 +2199,11 @@ def perform_start_mosaic_v3(horizontal_scale=2, vertical_scale=2, rotation=0, ir
     call this function; the device handles the internal grid of small
     pointing offsets around that center itself.
 
-    horizontal_scale/vertical_scale: 100 to 180 scale 10 for each dimension
+    horizontal_scale/vertical_scale: NOT confirmed - presumed to be the
+    mosaic grid dimensions (e.g. 2=2x2, 3=3x3) by analogy with similar
+    apps, but this is a guess, not verified by capture. Test with
+    caution and report back what a captured "2" vs "3" etc. actually
+    produces before relying on this.
     rotation: field-name only, meaning/units not confirmed.
     ir_index/force_start: same semantics as perform_takeAstroPhoto().
 
@@ -1785,6 +2211,8 @@ def perform_start_mosaic_v3(horizontal_scale=2, vertical_scale=2, rotation=0, ir
     for the total number of subframes to stack per panel - a separate
     setting from the grid dimensions here, same relationship as
     stackCount is to a normal single-target session.
+
+    `session`: optional DwarfSession - see perform_goto().
     """
 
     module_id = 3  # MODULE_ASTRO
@@ -1798,7 +2226,12 @@ def perform_start_mosaic_v3(horizontal_scale=2, vertical_scale=2, rotation=0, ir
     ReqStartMosaic_message.force_start = force_start
 
     command = protocol.CMD_ASTRO_START_TELE_MOSAIC
-    response = connect_socket(ReqStartMosaic_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqStartMosaic_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqStartMosaic_message, command, type_id, module_id)
 
     if response is not False:
 
@@ -1812,7 +2245,8 @@ def perform_start_mosaic_v3(horizontal_scale=2, vertical_scale=2, rotation=0, ir
 
     return False
 
-def perform_stopAstroPhoto():
+def perform_stopAstroPhoto(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # STOP CAPTURE RAW LIVE STACKING
     module_id = 3  # MODULE_ASTRO
@@ -1821,7 +2255,12 @@ def perform_stopAstroPhoto():
     ReqStopCaptureRawLiveStacking_message = astro.ReqStopCaptureRawLiveStacking()
 
     command = 11006 #CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING
-    response = connect_socket(ReqStopCaptureRawLiveStacking_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqStopCaptureRawLiveStacking_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqStopCaptureRawLiveStacking_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1835,7 +2274,8 @@ def perform_stopAstroPhoto():
 
     return False
 
-def perform_takeAstroWidePhoto():
+def perform_takeAstroWidePhoto(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # START CAPTURE WIDE RAW WIDE LIVE STACKING
     module_id = 3  # MODULE_ASTRO
@@ -1844,7 +2284,12 @@ def perform_takeAstroWidePhoto():
     ReqCaptureRawLiveStacking_message = astro.ReqCaptureRawLiveStacking()
 
     command = 11016 #CMD_ASTRO_START_CAPTURE_WIDE_RAW_LIVE_STACKING ?? Tob confirmed
-    response = connect_socket(ReqCaptureRawLiveStacking_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqCaptureRawLiveStacking_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqCaptureRawLiveStacking_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1858,7 +2303,8 @@ def perform_takeAstroWidePhoto():
 
     return False
 
-def perform_stopAstroWidePhoto():
+def perform_stopAstroWidePhoto(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # STOP CAPTURE RAW LIVE STACKING
     module_id = 3  # MODULE_ASTRO
@@ -1867,7 +2313,12 @@ def perform_stopAstroWidePhoto():
     ReqStopCaptureRawLiveStacking_message = astro.ReqStopCaptureRawLiveStacking()
 
     command = 11017 #CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING
-    response = connect_socket(ReqStopCaptureRawLiveStacking_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqStopCaptureRawLiveStacking_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqStopCaptureRawLiveStacking_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1881,7 +2332,8 @@ def perform_stopAstroWidePhoto():
 
     return False
 
-def perform_GoLive():
+def perform_GoLive(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # CMD_ASTRO_GO_LIVE
     module_id = 3  # MODULE_ASTRO
@@ -1890,7 +2342,12 @@ def perform_GoLive():
     ReqGoLive_message = astro.ReqGoLive()
 
     command = 11010 #CMD_ASTRO_GO_LIVE
-    response = connect_socket(ReqGoLive_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqGoLive_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqGoLive_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1904,7 +2361,8 @@ def perform_GoLive():
 
     return False
 
-def perform_time():
+def perform_time(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # SET TIME
     module_id = 4  # MODULE_SYSTEM
@@ -1934,7 +2392,12 @@ def perform_time():
     log.notice(f"Timezone offset is : {timezone_offset} H")
 
     command = 13000 #CMD_SYSTEM_SET_TIME
-    response = connect_socket(ReqSetTime_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqSetTime_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqSetTime_message, command, type_id, module_id)
     #log.success(f"Get Result : {response}")
 
     if response is not False: 
@@ -1949,13 +2412,15 @@ def perform_time():
 
     return False
 
-def perform_timezone():
+def perform_timezone(session=None):
+    """`session`: optional DwarfSession - see perform_goto(). When given,
+    prefers session.config.timezone over the mono-dwarf config.ini read."""
 
     # SET TIMEZONE
     module_id = 4  # MODULE_SYSTEM
     type_id = 0; #REQUEST
 
-    timezone_value = read_timezone()
+    timezone_value = session.config.timezone if session is not None else read_timezone()
     if timezone_value is None:
         log.warning(
             "TIMEZONE missing from config.ini: CMD_SYSTEM_SET_TIME_ZONE not"
@@ -1969,7 +2434,12 @@ def perform_timezone():
     log.notice(f"Timezone is : {timezone_value}")
 
     command = 13001 #CMD_SYSTEM_SET_TIME_ZONE
-    response = connect_socket(ReqSetTimezone_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqSetTimezone_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqSetTimezone_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -1983,7 +2453,7 @@ def perform_timezone():
 
     return False
 
-def perform_set_location():
+def perform_set_location(session=None):
     """CMD_SYSTEM_SET_LOCATION (13010), MODULE_SYSTEM module (4).
 
     Confirmed via network capture of the official app (Aug 2026): sent at
@@ -1996,12 +2466,20 @@ def perform_set_location():
     Reads LATITUDE/LONGITUDE from config.ini (read_latitude/
     read_longitude) - returns False without sending anything if either
     is missing, same pattern as perform_timezone().
+
+    `session`: optional DwarfSession - see perform_goto(). When given,
+    prefers session.config.latitude/longitude over the mono-dwarf
+    config.ini read.
     """
     module_id = 4  # MODULE_SYSTEM
     type_id = 0  # REQUEST
 
-    latitude = read_latitude()
-    longitude = read_longitude()
+    if session is not None:
+        latitude = session.config.latitude
+        longitude = session.config.longitude
+    else:
+        latitude = read_latitude()
+        longitude = read_longitude()
     if latitude is None or longitude is None:
         log.warning(
             "LATITUDE/LONGITUDE missing from config.ini: CMD_SYSTEM_SET_LOCATION not"
@@ -2017,7 +2495,12 @@ def perform_set_location():
     log.notice(f"Location is : lat={latitude}, long={longitude}")
 
     command = 13010  # CMD_SYSTEM_SET_LOCATION
-    response = connect_socket(ReqSetLocation_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqSetLocation_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqSetLocation_message, command, type_id, module_id)
 
     if response is not False:
 
@@ -2036,7 +2519,8 @@ def perform_set_location():
 # right after SET_TIME/SET_TIME_ZONE and before SET_LOCATION. Calling it
 # early mirrors the official app's own startup sequence.
 
-def perform_calibration():
+def perform_calibration(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # CALIBRATION
     module_id = 3  # MODULE_ASTRO
@@ -2046,7 +2530,11 @@ def perform_calibration():
 
     command = 11000 #CMD_ASTRO_START_CALIBRATION
 
-    response = connect_socket(ReqStartCalibration_message, command, type_id, module_id)
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqStartCalibration_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqStartCalibration_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -2060,7 +2548,8 @@ def perform_calibration():
 
     return False
 
-def perform_stop_calibration():
+def perform_stop_calibration(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # STOP CALIBRATION
     module_id = 3  # MODULE_ASTRO
@@ -2070,7 +2559,11 @@ def perform_stop_calibration():
 
     command = 11001 #CMD_ASTRO_STOP_CALIBRATION
 
-    response = connect_socket(ReqStoptCalibration_message, command, type_id, module_id)
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqStoptCalibration_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqStoptCalibration_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -2084,7 +2577,8 @@ def perform_stop_calibration():
 
     return False
 
-def perform_stop_goto():
+def perform_stop_goto(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # STOP GOTO
     module_id = 3  # MODULE_ASTRO
@@ -2094,7 +2588,11 @@ def perform_stop_goto():
 
     command = 11004 #CMD_ASTRO_STOP_GOTO
 
-    response = connect_socket(ReqStopGoto_message, command, type_id, module_id)
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqStopGoto_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqStopGoto_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -2108,7 +2606,8 @@ def perform_stop_goto():
 
     return False
 
-def perform_start_autofocus(infinite = False):
+def perform_start_autofocus(infinite = False, session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # AutoFocus
     module_id = 8  # MODULE_FOCUS
@@ -2121,7 +2620,11 @@ def perform_start_autofocus(infinite = False):
 
     command = 15004 #CMD_FOCUS_START_ASTRO_AUTO_FOCUS
 
-    response = connect_socket(ReqAstroAutoFocus_message, command, type_id, module_id)
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqAstroAutoFocus_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqAstroAutoFocus_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -2135,7 +2638,8 @@ def perform_start_autofocus(infinite = False):
 
     return False
 
-def perform_stop_autofocus():
+def perform_stop_autofocus(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # AutoFocus
     module_id = 8  # MODULE_FOCUS
@@ -2145,7 +2649,11 @@ def perform_stop_autofocus():
 
     command = 15005 #CMD_FOCUS_STOP_ASTRO_AUTO_FOCUS
 
-    response = connect_socket(ReqStopAstroAutoFocus_message, command, type_id, module_id)
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqStopAstroAutoFocus_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqStopAstroAutoFocus_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -2264,21 +2772,28 @@ def get_result_polar_value ( result_cnx):
 
   return False
 
-def start_polar_align():
+def start_polar_align(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # start Polar Align
     module_id = 3  # MODULE_ASTRO
     type_id = 0; #REQUEST
 
     ReqStartEqSolving_message = astro.ReqStartEqSolving ()
-    ReqStartEqSolving_message.lon = read_longitude();
-    ReqStartEqSolving_message.lat = read_latitude();
+    ReqStartEqSolving_message.lon = read_longitude(session=session);
+    ReqStartEqSolving_message.lat = read_latitude(session=session);
     command = 11018; #CMD_ASTRO_START_EQ_SOLVING
-    response = connect_socket(ReqStartEqSolving_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqStartEqSolving_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqStartEqSolving_message, command, type_id, module_id)
 
     return get_result_polar_value(response)
 
-def stop_polar_align():
+def stop_polar_align(session=None):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     # stop Polar Align
     module_id = 3  # MODULE_ASTRO
@@ -2286,7 +2801,12 @@ def stop_polar_align():
 
     ReqStopEqSolving_message = astro.ReqStopEqSolving ()
     command = 11019; #CMD_ASTRO_STOP_EQ_SOLVING
-    response = connect_socket(ReqStopEqSolving_message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqStopEqSolving_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqStopEqSolving_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -2300,7 +2820,8 @@ def stop_polar_align():
 
     return False
 
-def motor_action( action, correction = 0 ):
+def motor_action( action, correction = 0, session=None ):
+    """`session`: optional DwarfSession - see perform_goto()."""
 
     module_id = 6  # MODULE_MOTOR
     type_id = 0; #REQUEST
@@ -2311,7 +2832,11 @@ def motor_action( action, correction = 0 ):
       ReqMotorReset_message.id= 1;
       ReqMotorReset_message.direction = 0;
       command = 14003; #CMD_STEP_MOTOR_RESET
-      response = connect_socket(ReqMotorReset_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorReset_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorReset_message, command, type_id, module_id)
 
     # Pitch Motor Resetting
     if (action == 6):
@@ -2319,7 +2844,11 @@ def motor_action( action, correction = 0 ):
       ReqMotorReset_message.id= 2;
       ReqMotorReset_message.direction = 1;
       command = 14003; #CMD_STEP_MOTOR_RESET
-      response = connect_socket(ReqMotorReset_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorReset_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorReset_message, command, type_id, module_id)
 
     #Closed Barrel Position
     if (action == 1):
@@ -2330,7 +2859,11 @@ def motor_action( action, correction = 0 ):
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 2;
       command = 14001; #CMD_STEP_MOTOR_RUN_TO
-      response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorRunTo_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
     # Rotation Motor positioning...
     if (action == 2):
@@ -2341,7 +2874,11 @@ def motor_action( action, correction = 0 ):
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
       command = 14001; #CMD_STEP_MOTOR_RUN_TO
-      response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorRunTo_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
     # Rotation Motor positioning D3...
     if (action == 9):
@@ -2352,7 +2889,11 @@ def motor_action( action, correction = 0 ):
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
       command = 14001; #CMD_STEP_MOTOR_RUN_TO
-      response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorRunTo_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
     # Pitch Motor positioning...
     if (action == 3):
@@ -2363,7 +2904,11 @@ def motor_action( action, correction = 0 ):
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
       command = 14001; #CMD_STEP_MOTOR_RUN_TO
-      response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorRunTo_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
     # Pitch Motor positioning D3...
     if (action == 7):  # For D3
@@ -2374,7 +2919,11 @@ def motor_action( action, correction = 0 ):
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
       command = 14001; #CMD_STEP_MOTOR_RUN_TO
-      response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorRunTo_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
     # Turn 90° Rotation Motor
     if (action == 4):
@@ -2385,7 +2934,11 @@ def motor_action( action, correction = 0 ):
       ReqMotorRunTo_message.speed_ramping = 100;
       ReqMotorRunTo_message.resolution_level = 3;
       command = 14001; #CMD_STEP_MOTOR_RUN_TO
-      response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorRunTo_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
 
     if (action == 0):
       ReqMotorRun_message = motor.ReqMotorRun ()
@@ -2395,17 +2948,29 @@ def motor_action( action, correction = 0 ):
       ReqMotorRun_message.speed_ramping = 100;
       ReqMotorRun_message.resolution_level = 3;
       command = 14000; #CMD_STEP_MOTOR_RUN
-      response = connect_socket(ReqMotorRun_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorRun_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorRun_message, command, type_id, module_id)
 
     if (action == 8):
       ReqMotorGetPosition_message = motor.ReqMotorGetPosition ()
       ReqMotorGetPosition_message.id= 1;
       command = 14011; #CMD_STEP_MOTOR_GET_POSITION
-      response = connect_socket(ReqMotorGetPosition_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorGetPosition_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorGetPosition_message, command, type_id, module_id)
 
       ReqMotorGetPosition_message.id= 2;
       command = 14011; #CMD_STEP_MOTOR_GET_POSITION
-      response = connect_socket(ReqMotorGetPosition_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorGetPosition_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorGetPosition_message, command, type_id, module_id)
 
     if (action == 10):
       ReqMotorServiceJoystickFixedAngle_message = motor.ReqMotorServiceJoystickFixedAngle ()
@@ -2413,7 +2978,11 @@ def motor_action( action, correction = 0 ):
       ReqMotorServiceJoystickFixedAngle_message.speed = 15;
 
       command = 14006; #CMD_STEP_MOTOR_SERVICE_JOYSTICK
-      response = connect_socket(ReqMotorServiceJoystickFixedAngle_message, command, type_id, module_id)
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorServiceJoystickFixedAngle_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorServiceJoystickFixedAngle_message, command, type_id, module_id)
 
     if response is not False: 
 
@@ -2464,14 +3033,17 @@ def _get_dwarf_ip():
     return data_config.get('ip')
 
 
-def perform_get_default_params_config_http(port=8082, timeout=5):
+def perform_get_default_params_config_http(session=None, port=8082, timeout=5):
     """GET /getDefaultParamsConfig (port 8082) - static default catalog.
     Based on your own tests, doesn't give much useful info anymore in V3
     (maybe just a generic catalog not tied to active param_id).
+
+    `session`: optional DwarfSession - if given, targets that device's IP;
+    otherwise falls back to the mono-dwarf config (_get_dwarf_ip()).
     """
-    ip = _get_dwarf_ip()
+    ip = session.config.dwarf_ip if session is not None else _get_dwarf_ip()
     if not ip:
-        log.error("Dwarf API: unknown IP (config.ini) - run the BLE/web connection first.")
+        log.error("Dwarf API: unknown IP - run the BLE/web connection first.")
         return False
     url = f"http://{ip}:{port}/getDefaultParamsConfig"
     try:
@@ -2483,7 +3055,7 @@ def perform_get_default_params_config_http(port=8082, timeout=5):
         return False
 
 
-def perform_get_param_and_setting_http(mode_id, port=8082, timeout=5):
+def perform_get_param_and_setting_http(mode_id, session=None, port=8082, timeout=5):
     """POST /shootingMode/getParamAndSetting (port 8082), body {"modeId": mode_id}.
 
     LIVE catalog of the parameters for the requested mode (exposure
@@ -2498,10 +3070,12 @@ def perform_get_param_and_setting_http(mode_id, port=8082, timeout=5):
     perform_enter_photo_mode() depending on the mode tested) before this
     call - per the workflow documented by dwarfAlp, the official app calls
     this endpoint AFTER already having an active WS session, not cold.
+
+    `session`: optional DwarfSession - see perform_get_default_params_config_http().
     """
-    ip = _get_dwarf_ip()
+    ip = session.config.dwarf_ip if session is not None else _get_dwarf_ip()
     if not ip:
-        log.error("Dwarf API: unknown IP (config.ini) - run the BLE/web connection first.")
+        log.error("Dwarf API: unknown IP - run the BLE/web connection first.")
         return False
     url = f"http://{ip}:{port}/shootingMode/getParamAndSetting"
     try:
@@ -2513,57 +3087,356 @@ def perform_get_param_and_setting_http(mode_id, port=8082, timeout=5):
         return False
 
 
+DEVICE_INFO_HTTP_MODEL_MAP = {
+    1: "Dwarf II",
+    2: "Dwarf 3",
+    3: "Dwarf 3 Pro (reserved, unreleased)",
+    4: "Dwarf Mini",
+}
+"""Confirmed mapping for /deviceInfo's deviceId field, verified on a real
+Dwarf 3 and Dwarf Mini.
+
+Relationship to config.py's DWARF_ID (now resolved): config.py's DWARF_ID,
+as written by connect_direct_bluetooth.py's BLE flow (dwarf_lib_ble.py,
+detected by GATT service UUID), is the SAME raw value as /deviceInfo's
+deviceId - NO offset. Confirmed twice on real hardware: Dwarf 3
+(deviceId=2, DWARF_ID=2) and Dwarf Mini (deviceId=4, DWARF_ID=4).
+
+config_to_dwarf_id_str()/config_to_dwarf_id_int() (get_config_data.py) is
+a SEPARATE, intentional +1 transform used throughout astro_dwarf_session
+and main_v3.py to get a "logical model number" for display and
+model-specific branching (2=Dwarf II, 3=Dwarf 3, 5=Dwarf Mini - see e.g.
+astro_dwarf_session_UI.py's DWARF_NAME_MAP, or dwarf_session.py's
+model-specific IR filter branches). That logical number is NOT the same
+scale as /deviceInfo's deviceId and should not be compared to it directly -
+compare dwarf_model_id (raw) to deviceId (raw) instead, see
+verify_device_identity() below.
+"""
+
+
+def perform_get_device_info_http(session=None, port=8082, timeout=5):
+    """POST /deviceInfo (port 8082). Returns the device's own identity block:
+    deviceName, sn, deviceId, mac/macAddress, staIpAddress, apIpAddress,
+    sdCardInfo, wifiConnectedMode... - confirmed on a real Dwarf Mini AND a
+    real Dwarf 3 (POST, not GET - GET returns 404, confirmed by testing).
+
+    NOTE on deviceId: this field is a DIFFERENT numbering scheme from
+    config.py's DWARF_ID - see DEVICE_INFO_HTTP_MODEL_MAP above for the
+    confirmed conversion (config.py's DWARF_ID == this deviceId + 1).
+
+    Useful to verify which physical device is actually reachable at a
+    given IP, independent of BLE and of whatever config.py/config.ini
+    happens to say - this is the only reliable identity check available
+    when connecting directly (Dwarf already on + STA, no BLE (re)pairing
+    done this run) - see verify_device_identity() below.
+
+    SECURITY NOTE (confirmed on real hardware, unauthenticated plain
+    HTTP): this endpoint also returns devicePwd and staWifiPwd in clear
+    text. This function does NOT log the raw response for that reason -
+    only pass along specific fields you need, and avoid logging/printing
+    the full dict elsewhere.
+
+    `session`: optional DwarfSession - if given, targets that device's IP;
+    otherwise falls back to the mono-dwarf config (_get_dwarf_ip()).
+
+    Returns the "data" dict on success, or False on error/unreachable.
+    """
+    ip = session.config.dwarf_ip if session is not None else _get_dwarf_ip()
+    if not ip:
+        log.error("Dwarf API: unknown IP - run the BLE/web connection first.")
+        return False
+
+    url = f"http://{ip}:{port}/deviceInfo"
+    try:
+        response = requests.post(url, timeout=timeout)
+        response.raise_for_status()
+        payload = response.json()
+        return payload.get("data") if isinstance(payload, dict) else payload
+    except requests.RequestException as e:
+        log.error(f"Error POST {url}: {e}")
+        return False
+
+
+def verify_device_identity(session, raise_on_mismatch=False):
+    """Cross-checks the physical device actually reachable at
+    session.config.dwarf_ip against session.config.dwarf_uid, using the
+    live /deviceInfo HTTP endpoint (deviceName field - the same string BLE
+    discovery uses as dwarf_uid, see dwarf_lib_ble.py's
+    connection_state["device_dwarf_uid"] = dwarf_device.name).
+
+    This is the safeguard for the "device already on + STA, connecting
+    directly via WS/HTTP without BLE" path: apply_ble_discovery() (see
+    dwarf_ble_session.py) only protects sessions during an actual BLE
+    (re)pairing - it can't catch a config.py/config.ini whose (uid, ip)
+    pairing was already wrong before this run started, since no BLE step
+    ever ran to trigger it. Call this right after connecting, before
+    sending any capture/goto command, whenever the session's identity
+    wasn't just freshly confirmed by BLE.
+
+    Returns:
+        True  - confirmed match
+        False - confirmed MISMATCH (wrong physical device at this IP)
+        None  - could not verify (endpoint unreachable) - NOT a confirmed
+                match, treat with the same caution as an unverified session
+
+    If raise_on_mismatch=True, raises RuntimeError on a confirmed
+    mismatch instead of returning False - use this to hard-abort before
+    any command reaches what might be the wrong physical Dwarf.
+    """
+    info = perform_get_device_info_http(session=session)
+    if not info:
+        log.warning(
+            f"[{session.dwarf_uid}] Could not reach /deviceInfo to verify identity "
+            "- proceeding WITHOUT identity confirmation."
+        )
+        return None
+
+    actual_name = info.get("deviceName")
+    expected_name = session.config.dwarf_uid
+
+    if actual_name != expected_name:
+        message = (
+            f"IDENTITY MISMATCH at {session.config.dwarf_ip}: config says dwarf_uid={expected_name!r}, "
+            f"but the device actually there reports deviceName={actual_name!r} (sn={info.get('sn')!r}). "
+            "This is very likely the wrong physical Dwarf - aborting rather than risk sending "
+            "commands to it."
+        )
+        log.error(message)
+        if raise_on_mismatch:
+            raise RuntimeError(message)
+        return False
+
+    # Secondary, independent signal: config.py's DWARF_ID (dwarf_model_id)
+    # should equal /deviceInfo's deviceId DIRECTLY - both use the same raw
+    # 1=Dwarf II/2=Dwarf 3/4=Dwarf Mini scheme (confirmed on real Dwarf 3
+    # and Dwarf Mini hardware - see DEVICE_INFO_HTTP_MODEL_MAP above for
+    # why this is NOT the same as the +1 "logical model number" produced
+    # by config_to_dwarf_id_str()/_int()). deviceName matching is still the
+    # authoritative check above (this doesn't override it either way) -
+    # this just catches a config file with a self-inconsistent
+    # dwarf_uid/dwarf_model_id pair even when dwarf_uid happens to be right.
+    raw_device_id = info.get("deviceId")
+    if raw_device_id is not None and session.config.dwarf_model_id:
+        try:
+            expected_model_id = int(session.config.dwarf_model_id)
+            actual_model_id = int(raw_device_id)
+            if expected_model_id != actual_model_id:
+                model_name = DEVICE_INFO_HTTP_MODEL_MAP.get(actual_model_id, "unknown model")
+                log.warning(
+                    f"[{session.dwarf_uid}] deviceName matches, but dwarf_model_id in config "
+                    f"({expected_model_id}) doesn't match the device's actual deviceId "
+                    f"({actual_model_id}, i.e. {model_name}) - config.py may have a stale/incorrect "
+                    "DWARF_ID even though DWARF_UID is right."
+                )
+        except (TypeError, ValueError):
+            pass
+
+    log.success(f"[{session.dwarf_uid}] Identity verified via /deviceInfo (sn={info.get('sn')!r}).")
+    return True
+
+
+def resolve_dwarf_ip(session, raise_on_failure=False):
+    """Try session.config.dwarf_ip (primary, from config.py) first via
+    /deviceInfo; if that doesn't confirm the right dwarf_uid (wrong device,
+    or unreachable), try session.config.alternate_dwarf_ip (the candidate
+    that was discarded at load time - typically config.ini's dwarf_ip,
+    which BLE never updates and so can legitimately drift from config.py's)
+    as a fallback. Whichever candidate confirms the right uid becomes the
+    session's dwarf_ip (any already-open stale connection to the other
+    address is disconnected first). If NEITHER confirms - including the
+    case where an address answers but with the WRONG device (e.g. two
+    Dwarf physically swapped IPs) - this returns False: stop rather than
+    guess further.
+
+    This does not involve BLE at all - it only tries addresses already
+    known from config.py/config.ini. For a genuinely NEW/unknown IP (the
+    device moved to an address neither file mentions), use
+    ensure_device_reachable() instead, which can fall back to a BLE scan.
+
+    Returns True (resolved, session.config.dwarf_ip updated if needed),
+    False (a candidate answered but with the WRONG device - a confirmed
+    mismatch, not just unreachable), None (neither candidate could be
+    reached at all - unconfirmed, not the same as a confirmed mismatch),
+    or raises if raise_on_failure=True and nothing confirms.
+    """
+    primary_ip = session.config.dwarf_ip
+    result = verify_device_identity(session)
+    if result is True:
+        return True
+
+    alternate_ip = session.config.alternate_dwarf_ip
+    if not alternate_ip or alternate_ip == primary_ip:
+        log.warning(f"[{session.dwarf_uid}] No alternate IP candidate to fall back to.")
+        if raise_on_failure:
+            raise RuntimeError(f"Could not resolve dwarf_ip for {session.dwarf_uid} (tried {primary_ip!r} only)")
+        return result  # False (confirmed wrong device) or None (unreachable) - preserve the distinction
+
+    log.notice(
+        f"[{session.dwarf_uid}] {primary_ip!r} didn't confirm - trying alternate candidate {alternate_ip!r} "
+        "(from config.ini) before giving up."
+    )
+    if session.client_instance is not None:
+        disconnect_socket_session(session)
+    session.config.dwarf_ip = alternate_ip
+
+    result2 = verify_device_identity(session)
+    if result2 is True:
+        log.success(f"[{session.dwarf_uid}] Alternate candidate {alternate_ip!r} confirmed - adopting it.")
+        return True
+
+    # Neither candidate panned out - restore the primary as the "recorded"
+    # value rather than leave the session pointed at an unconfirmed
+    # alternate, and stop. Distinguish a CONFIRMED wrong-device match
+    # (False on either candidate) from both simply being unreachable
+    # (None, None) - the latter is a connectivity/staleness question, not
+    # proof the wrong device is out there.
+    session.config.dwarf_ip = primary_ip
+    confirmed_mismatch = (result is False) or (result2 is False)
+    if confirmed_mismatch:
+        log.error(
+            f"[{session.dwarf_uid}] A candidate answered but with the WRONG device - stopping "
+            f"(tried {primary_ip!r} and {alternate_ip!r})."
+        )
+    else:
+        log.warning(
+            f"[{session.dwarf_uid}] Neither {primary_ip!r} nor {alternate_ip!r} was reachable - "
+            "identity unconfirmed (not a confirmed mismatch)."
+        )
+    if raise_on_failure:
+        raise RuntimeError(f"Could not resolve dwarf_ip for {session.dwarf_uid} (tried {primary_ip!r} and {alternate_ip!r})")
+    return False if confirmed_mismatch else None
+
+
+def ensure_device_reachable(session, ble_ssid=None, ble_pwd=None, ble_psd=None, raise_on_failure=False):
+    """Best-effort recovery for a session whose configured dwarf_ip may be
+    stale - e.g. the device got a new IP (DHCP renewal, reconnected via
+    the official phone app, moved to a different network) without a
+    session-aware BLE reconnect in THIS process to catch it via
+    apply_ble_discovery(). Verifying against a known-stale IP that nothing
+    answers at is pointless - the right fix is to refresh the IP first,
+    THEN verify against the new one, not endlessly retry the old dead one.
+
+    Strategy:
+      1. verify_device_identity(session) against the currently configured IP.
+      2. If that's not a confirmed match (False: wrong device answered, or
+         None: unreachable - most likely because the configured IP is
+         stale), and BLE credentials were given, attempt a BLE reconnect
+         targeted at THIS session's dwarf_uid (auto_select=session.dwarf_uid,
+         so it's picked automatically even if several Dwarf are visible).
+         This goes through connect_ble_direct_dwarf(..., session=session),
+         so a successful reconnect updates session.config.dwarf_ip via
+         apply_ble_discovery() and disconnects any stale open connection.
+      3. Re-verify identity - this time against the freshly discovered IP.
+
+    Without ble_ssid/ble_pwd, this behaves exactly like a plain
+    verify_device_identity() call (no recovery attempted).
+
+    Returns True only once a match is confirmed (possibly after
+    recovery). False/None otherwise, matching verify_device_identity()'s
+    return convention - see its docstring.
+    """
+    result = verify_device_identity(session)
+    if result is True:
+        return True
+
+    if not (ble_ssid and ble_pwd):
+        log.warning(
+            f"[{session.dwarf_uid}] Not confirmed at {session.config.dwarf_ip} and no BLE credentials "
+            "given to attempt recovery - giving up. Pass ble_ssid/ble_pwd to auto-recover from a stale IP."
+        )
+        if raise_on_failure:
+            raise RuntimeError(f"Could not verify/reach {session.dwarf_uid} at {session.config.dwarf_ip}")
+        return result
+
+    log.notice(
+        f"[{session.dwarf_uid}] Not reachable/confirmed at {session.config.dwarf_ip} - attempting a BLE "
+        "reconnect to refresh its IP before giving up."
+    )
+    from dwarf_ble_connect.lib.connect_direct_bluetooth import connect_ble_direct_dwarf
+
+    ble_ok = connect_ble_direct_dwarf(
+        ble_psd or "DWARF_12345678", ble_ssid, ble_pwd, auto_select=session.dwarf_uid, session=session,
+    )
+    if not ble_ok:
+        log.error(f"[{session.dwarf_uid}] BLE reconnect failed - giving up.")
+        if raise_on_failure:
+            raise RuntimeError(f"BLE reconnect failed for {session.dwarf_uid}")
+        return False
+
+    # session.config.dwarf_ip has just been refreshed in place by
+    # apply_ble_discovery() (called inside connect_ble_direct_dwarf above) -
+    # verify again, this time against the NEW ip, not the stale one.
+    log.info(f"[{session.dwarf_uid}] BLE reconnect done - IP refreshed to {session.config.dwarf_ip!r}, re-verifying.")
+    return verify_device_identity(session, raise_on_mismatch=raise_on_failure) is True
+
+
 # ---------------------------------------------------------------------------
 # V3: astro/DSO-specific settings (subframe count, mosaic,
 # auto calibration) - discovered via the live HTTP API
 # shootingMode/getParamAndSetting (modeId=2)
 # ---------------------------------------------------------------------------
 
-def perform_set_astro_stack_count_v3(count, camera="tele"):
+def perform_set_astro_stack_count_v3(count, camera="tele", session=None):
     """Total number of subframes to stack for an astro session.
     camera: "tele" or "wide". Confirmed by the live HTTP API
     (shootingMode/getParamAndSetting, modeId=2): range 1-999 for both
     cameras, value observed 390 (tele) / 100 (wide) at the time of capture.
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     param_id = PARAM_ID_ASTRO_STACK_COUNT_WIDE if camera == "wide" else PARAM_ID_ASTRO_STACK_COUNT_TELE
-    return perform_set_image_param_v3(param_id, count)
+    return perform_set_image_param_v3(param_id, count, session=session)
 
 
-def perform_set_astro_mosaic_count_v3(count):
+def perform_set_astro_mosaic_count_v3(count, session=None):
     """Number of panels for an astro mosaic (tele camera only, no wide
-    equivalent observed). Range 1-249 (default 45)."""
-    return perform_set_image_param_v3(PARAM_ID_ASTRO_MOSAIC_COUNT_TELE, count)
+    equivalent observed). Range 1-249 (default 45).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_image_param_v3(PARAM_ID_ASTRO_MOSAIC_COUNT_TELE, count, session=session)
 
 
-def perform_set_astro_stack_format_v3(value):
+def perform_set_astro_stack_format_v3(value, session=None):
     """Image format for astro stacking sessions - shared setting, not
     per-camera (tele/wide). Confirmed by network capture (Dwarf Mini,
-    Aug 2026): 2 = FITS, 3 = TIFF."""
-    return perform_set_image_param_v3(PARAM_ID_ASTRO_STACK_FORMAT, value)
+    Aug 2026): 2 = FITS, 3 = TIFF.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_image_param_v3(PARAM_ID_ASTRO_STACK_FORMAT, value, session=session)
 
 
-def perform_set_astro_display_source_v3(value):
+def perform_set_astro_display_source_v3(value, session=None):
     """Preview display source for astro stacking sessions - shared
     setting, not per-camera (tele/wide). Confirmed by network capture
     (Dwarf 3, Aug 2026): values 0 and 1 both accepted. 0 = Single
     (field-confirmed); the meaning of 1 is not yet confirmed (likely
     "Stacked"/live-stack preview, based on the setting's name, but not
-    independently verified)."""
-    return perform_set_image_param_v3(PARAM_ID_ASTRO_DISPLAY_SOURCE, value)
+    independently verified).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_image_param_v3(PARAM_ID_ASTRO_DISPLAY_SOURCE, value, session=session)
 
 
-def perform_set_astro_stack_binning_v3(value):
+def perform_set_astro_stack_binning_v3(value, session=None):
     """Binning for astro stacking sessions - shared setting, not
     per-camera (tele/wide). Confirmed by network capture (Dwarf 3, Aug
     2026): 0 = 4k, 1 = 2k. The control was reported missing from the
     official app's UI at one point (relocated, not discontinued - see
-    PARAM_ID_ASTRO_STACK_BINNING)."""
-    return perform_set_image_param_v3(PARAM_ID_ASTRO_STACK_BINNING, value)
+    PARAM_ID_ASTRO_STACK_BINNING).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_image_param_v3(PARAM_ID_ASTRO_STACK_BINNING, value, session=session)
 
 
-def perform_set_bool_param_v3(param_id, value):
+def perform_set_bool_param_v3(param_id, value, session=None):
     """CMD_PARAM_SET_GENERAL_BOOL_PARAMS (16705, NOT CONFIRMED by network
     capture - inferred from sequential position, see comment above).
+
+    `session`: optional DwarfSession - see perform_goto().
     """
     module_id = protocol.MODULE_CAMERA_PARAMS
     type_id = 0  # REQUEST
@@ -2573,7 +3446,12 @@ def perform_set_bool_param_v3(param_id, value):
     message.value = bool(value)
 
     command = CMD_PARAM_SET_GENERAL_BOOL_PARAMS
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"SET BOOL PARAM (V3) {hex(param_id)} -> {response}")
@@ -2584,12 +3462,15 @@ def perform_set_bool_param_v3(param_id, value):
     return False
 
 
-def perform_set_astro_auto_calibration_v3(enabled):
+def perform_set_astro_auto_calibration_v3(enabled, session=None):
     """Enables/disables automatic calibration before GOTO in astro/DSO
     mode. NOT CONFIRMED by network capture (see perform_set_bool_param_v3).
     Per the live HTTP API, defaultValue=true but currentValue=false at the
-    time of capture (the user had disabled it)."""
-    return perform_set_bool_param_v3(PARAM_ID_ASTRO_AUTO_CALIBRATION, enabled)
+    time of capture (the user had disabled it).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_bool_param_v3(PARAM_ID_ASTRO_AUTO_CALIBRATION, enabled, session=session)
 
 
 # ---------------------------------------------------------------------------
@@ -2604,7 +3485,7 @@ def perform_set_astro_auto_calibration_v3(enabled):
 # MIGRATION_V3.md for details on the exchanges that led to building this
 # parser.
 
-def perform_read_camera_params_http_v3(mode_id):
+def perform_read_camera_params_http_v3(mode_id, session=None):
     """Queries POST /shootingMode/getParamAndSetting {"modeId": mode_id}
     and returns a clean, readable dict of the CURRENT values
     ("currentValue") for each camera (0=tele, 1=wide), rather than the
@@ -2635,7 +3516,7 @@ def perform_read_camera_params_http_v3(mode_id):
         "tech_settings": {15: {...}, 0: {"stackCount": 390, ...}, 1: {...}},
     }
     """
-    raw = perform_get_param_and_setting_http(mode_id)
+    raw = perform_get_param_and_setting_http(mode_id, session=session)
     if raw is False:
         return False
 
@@ -2712,17 +3593,25 @@ def perform_read_camera_params_http_v3(mode_id):
 # tech (3=burst, 4=video, 5=timelapse) and perform_set_burst_*/
 # perform_set_timelapse_* settings if needed.
 
-def perform_start_burst_v3():
+def perform_start_burst_v3(session=None):
     """CMD_CAMERA_TELE_BURST (10003) - triggers a burst (count/interval
     set beforehand via perform_set_burst_count_v3()/
-    perform_set_burst_interval_by_name_v3())."""
+    perform_set_burst_interval_by_name_v3()).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     module_id = 1  # MODULE_CAMERA_TELE
     type_id = 0  # REQUEST
 
     message = camera.ReqBurstPhoto()
 
     command = 10003  # CMD_CAMERA_TELE_BURST
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"BURST -> {response}")
@@ -2732,15 +3621,23 @@ def perform_start_burst_v3():
     return False
 
 
-def perform_stop_burst_v3():
-    """CMD_CAMERA_TELE_STOP_BURST (10004)."""
+def perform_stop_burst_v3(session=None):
+    """CMD_CAMERA_TELE_STOP_BURST (10004).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     module_id = 1
     type_id = 0
 
     message = camera.ReqStopBurstPhoto()
 
     command = 10004  # CMD_CAMERA_TELE_STOP_BURST
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"STOP BURST -> {response}")
@@ -2750,15 +3647,23 @@ def perform_stop_burst_v3():
     return False
 
 
-def perform_start_record_v3():
-    """CMD_CAMERA_TELE_START_RECORD (10005) - starts video recording."""
+def perform_start_record_v3(session=None):
+    """CMD_CAMERA_TELE_START_RECORD (10005) - starts video recording.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     module_id = 1
     type_id = 0
 
     message = camera.ReqStartRecord()
 
     command = 10005  # CMD_CAMERA_TELE_START_RECORD
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"START RECORD -> {response}")
@@ -2768,15 +3673,23 @@ def perform_start_record_v3():
     return False
 
 
-def perform_stop_record_v3():
-    """CMD_CAMERA_TELE_STOP_RECORD (10006)."""
+def perform_stop_record_v3(session=None):
+    """CMD_CAMERA_TELE_STOP_RECORD (10006).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     module_id = 1
     type_id = 0
 
     message = camera.ReqStopRecord()
 
     command = 10006  # CMD_CAMERA_TELE_STOP_RECORD
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"STOP RECORD -> {response}")
@@ -2786,16 +3699,24 @@ def perform_stop_record_v3():
     return False
 
 
-def perform_start_timelapse_v3():
+def perform_start_timelapse_v3(session=None):
     """CMD_CAMERA_TELE_START_TIMELAPSE_PHOTO (10033) - starts the timelapse
-    (interval/duration set beforehand via perform_set_timelapse_*)."""
+    (interval/duration set beforehand via perform_set_timelapse_*).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     module_id = 1
     type_id = 0
 
     message = camera.ReqStartTimeLapse()
 
     command = 10033  # CMD_CAMERA_TELE_START_TIMELAPSE_PHOTO
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"START TIMELAPSE -> {response}")
@@ -2805,15 +3726,23 @@ def perform_start_timelapse_v3():
     return False
 
 
-def perform_stop_timelapse_v3():
-    """CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO (10034)."""
+def perform_stop_timelapse_v3(session=None):
+    """CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO (10034).
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
     module_id = 1
     type_id = 0
 
     message = camera.ReqStopTimeLapse()
 
     command = 10034  # CMD_CAMERA_TELE_STOP_TIMELAPSE_PHOTO
-    response = connect_socket(message, command, type_id, module_id)
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
         log.success(f"STOP TIMELAPSE -> {response}")
@@ -2836,7 +3765,7 @@ def perform_stop_timelapse_v3():
 # get_client_status() to read that state without digging through the raw
 # JSON each time.
 
-def perform_read_astro_stacking_status_v3():
+def perform_read_astro_stacking_status_v3(session=None):
     """Reads the current astro stacking session state from the client
     status cache (get_client_status()). Returns a dict:
 
@@ -2855,8 +3784,14 @@ def perform_read_astro_stacking_status_v3():
     received while a stacking session is running) - it does not send any
     network request, and will not reflect anything before the first
     notification has arrived after perform_start_astro_photo().
+
+    `session`: optional DwarfSession - see perform_goto().
     """
-    status = get_client_status()
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        status = get_client_status_session(active_session)
+    else:
+        status = get_client_status()
     if isinstance(status, str) or not isinstance(status, dict):
         # get_client_status() returns a JSON string when there is no
         # client_instance (not connected) instead of a dict.

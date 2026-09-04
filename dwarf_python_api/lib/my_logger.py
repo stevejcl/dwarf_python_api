@@ -31,6 +31,37 @@ def success(self, message, *args, **kwargs):
 
 logging.Logger.success = success  # Add success method to logger class
 
+# --- Shared-log thread exclusion (additive, multi-Dwarf support) -----------
+# A caller (e.g. the UI) that has already given a specific thread its own
+# dedicated, filtered log handler can register that thread here so the
+# shared/global file_handler below stops ALSO capturing its output. This
+# module stays UI-agnostic - it just tracks thread idents to skip, with no
+# knowledge of what "scheduler" or "session" means.
+_shared_log_excluded_threads = set()
+
+
+def exclude_thread_from_shared_log(thread_ident):
+    """Stop the shared/global log file (update_log_file()'s file_handler)
+    from also capturing this thread's records - use once that thread has
+    its own dedicated handler, to avoid duplicate/cross-contaminated
+    entries when multiple threads log concurrently."""
+    _shared_log_excluded_threads.add(thread_ident)
+
+
+def include_thread_in_shared_log(thread_ident):
+    """Undo exclude_thread_from_shared_log() once the thread's own
+    dedicated handler is no longer in use (e.g. it has stopped)."""
+    _shared_log_excluded_threads.discard(thread_ident)
+
+
+class _SharedLogThreadFilter(logging.Filter):
+    """Attached to the shared/global file_handler - drops records from any
+    thread that has registered its own dedicated handler via
+    exclude_thread_from_shared_log(), so the shared file doesn't also pick
+    up a copy of output that's already fully captured elsewhere."""
+    def filter(self, record):
+        return record.thread not in _shared_log_excluded_threads
+
 # Function to update or create the log file handler
 def update_log_file():
     """
@@ -76,6 +107,7 @@ def update_log_file():
                 file_handler = logging.FileHandler(log_file)
                 file_handler.setLevel(file_log_level)
                 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+                file_handler.addFilter(_SharedLogThreadFilter())
                 logger.addHandler(file_handler)
                 logger.notice(f"Log file updated to: {log_file}")
             except Exception as e:
