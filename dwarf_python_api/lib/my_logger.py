@@ -105,9 +105,23 @@ class _DeviceLabelFilter(logging.Filter):
         return True
 
 # Function to update or create the log file handler
-def update_log_file():
+def update_log_file(default_name: str = "app.log"):
     """
     Dynamically update or create the log file handler.
+
+    `default_name`: this is a GENERIC library, reused by several
+    standalone tools (main_v3.py, get_live_data_dwarf.py, ...) besides
+    astro_dwarf_ui - it has no business hardcoding any ONE application's
+    own naming convention. "app.log" is a neutral library-level default,
+    used only when no config.py value is present at all AND the caller
+    hasn't specified its own preference. An APPLICATION that wants a
+    specific name (e.g. astro_dwarf_ui wanting "astro_session.log")
+    should pass its own default_name explicitly - see astro_dwarf_ui.py's
+    own startup call - rather than this library assuming any one app's
+    convention for everyone (user-corrected Sep 2026: an earlier version
+    of this fix hardcoded "astro_session.log" directly in here, which
+    is exactly the kind of app-specific detail a generic library
+    shouldn't own).
     """
     global log_file  # To update the global variable
     global file_handler  # To reference the existing file handler
@@ -116,10 +130,37 @@ def update_log_file():
     data_config = dwarf_python_api.get_config_data.get_config_data()
 
     # Determine the new log file
+    # BUG FIX (user-reported Sep 2026): when no config.py is found at
+    # all, get_config_data() falls back to log_file=None (a genuinely
+    # MISSING value), not "" (an empty-but-present value) - the ""
+    # check below correctly defaults THAT case to a real filename, but
+    # None fell through to the final else, silently setting
+    # new_log_file to None too, which the later `if log_file is not
+    # None:` guard reads as "logging explicitly disabled" (the SAME as
+    # data_config['log_file'] == "False") - conflating "no config file
+    # present at all" with "user explicitly turned logging off" and
+    # skipping file creation entirely, with no error/warning to explain
+    # why. Both "" and None (not just "") now fall back to default_name.
+    #
+    # Follow-up (Sep 2026, user-reported): this whole function is
+    # process-wide, not per-device - get_config_data() with no
+    # explicit path looks for a single root-level config.py, which
+    # doesn't exist in the multi-device layout (each device has its
+    # own config_<slug>.py/.ini instead - see pages/pairing.py). That's
+    # not a bug to fix here though: pages/logs.py's own module
+    # docstring confirms the INTENDED design is one shared log file for
+    # the whole process (every line already tagged with a "[dwarf_uid]"
+    # prefix), not one file per device - so this function correctly has
+    # no device-specific config to read, regardless of how many devices
+    # are paired. What name that ONE shared file gets, absent a config.py
+    # override, is the CALLER's choice (default_name), not this
+    # library's to assume - see this function's own docstring.
     if data_config['log_file'] == "False":
         new_log_file = None
+    elif not data_config['log_file']:  # "" or None
+        new_log_file = default_name
     else:
-        new_log_file = "app.log" if data_config['log_file'] == "" else data_config['log_file']
+        new_log_file = data_config['log_file']
 
     # Check if the log file has changed
     if new_log_file != log_file:

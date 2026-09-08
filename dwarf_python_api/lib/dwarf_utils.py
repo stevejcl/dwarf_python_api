@@ -3597,6 +3597,55 @@ def perform_set_astro_auto_calibration_v3(enabled, session=None):
 # MIGRATION_V3.md for details on the exchanges that led to building this
 # parser.
 
+def perform_list_astro_sessions_http(session=None, port=8082, timeout=10):
+    """POST /album/list/mediaInfos (port 8082), body
+    {"mediaType": 6, "pageIndex": 0, "pageSize": 0}.
+
+    Lists the device's own real astro sessions (Deep Sky Object
+    captures) - CONFIRMED by network capture (user-provided, Sep 2026,
+    real DWARFLAB app traffic against a Dwarf Mini) to be mediaType=6,
+    not the value the official PDF protocol doc's own small index
+    implied (4) - that earlier guess was never independently verified
+    and turned out wrong. pageSize=0 returned the device's FULL list in
+    that same capture (175+ entries), not zero results as the name
+    might suggest.
+
+    Each entry's "astroImageDetails" (or "astroMosaicImageDetails"/
+    "astroMultiImageDetails" for Mosaic/RESTACKED sessions - not yet
+    handled distinctly here, only the common top-level fields this
+    function reads) carries session metadata (target, exposure params,
+    shot counts). "thumbnailPath"/"filePath" are paths on the SAME
+    device, served over plain HTTP on PORT 80 (confirmed by capture -
+    a DIFFERENT port from this listing call's own 8082), e.g.:
+      http://<dwarf_ip>/DWARF_mini/Astronomy/<session>/stacked_thumbnail.jpg
+    The caller can build these image URLs directly for a browser
+    <img> tag - no need to proxy the image bytes through this backend.
+
+    Returns the raw list from the response's "data" key (each item a
+    dict as described above), or False on failure/error.
+
+    `session`: optional DwarfSession - see perform_get_default_params_config_http().
+    """
+    ip = session.config.dwarf_ip if session is not None else _get_dwarf_ip()
+    if not ip:
+        log.error("Dwarf API: unknown IP - run the BLE/web connection first.")
+        return False
+    url = f"http://{ip}:{port}/album/list/mediaInfos"
+    try:
+        response = requests.post(
+            url, json={"mediaType": 6, "pageIndex": 0, "pageSize": 0}, timeout=timeout
+        )
+        response.raise_for_status()
+        result = response.json()
+        if not isinstance(result, dict) or result.get("code") != 0:
+            log.error(f"Unexpected response from {url}: {result}")
+            return False
+        return result.get("data") or []
+    except requests.RequestException as e:
+        log.error(f"Error POST {url}: {e}")
+        return False
+
+
 def perform_read_camera_params_http_v3(mode_id, session=None):
     """Queries POST /shootingMode/getParamAndSetting {"modeId": mode_id}
     and returns a clean, readable dict of the CURRENT values
