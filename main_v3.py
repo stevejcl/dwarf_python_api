@@ -722,7 +722,7 @@ def option_C17():
     print("=== Astro: stackCount / mosaicCount ===")
     camera_choice = input("Camera: tele/wide (default tele): ").strip() or "tele"
     stack = input("Number of subframes to stack (1-999, blank = skip): ").strip()
-    mosaic = input("Number of mosaic panels (1-249, blank = skip, tele only): ").strip()
+    mosaic = input("Number of subframes per panels (1-249, blank = skip, tele only): ").strip()
     if stack:
         perform_set_astro_stack_count_v3(int(stack), camera=camera_choice)
     if mosaic:
@@ -1109,7 +1109,7 @@ def display_menu_astro():
     print("A14. Enter Solar mode (Sun/Moon/Planet shortcut, default Sun)")
     print("A15. Set binning/file format")
     print("A16. Set Mosaic Framing")
-    print("A17. Sart Mosaic Session")
+    print("A17. Start Mosaic Session")
     print("0.   Return")
 
 
@@ -1152,7 +1152,7 @@ def option_A3():
     print("=== stackCount / mosaicCount ===")
     camera_choice = input("Camera: tele/wide (default tele): ").strip() or "tele"
     stack = input("Number of subframes to stack (1-999, blank = skip): ").strip()
-    mosaic = input("Number of mosaic panels (1-249, blank = skip, tele only): ").strip()
+    mosaic = input("Number of subframes per panels (1-249, blank = skip, tele only): ").strip()
     if stack:
         perform_set_astro_stack_count_v3(int(stack), camera=camera_choice)
     if mosaic:

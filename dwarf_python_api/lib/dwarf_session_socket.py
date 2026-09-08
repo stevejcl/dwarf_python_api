@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import contextlib
 import threading
 import time
 
@@ -40,6 +41,7 @@ from dwarf_python_api.lib.websockets_utils import (
     ERROR_SLAVEMODE,
     ERROR_TIMEOUT,
     WebSocketClient,
+    _filter_benign_connection_reset,
     flush_queue_for_command_id,
     get_result_with_timeout,
     process_command,
@@ -118,7 +120,22 @@ async def init_socket(session: DwarfSession):
 
     try:
         if not session.client_instance:
-            session.event_loop = asyncio.new_event_loop()
+            # asyncio.SelectorEventLoop(), NOT asyncio.new_event_loop():
+            # on Windows, new_event_loop() returns a ProactorEventLoop by
+            # default, whose _ProactorBasePipeTransport._call_connection_
+            # lost can raise a bare ConnectionResetError ([WinError
+            # 10054]) when the Dwarf resets the connection - and this
+            # specific callback can fire during the loop's OWN close()
+            # sequence, seemingly bypassing set_exception_handler()
+            # entirely (confirmed: that handler is already attached
+            # below and on the throwaway loop in connect_socket(), and
+            # the noise still got reported in real testing). SelectorEventLoop
+            # has no Proactor/IOCP transport machinery at all, so this
+            # whole class of noise can't happen with it - a more
+            # thorough fix than trying to filter the exception after
+            # the fact. No behavioural difference for our use (plain
+            # WebSocket/TCP I/O, no subprocess management on this loop).
+            session.event_loop = asyncio.SelectorEventLoop()
             session.event_loop_thread = threading.Thread(
                 target=run_event_loop, args=(session.event_loop,), daemon=True
             )
@@ -131,8 +148,35 @@ async def init_socket(session: DwarfSession):
 
             log.debug(f"[{session.dwarf_uid}] client_instance {session.client_instance}")
             if session.client_instance:
+                # Back to 30s (Sep 2026, was momentarily 5s as a
+                # diagnostic experiment, then briefly 60s before that) -
+                # the real ROOT CAUSE of the reported "second device
+                # falsely shows not-connected" issue was found and fixed
+                # separately: WebSocketClient.Init_Send_
+                # TeleGetSystemWorkingState was a CLASS-level attribute
+                # (shared across every connected device) instead of a
+                # per-INSTANCE one, so the second device's own init
+                # command (CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO) was
+                # silently never sent at all once the first device had
+                # already flipped that shared flag to False - explaining
+                # why no timeout duration ever helped (the question was
+                # never asked, so no answer could ever arrive) and why
+                # things "just started working" right after a wait gave
+                # up (an unrelated later call succeeded normally). Now
+                # that every instance tracks this independently (see
+                # send_message_init()/initialize_once() in websockets_
+                # utils.py, all converted from WebSocketClient.X to
+                # self.X), user-confirmed via a real two-device log:
+                # zero timeouts/failures, both devices connect within
+                # ~13s of each other with no false negatives. 30s here
+                # is a comfortable, unhurried default for this one-time
+                # connection step now that the actual bug is gone -
+                # matching gb_timeout's own spirit of generous patience
+                # for one-time/rare operations (150s) rather than the
+                # tight budget appropriate for frequent in-session
+                # commands.
                 result_cnx = asyncio.run_coroutine_threadsafe(
-                    get_result_with_timeout(session.client_instance.result_queue), session.event_loop
+                    get_result_with_timeout(session.client_instance.result_queue, 30), session.event_loop
                 ).result()
 
                 if isinstance(result_cnx, dict) and "code" in result_cnx:
@@ -153,8 +197,11 @@ async def init_socket(session: DwarfSession):
                 future = asyncio.run_coroutine_threadsafe(_send_message_init(session), session.event_loop)
                 future.result()
 
+                # Same reasoning as the connection-step wait above - back
+                # to 30s now that the actual root cause (shared class-
+                # level init flag) is fixed.
                 result_cnx = asyncio.run_coroutine_threadsafe(
-                    get_result_with_timeout(session.client_instance.result_queue), session.event_loop
+                    get_result_with_timeout(session.client_instance.result_queue, 30), session.event_loop
                 ).result()
 
                 if isinstance(result_cnx, dict) and "code" in result_cnx:
@@ -260,8 +307,19 @@ def connect_socket(session: DwarfSession, message, command, type_id, module_id):
     functions should call - same one-shot throwaway-loop pattern as the
     original, so behaviour under repeated calls is unchanged."""
     result = True
-    loop = asyncio.new_event_loop()
+    # asyncio.SelectorEventLoop(), not asyncio.new_event_loop() - see
+    # init_socket()'s comment above for why (avoids Windows'
+    # ProactorEventLoop-specific _call_connection_lost noise at the
+    # source rather than trying to filter it after the fact).
+    loop = asyncio.SelectorEventLoop()
     asyncio.set_event_loop(loop)
+    # Same benign-noise filter as the persistent per-device loop (see
+    # run_event_loop() in websockets_utils.py) - this THROWAWAY loop is
+    # created fresh on every single command send (connect_socket() is
+    # dwarf_utils.py's per-perform_* entry point), so it's actually the
+    # MORE frequent source of the Windows ProactorEventLoop
+    # ConnectionResetError noise, not the persistent loop.
+    loop.set_exception_handler(_filter_benign_connection_reset)
 
     try:
         if not session.client_instance or not session.client_instance.start_client:
@@ -303,11 +361,55 @@ def disconnect_socket(session: DwarfSession):
 
 
 def stop_event_loop(session: DwarfSession):
-    """Mirrors websockets_utils.stop_event_loop(), scoped to `session`."""
+    """Mirrors websockets_utils.stop_event_loop(), scoped to `session`.
+
+    PROPOSED FIX (not yet hardware-validated - see the module docstring's
+    warning about not "cleaning up" this branching logic without
+    re-testing on real devices): previously this went straight to
+    `loop.stop()` + `thread.join()`. If disconnect_socket()'s 5s timeout
+    had already fired (slow/unresponsive device), `client.task` (the
+    WebSocketClient.start() coroutine) could still be mid-unwind when
+    the loop was yanked out from under it - it would then only get
+    cleaned up later by the garbage collector, producing "Task was
+    destroyed but it is pending!" and, since the loop was never
+    explicitly closed either, "RuntimeError: Event loop is closed"
+    inside that GC-time cleanup. Harmless in a short-lived script that
+    exits right after (which is why this never showed up before), but
+    noisy - and a real resource leak - in a long-running UI that
+    connects/disconnects repeatedly.
+
+    This version gives the pending task one short, bounded chance
+    (2s) to actually finish cancelling on ITS OWN loop before stopping
+    that loop, and closes the loop explicitly afterward instead of
+    leaving that to __del__.
+    """
     if session.event_loop:
+        client = session.client_instance
+        task = getattr(client, "task", None) if client is not None else None
+        if task is not None and not task.done():
+            async def _drain_task():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
+
+            try:
+                future = asyncio.run_coroutine_threadsafe(_drain_task(), session.event_loop)
+                future.result(timeout=2)
+            except Exception as e:
+                log.warning(
+                    f"[{session.dwarf_uid}] Could not drain pending task before "
+                    f"shutdown (proceeding anyway): {e}"
+                )
+
         session.event_loop.call_soon_threadsafe(session.event_loop.stop)
         if session.event_loop_thread:
             session.event_loop_thread.join()
+
+        try:
+            session.event_loop.close()
+        except Exception as e:
+            log.warning(f"[{session.dwarf_uid}] Error closing event loop: {e}")
+
         log.debug(f"[{session.dwarf_uid}] Event loop and thread stopped.")
         session.client_instance = None
 
@@ -353,6 +455,10 @@ def get_client_status(session: DwarfSession):
         "TemperatureLevelDwarf": client.TemperatureLevelDwarf,
         "CmosTemperatureDwarf": client.CmosTemperatureDwarf,
         "StreamTypeDwarf": client.StreamTypeDwarf,
+        "StreamTypeByCamera": client.StreamTypeByCamera,
+        "needsContinueShooting": client.needsContinueShooting,
+        "eqAziErr": client.eqAziErr,
+        "eqAltErr": client.eqAltErr,
         "FocusValueDwarf": client.FocusValueDwarf,
         "PowerIndicatorDwarf": client.PowerIndStateDwarf,
         "RgbIndicatorDwarf": client.RgbIndStateDwarf,

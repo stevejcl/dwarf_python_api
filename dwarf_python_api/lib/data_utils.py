@@ -318,13 +318,47 @@ class AllowedWBPreset:
 # not need to be reproduced here.
 
 class AllowedIRFilter:
-    """IR/Astro filter. Confirmed by the official config file
+    """IR/Astro filter for D3. Confirmed by the official config file
     (camera.supportParams id=8), only 3 options, no intermediate step
-    (index = position)."""
+    (index = position).
+
+    NOT universal across models (corrected Sep 2026, user-confirmed):
+    the numeric index (0/1/2) is shared, but the NAMES differ by model,
+    and D2 only has 2 valid positions, not 3 - see AllowedIRFilterD2
+    (IR_PASS/IR_CUT) and AllowedIRFilterMini (DARK/Astro Filter/Duo-Band
+    Filter, index 0 named differently from D3's "VIS Filter") below."""
     def __init__(self):
         self.default_value_index = 0
         self.values = [
             {"index": 0, "name": "VIS Filter"},
+            {"index": 1, "name": "Astro Filter"},
+            {"index": 2, "name": "Duo-Band Filter"},
+        ]
+
+class AllowedIRFilterD2:
+    """IR filter for D2 - user-confirmed (Sep 2026): only 2 positions,
+    not 3 like D3/Mini. index 0 = IR_CUT, index 1 = IR_PASS - matches
+    dwarf_session.py's own already-validated mapping (both its log
+    message and its calibration step, which sets index "1" and labels
+    it "IR_PASS" for this exact model check) rather than an initial,
+    corrected-on-review guess the other way around."""
+    def __init__(self):
+        self.default_value_index = 0
+        self.values = [
+            {"index": 0, "name": "IR_CUT"},
+            {"index": 1, "name": "IR_PASS"},
+        ]
+
+class AllowedIRFilterMini:
+    """IR filter for Mini - user-confirmed (Sep 2026): same 0/1/2
+    indices as AllowedIRFilter (D3), but index 0 is named "DARK" here
+    instead of D3's "VIS Filter" - matches an earlier informal project
+    note that had already flagged this same DARK/Astro/Dual-Band naming
+    for the Mini specifically."""
+    def __init__(self):
+        self.default_value_index = 0
+        self.values = [
+            {"index": 0, "name": "DARK"},
             {"index": 1, "name": "Astro Filter"},
             {"index": 2, "name": "Duo-Band Filter"},
         ]
@@ -409,6 +443,8 @@ allowed_wb_temp = AllowedWBTemp()
 allowed_gains_wide = AllowedGainsWide()
 allowed_wb_preset = AllowedWBPreset()
 allowed_ir_filter = AllowedIRFilter()
+allowed_ir_filterD2 = AllowedIRFilterD2()
+allowed_ir_filterMini = AllowedIRFilterMini()
 allowed_burst_count = AllowedBurstCount()
 allowed_burst_interval = AllowedBurstInterval()
 allowed_timelapse_interval = AllowedTimelapseInterval()

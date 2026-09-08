@@ -278,6 +278,17 @@ class WebSocketClient:
         self.result_queue = asyncio.Queue()
         self.result_queue_locked = asyncio.Lock()
         self.wait_pong = False
+        self.ping_sent_at = None
+        # Set when a PING goes unanswered for too long (see
+        # send_ping_periodically() below) - a genuine, enforced timeout,
+        # unlike the pre-existing wait_pong bookkeeping alone, which
+        # tracked "waiting for a pong" but never escalated a missed one
+        # into anything: the ping loop just kept re-checking once a
+        # second forever, so a silent radio drop (Wi-Fi interference
+        # that never formally closes the socket) was never detected by
+        # ping/pong at all - only websocket.state != OPEN was, which is
+        # a lower-level protocol closure, a different failure mode.
+        self.PingTimeoutError = False
         self.stopcalibration = False
         self.takePhotoStarted = False
         self.takeWidePhotoStarted = False
@@ -286,6 +297,14 @@ class WebSocketClient:
         self.RestartAstroCapture = False
         self.RestartAstroWideCapture = False
         self.startEQSolving = False
+        # EQ Solving position feedback (user-requested Sep 2026: "un
+        # retour de la position EQ dans l'interface... sans besoin de
+        # lire les logs") - azi_err/alt_err were already being decoded
+        # from CMD_ASTRO_START_EQ_SOLVING's own response and logged,
+        # but never cached/exposed anywhere the UI could read them.
+        # None until a real response has been decoded at least once.
+        self.eqAziErr = None
+        self.eqAltErr = None
         self.toDoSetExpMode = False
         self.toDoSetExp = False
         self.toDoSetGain = False
@@ -306,6 +325,8 @@ class WebSocketClient:
         self.TemperatureLevelDwarf = None
         self.CmosTemperatureDwarf = {}  # keyed by camera_type (0=tele, 1=wide)
         self.StreamTypeDwarf = None
+        self.StreamTypeByCamera = {}  # keyed by cam_id (0=tele, 1=wide) - see CMD_NOTIFY_STREAM_TYPE handling below
+        self.needsContinueShooting = False  # see CODE_ASTRO_DARK_TEMP_MISMATCH handling below - set True when the device needs an explicit CMD_ASTRO_CONTINUE_SHOOTING follow-up
         self.FocusValueDwarf = None
         self.PowerIndStateDwarf = None
         self.RgbIndStateDwarf = None
@@ -324,7 +345,7 @@ class WebSocketClient:
 
     def initialize_once(self):
 
-        if WebSocketClient.Init_Send_TeleGetSystemWorkingState:
+        if self.Init_Send_TeleGetSystemWorkingState:
             # Perform the initialization logic here
             log.info("Initializing...")
 
@@ -387,9 +408,29 @@ class WebSocketClient:
                     await self.websocket.send("ping")
                     # Signal to Receive to Wait the Pong Frame
                     self.wait_pong = True
+                    self.ping_sent_at = time.monotonic()
                     await asyncio.sleep(self.ping_interval_task)
                 else:
-                    await asyncio.sleep(1)
+                    # Still waiting on the previous pong. Previously this
+                    # just kept looping forever with no deadline - a
+                    # silent radio drop (socket never formally closed,
+                    # just stops delivering anything) would leave
+                    # wait_pong True indefinitely without ever being
+                    # treated as a disconnect. Now: if more than 2x the
+                    # ping interval has passed with no pong, treat the
+                    # connection as dead.
+                    if (
+                        self.ping_sent_at is not None
+                        and time.monotonic() - self.ping_sent_at > self.ping_interval_task * 2
+                    ):
+                        log.error(
+                            f"No pong received within {self.ping_interval_task * 2}s - "
+                            "treating connection as dead."
+                        )
+                        self.PingTimeoutError = True
+                        self.stop_task.set()
+                    else:
+                        await asyncio.sleep(1)
             await asyncio.sleep(0.02)
 
         except websockets.ConnectionClosedOK as e:
@@ -1426,7 +1467,43 @@ class WebSocketClient:
                                     # stacking normally afterward (current_count/stacked_count keep
                                     # incrementing). Previously fell through to the generic "!= OK"
                                     # catch-all below and incorrectly aborted the whole session.
+                                    #
+                                    # BUG FIX (Sep 2026, user-confirmed via real hardware): this branch
+                                    # never called result_receive_messages() at all, so the caller
+                                    # waiting on self.result_queue.get() (connect_socket_session(),
+                                    # gb_timeout=150s) never got ANY answer for this request and simply
+                                    # blocked for the full 150s before giving up - accepting the
+                                    # response as if it were OK, per the user's own diagnosis, fixes this.
                                     log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH):
+                                    # User-requested (Sep 2026): treat this as non-blocking -
+                                    # a dark-frame temperature mismatch affects noise-reduction
+                                    # quality, not whether the capture itself can proceed.
+                                    # Ignore and continue the session rather than aborting it.
+                                    #
+                                    # BUG FIX (Sep 2026, user-confirmed via real hardware): this branch
+                                    # never called result_receive_messages() at all, so the caller
+                                    # waiting on self.result_queue.get() (connect_socket_session(),
+                                    # gb_timeout=150s) never got ANY answer for this request and simply
+                                    # blocked for the full 150s before giving up - accepting the
+                                    # response as if it were OK, per the user's own diagnosis, fixes this.
+                                    log.warning("START_CAPTURE : CODE_ASTRO_DARK_TEMP_MISMATCH message receive (non-blocking, capture continues)")
+                                    # Protocol clarification (Sep 2026, user-confirmed): the REAL "session
+                                    # started" confirmation is a SEPARATE notification
+                                    # (CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING), not this direct command
+                                    # response - this response is normally just used to set the flag below
+                                    # and otherwise ignored, since that notification is what actually
+                                    # unblocks the caller waiting on self.result_queue. This specific code can
+                                    # still arrive LATER during an already-running session too (e.g. an
+                                    # overexposure warning at dawn as ambient light increases) - only inject an
+                                    # OK result here if takePhotoStarted is still False, i.e. this really is the
+                                    # (blocking) response to the INITIAL start attempt with nothing else
+                                    # coming to unblock it; if it is already True, the original wait was
+                                    # already resolved by that earlier notification, and injecting a result
+                                    # now would just be a stray, unconsumed queue entry.
+                                    if not self.takePhotoStarted:
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success START_CAPTURE (dark temp mismatch ignored)", protocol.OK)
+                                        self.needsContinueShooting = True
                                     self.takePhotoStarted = True
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
                                     log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
@@ -1463,7 +1540,33 @@ class WebSocketClient:
                                     log.warning("START_CAPTURE : ASTRO_NEED_GOTO message receive")
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_OVEREXPOSURE_WARNING):
                                     # Same fix as the tele branch above - field-confirmed non-blocking.
+                                    # BUG FIX (Sep 2026): also needs result_receive_messages() - see
+                                    # the tele branch's own note on why omitting it caused a 150s hang.
                                     log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH):
+                                    # User-requested (Sep 2026): treat this as non-blocking -
+                                    # a dark-frame temperature mismatch affects noise-reduction
+                                    # quality, not whether the capture itself can proceed.
+                                    # Ignore and continue the session rather than aborting it.
+                                    # BUG FIX (Sep 2026): also needs result_receive_messages() - see
+                                    # the tele branch's own note on why omitting it caused a 150s hang.
+                                    log.warning("START_CAPTURE : CODE_ASTRO_DARK_TEMP_MISMATCH message receive (non-blocking, capture continues)")
+                                    # Protocol clarification (Sep 2026, user-confirmed): the REAL "session
+                                    # started" confirmation is a SEPARATE notification
+                                    # (CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING), not this direct command
+                                    # response - this response is normally just used to set the flag below
+                                    # and otherwise ignored, since that notification is what actually
+                                    # unblocks the caller waiting on self.result_queue. This specific code can
+                                    # still arrive LATER during an already-running session too (e.g. an
+                                    # overexposure warning at dawn as ambient light increases) - only inject an
+                                    # OK result here if takeWidePhotoStarted is still False, i.e. this really is the
+                                    # (blocking) response to the INITIAL start attempt with nothing else
+                                    # coming to unblock it; if it is already True, the original wait was
+                                    # already resolved by that earlier notification, and injecting a result
+                                    # now would just be a stray, unconsumed queue entry.
+                                    if not self.takeWidePhotoStarted:
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success START_CAPTURE (dark temp mismatch ignored)", protocol.OK)
+                                        self.needsContinueShooting = True
                                     self.takeWidePhotoStarted = True
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
                                     log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
@@ -1505,6 +1608,28 @@ class WebSocketClient:
                                     # incrementing). Previously fell through to the generic "!= OK"
                                     # catch-all below and incorrectly aborted the whole session.
                                     log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH):
+                                    # User-requested (Sep 2026): treat this as non-blocking -
+                                    # a dark-frame temperature mismatch affects noise-reduction
+                                    # quality, not whether the capture itself can proceed.
+                                    # Ignore and continue the session rather than aborting it.
+                                    log.warning("START_CAPTURE : CODE_ASTRO_DARK_TEMP_MISMATCH message receive (non-blocking, capture continues)")
+                                    # Protocol clarification (Sep 2026, user-confirmed): the REAL "session
+                                    # started" confirmation is a SEPARATE notification
+                                    # (CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING), not this direct command
+                                    # response - this response is normally just used to set the flag below
+                                    # and otherwise ignored, since that notification is what actually
+                                    # unblocks the caller waiting on self.result_queue. This specific code can
+                                    # still arrive LATER during an already-running session too (e.g. an
+                                    # overexposure warning at dawn as ambient light increases) - only inject an
+                                    # OK result here if takePhotoStarted is still False, i.e. this really is the
+                                    # (blocking) response to the INITIAL start attempt with nothing else
+                                    # coming to unblock it; if it is already True, the original wait was
+                                    # already resolved by that earlier notification, and injecting a result
+                                    # now would just be a stray, unconsumed queue entry.
+                                    if not self.takePhotoStarted:
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success START_CAPTURE (dark temp mismatch ignored)", protocol.OK)
+                                        self.needsContinueShooting = True
                                     self.takePhotoStarted = True
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
                                     log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
@@ -1542,6 +1667,28 @@ class WebSocketClient:
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_OVEREXPOSURE_WARNING):
                                     # Same fix as the tele branch above - field-confirmed non-blocking.
                                     log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH):
+                                    # User-requested (Sep 2026): treat this as non-blocking -
+                                    # a dark-frame temperature mismatch affects noise-reduction
+                                    # quality, not whether the capture itself can proceed.
+                                    # Ignore and continue the session rather than aborting it.
+                                    log.warning("START_CAPTURE : CODE_ASTRO_DARK_TEMP_MISMATCH message receive (non-blocking, capture continues)")
+                                    # Protocol clarification (Sep 2026, user-confirmed): the REAL "session
+                                    # started" confirmation is a SEPARATE notification
+                                    # (CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING), not this direct command
+                                    # response - this response is normally just used to set the flag below
+                                    # and otherwise ignored, since that notification is what actually
+                                    # unblocks the caller waiting on self.result_queue. This specific code can
+                                    # still arrive LATER during an already-running session too (e.g. an
+                                    # overexposure warning at dawn as ambient light increases) - only inject an
+                                    # OK result here if takePhotoStarted is still False, i.e. this really is the
+                                    # (blocking) response to the INITIAL start attempt with nothing else
+                                    # coming to unblock it; if it is already True, the original wait was
+                                    # already resolved by that earlier notification, and injecting a result
+                                    # now would just be a stray, unconsumed queue entry.
+                                    if not self.takePhotoStarted:
+                                        await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success START_CAPTURE (dark temp mismatch ignored)", protocol.OK)
+                                        self.needsContinueShooting = True
                                     self.takePhotoStarted = True
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
                                     log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
@@ -1796,7 +1943,7 @@ class WebSocketClient:
                                    self.takeMosaicStacked = ResNotifyProgressCaptureMosaic_message.stacked_count
                                 log.info(f"receive notification current_count >> {self.takeMosaicCount}")
                                 log.info(f"receive notification stacked_count >> {self.takeMosaicStacked}")
-                                message = f"current_count >> {self.takeMosaicCount} - stacked_count >> {self.takePhotoStacked}"
+                                message = f"current_count >> {self.takeMosaicCount} - stacked_count >> {self.takeMosaicStacked}"
                                 # send a notification
                                 await self.result_notification_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, message, 0)
                             # CMD_CAMERA_TELE_SET_ALL_PARAMS
@@ -2467,6 +2614,14 @@ class WebSocketClient:
                                 log.debug(f" ASTRO START EQ SOLVING azi_err:  {ResStartEqSolving_message.azi_err}")
                                 log.debug(f" ASTRO START EQ SOLVING alt_err:  {ResStartEqSolving_message.alt_err}")
                                 log.debug(f">> {getErrorCodeValueName(ResStartEqSolving_message.code)}")
+                                # Cached regardless of success/error (user-
+                                # requested Sep 2026: UI feedback without
+                                # reading logs) - even a failed attempt's
+                                # azi_err/alt_err are useful diagnostic
+                                # info showing how far off alignment was
+                                # at the point of failure.
+                                self.eqAziErr = ResStartEqSolving_message.azi_err
+                                self.eqAltErr = ResStartEqSolving_message.alt_err
                                 if (ResStartEqSolving_message.code != protocol.OK):
                                     log.error(f"Error ASTRO START EQ SOLVING {getErrorCodeValueName(ResStartEqSolving_message.code)} >> EXIT")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "ERROR ASTRO START EQ SOLVING", ResStartEqSolving_message.code)
@@ -2548,10 +2703,24 @@ class WebSocketClient:
                                 log.debug(f"receive request temperature value >> {ResNotifyTemperature_message.temperature}")
                                 log.debug(f">> {getErrorCodeValueName(ResNotifyTemperature_message.code)}")
                                 value = ResNotifyTemperature_message.temperature
-                                # notify ?
+                                # This 5deg threshold used to gate BOTH the
+                                # log line AND the stored value itself - so
+                                # a device whose temperature just happened
+                                # to stay within one 5deg band (e.g. the
+                                # Mini, which can have less thermal swing
+                                # than the D3) would never update at all
+                                # from the UI's point of view, even though
+                                # self.TemperatureLevelDwarf is already a
+                                # per-instance attribute (one WebSocketClient
+                                # per physical device, so this was never a
+                                # cross-device sharing bug - just a
+                                # threshold hiding fresh-but-small changes).
+                                # Now: always store the latest value (so
+                                # get_client_status() / the UI is never
+                                # stale), only THROTTLE the noisy log line.
                                 if (self.TemperatureLevelDwarf is None or abs(self.TemperatureLevelDwarf - value) >= 5):
                                    log.notice(f"Temperature is {value}°C - {(value*9/5)+32}°F")
-                                   self.TemperatureLevelDwarf = value
+                                self.TemperatureLevelDwarf = value
                             # CMD_NOTIFY_CMOS_TEMPERATURE 15292 - camera sensor temperature
                             # (as opposed to CMD_NOTIFY_TEMPERATURE above, which is the
                             # device's general/ambient temperature). One notification per
@@ -2599,14 +2768,28 @@ class WebSocketClient:
                                 log.debug(f"receive request Camera value >> {ResNotifyStreamType_message.cam_id}")
                                 cameraId = ResNotifyStreamType_message.cam_id
                                 value = ResNotifyStreamType_message.stream_type
-                                # notify ?
-                                if (self.StreamTypeDwarf is None or (self.StreamTypeDwarf != value)):
+                                # Per-camera tracking (User-requested, Sep
+                                # 2026): self.StreamTypeDwarf used to be a
+                                # SINGLE shared field overwritten by
+                                # whichever camera (tele/wide) last sent a
+                                # notification - so if tele reported RTSP
+                                # and wide later reported JPEG, tele's
+                                # value was silently lost. Now tracked per
+                                # camera in self.StreamTypeByCamera
+                                # ({0: tele, 1: wide}), with
+                                # StreamTypeDwarf kept in sync to the LAST
+                                # update for backward compatibility with
+                                # any existing caller reading that single
+                                # field.
+                                previous = self.StreamTypeByCamera.get(cameraId)
+                                if (previous is None or previous != value):
                                   if (value == 1):
                                     log.notice(f"Dwarf Stream Video Type is RTSP for {'Wide_Angle' if cameraId == 1 else 'Tele Photo'}.")
                                   elif (value == 2):
                                     log.notice(f"Dwarf Stream Video Type is JPEG for {'Wide_Angle' if cameraId == 1 else 'Tele Photo'}.")
                                   else :
                                     log.notice("Dwarf Stream Video Type is unknown!")
+                                  self.StreamTypeByCamera[cameraId] = value
                                   self.StreamTypeDwarf = value
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_SDCARD_INFO):
                                 ResNotifySDcardInfo_message = notify.StorageInfo()
@@ -2779,7 +2962,7 @@ class WebSocketClient:
 
         if not self.websocket:
             log.error("Error No WebSocket in send_message_init")
-            WebSocketClient.Init_Send_TeleGetSystemWorkingState = True
+            self.Init_Send_TeleGetSystemWorkingState = True
             return
 
         self.InitHostReceived = False
@@ -2789,6 +2972,8 @@ class WebSocketClient:
         self.TemperatureLevelDwarf = None
         self.CmosTemperatureDwarf = {}  # keyed by camera_type (0=tele, 1=wide)
         self.StreamTypeDwarf = None
+        self.StreamTypeByCamera = {}  # keyed by cam_id (0=tele, 1=wide) - see CMD_NOTIFY_STREAM_TYPE handling below
+        self.needsContinueShooting = False  # see CODE_ASTRO_DARK_TEMP_MISMATCH handling below - set True when the device needs an explicit CMD_ASTRO_CONTINUE_SHOOTING follow-up
         self.FocusValueDwarf = None
         self.PowerIndStateDwarf = None
         self.RgbIndStateDwarf = None
@@ -2843,7 +3028,7 @@ class WebSocketClient:
             # Send Command
             await asyncio.sleep(0.02)
 
-            if (WebSocketClient.Init_Send_TeleGetSystemWorkingState):
+            if (self.Init_Send_TeleGetSystemWorkingState):
                 # DISABLED (Aug 2026): this legacy V2 init sequence
                 # (CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE ->
                 # CMD_CAMERA_TELE_OPEN_CAMERA -> CMD_CAMERA_WIDE_OPEN_CAMERA)
@@ -2860,7 +3045,7 @@ class WebSocketClient:
                 # then) succeeded in under 1s. Left commented out below in
                 # case it turns out to still be needed for some other model
                 # or code path.
-                WebSocketClient.Init_Send_TeleGetSystemWorkingState = False
+                self.Init_Send_TeleGetSystemWorkingState = False
 
                 # V3: CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO (16405) -
                 # confirmed via network capture of the official app (Aug
@@ -2958,11 +3143,11 @@ class WebSocketClient:
                 )
             else:
                 log.error(f"Unhandled exception 1a: {e}")
-            WebSocketClient.Init_Send_TeleGetSystemWorkingState = True
+            self.Init_Send_TeleGetSystemWorkingState = True
         except Exception as e:
             # Handle other exceptions
             log.error(f"Unhandled exception 1a: {e}")
-            WebSocketClient.Init_Send_TeleGetSystemWorkingState = True
+            self.Init_Send_TeleGetSystemWorkingState = True
         finally:
             # Perform cleanup if needed
             log.info("TERMINATING Sending init function.")
@@ -2989,7 +3174,7 @@ class WebSocketClient:
 
         if not self.websocket:
             log.error("Error No WebSocket in send_message")
-            WebSocketClient.Init_Send_TeleGetSystemWorkingState = True
+            self.Init_Send_TeleGetSystemWorkingState = True
             return
 
         # reset time out
@@ -3061,7 +3246,24 @@ class WebSocketClient:
                 self.startEQSolving = False
 
             # Special ASTRO START or STOP CAPTURE
-            if ( self.command == protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING or self.command == protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING):
+            # CMD_ASTRO_START_TELE_MOSAIC added (user-reported Sep 2026,
+            # real hardware: Mosaic session stopped early by the DEVICE
+            # ITSELF - low battery - and our own perform_waitEndAstro
+            # Photo()/AstroCapture-gated ending logic misread that
+            # legitimate stop as "ASTRO CAPTURE NOT STARTED" instead of
+            # a genuine end, because Mosaic's OWN start command was
+            # missing from this flag-setting check entirely - it only
+            # worked when WE ourselves later sent the explicit STOP
+            # command (11006, shared with normal capture), which DOES
+            # set this flag as a side effect, masking the bug whenever
+            # the ending was self-initiated rather than device-
+            # initiated). Mosaic's own ending flow reuses the same
+            # CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING/CMD_NOTIFY_STATE_
+            # CAPTURE_RAW_LIVE_STACKING pair as normal capture (confirmed
+            # in that same real log) - no Mosaic-specific stop command
+            # exists, so no further change was needed on the stop side.
+            if ( self.command == protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING or self.command == protocol.CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING
+                 or self.command == protocol.CMD_ASTRO_START_TELE_MOSAIC):
                 self.AstroCapture = True
 
             # Special ASTRO START or STOP CAPTURE
@@ -3100,7 +3302,7 @@ class WebSocketClient:
         except Exception as e:
             # Handle other exceptions
             log.error(f"Unhandled exception 1b: {e}")
-            WebSocketClient.Init_Send_TeleGetSystemWorkingState = True
+            self.Init_Send_TeleGetSystemWorkingState = True
         finally:
             # Perform cleanup if needed
             log.info("TERMINATING Sending function.")
@@ -3280,7 +3482,7 @@ class WebSocketClient:
             log.info("WebSocket Terminated.")
 
         log.notice("WebSocketClient Terminated.")
-        WebSocketClient.Init_Send_TeleGetSystemWorkingState = True
+        self.Init_Send_TeleGetSystemWorkingState = True
 
     def run(self):
         self.task = asyncio.create_task(self.start())
@@ -3373,8 +3575,29 @@ async def send_socket(message, command, type_id, module_id):
 # Calling Functions
 #--------------------------------------
 # Run the asyncio event loop in a background thread
+def _filter_benign_connection_reset(loop, context):
+    """asyncio's ProactorEventLoop (Windows' default) can raise a bare
+    ConnectionResetError ([WinError 10054]) from its own internal
+    _call_connection_lost callback when the remote end (the Dwarf) has
+    already forcibly closed the TCP connection - this is asyncio's OWN
+    housekeeping trying to gracefully shutdown() a socket the OS already
+    tore down, dispatched via an asyncio Handle - not something our
+    code's try/except can ever catch, since it never passes through our
+    call stack at all. Purely cosmetic noise: the connection is already
+    gone either way by the time this fires. Silence it at DEBUG instead
+    of letting Python's default handler print a scary-looking traceback
+    for a condition that isn't actionable - everything else still goes
+    through the normal default handler."""
+    exception = context.get("exception")
+    if isinstance(exception, ConnectionResetError):
+        log.debug(f"Ignoring benign ConnectionResetError during loop teardown: {context.get('message')}")
+        return
+    loop.default_exception_handler(context)
+
+
 def run_event_loop(loop):
     asyncio.set_event_loop(loop)
+    loop.set_exception_handler(_filter_benign_connection_reset)
     loop.run_forever()
 
 async def flush_queue_for_command_id(queue, queue_lock, cmd_send):
@@ -3628,6 +3851,10 @@ def get_client_status():
         "TemperatureLevelDwarf": client_instance.TemperatureLevelDwarf,
         "CmosTemperatureDwarf": client_instance.CmosTemperatureDwarf,
         "StreamTypeDwarf": client_instance.StreamTypeDwarf,
+        "StreamTypeByCamera": client_instance.StreamTypeByCamera,
+        "needsContinueShooting": client_instance.needsContinueShooting,
+        "eqAziErr": client_instance.eqAziErr,
+        "eqAltErr": client_instance.eqAltErr,
         "FocusValueDwarf": client_instance.FocusValueDwarf,
         "PowerIndicatorDwarf": client_instance.PowerIndStateDwarf,
         "RgbIndicatorDwarf": client_instance.RgbIndStateDwarf,

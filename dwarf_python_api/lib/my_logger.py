@@ -62,6 +62,48 @@ class _SharedLogThreadFilter(logging.Filter):
     def filter(self, record):
         return record.thread not in _shared_log_excluded_threads
 
+
+# --- Per-thread device tagging (additive, multi-Dwarf support) -------------
+# Most low-level protocol log lines (receive_messages, ping/pong, frame
+# decoding...) live deep inside WebSocketClient's async methods, which
+# don't have a dwarf_uid string handy to embed in an f-string by hand -
+# there are hundreds of call sites, so editing each one isn't practical.
+# What they DO all share is the THREAD they run on: session.event_loop_
+# thread, one persistent background thread per physical Dwarf (see
+# dwarf_session_socket.py's init_socket()). Registering that thread's
+# ident here tags every record it produces with the device label, so a
+# SHARED log file can still be told apart per device with a simple grep/
+# search - without needing separate log files (see
+# exclude_thread_from_shared_log() above for that alternative).
+_thread_device_labels: dict[int, str] = {}
+
+
+def register_thread_device_label(thread_ident, label):
+    """Tag every future log record from this thread with `label`
+    (typically a dwarf_uid). Call this once you know which physical
+    device a given thread belongs to - e.g. right after a session's
+    event_loop_thread is created/confirmed alive."""
+    _thread_device_labels[thread_ident] = label
+
+
+def unregister_thread_device_label(thread_ident):
+    """Undo register_thread_device_label() once that thread has stopped
+    (e.g. after a disconnect) so a later, unrelated thread that happens
+    to reuse the same ident doesn't inherit a stale label."""
+    _thread_device_labels.pop(thread_ident, None)
+
+
+class _DeviceLabelFilter(logging.Filter):
+    """Attaches a `device` attribute to every record (used by the format
+    strings below as %(device)s) - "[label] " for a thread registered via
+    register_thread_device_label(), or "" otherwise. Always returns True:
+    this filter only annotates records, it never drops any (that's
+    _SharedLogThreadFilter's job, on the file handler specifically)."""
+    def filter(self, record):
+        label = _thread_device_labels.get(record.thread)
+        record.device = f"[{label}] " if label else ""
+        return True
+
 # Function to update or create the log file handler
 def update_log_file():
     """
@@ -106,7 +148,7 @@ def update_log_file():
 
                 file_handler = logging.FileHandler(log_file)
                 file_handler.setLevel(file_log_level)
-                file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+                file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(device)s%(message)s'))
                 file_handler.addFilter(_SharedLogThreadFilter())
                 logger.addHandler(file_handler)
                 logger.notice(f"Log file updated to: {log_file}")
@@ -140,7 +182,7 @@ def setup_logger():
         console_handle_level = logging.DEBUG if data_config.get('debug') else logging.INFO
 
     console_handler.setLevel(console_handle_level)
-    console_handler.setFormatter(logging.Formatter('%(message)s'))
+    console_handler.setFormatter(logging.Formatter('%(device)s%(message)s'))
     logger.addHandler(console_handler)
 
     # Add custom log levels
@@ -150,6 +192,12 @@ def setup_logger():
     # Bind custom log methods to the logger
     logger.notice = types.MethodType(notice, logger)
     logger.success = types.MethodType(success, logger)
+
+    # Tags every record with its device label (see
+    # register_thread_device_label() above) before ANY handler sees it -
+    # added once, here, rather than per-handler, so console and file
+    # output both benefit without duplicating the filter.
+    logger.addFilter(_DeviceLabelFilter())
 
     # Configure the log file handler using `update_log_file`
     update_log_file()

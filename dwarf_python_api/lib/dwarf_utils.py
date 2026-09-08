@@ -2,6 +2,7 @@ from .websockets_utils import connect_socket
 from .websockets_utils import get_camera_param_v3
 from .websockets_utils import get_client_status
 from .websockets_utils import disconnect_socket
+from . import websockets_utils
 from .websockets_testV2 import fct_show_test
 from .websockets_testV2 import fct_decode_wireshark
 
@@ -1405,7 +1406,22 @@ PARAM_ID_DEVICE_DISABLE_HOST_SLAVE = 1389782697508965
 # Astro/DSO-specific parameters (modeId=2), discovered via the live HTTP
 # API shootingMode/getParamAndSetting.
 PARAM_ID_ASTRO_STACK_COUNT_TELE = 0x0202000000000010    # "stackCount", tele
-PARAM_ID_ASTRO_MOSAIC_COUNT_TELE = 0x0202000000000024   # "mosaicCount", tele
+# CORRECTED (Sep 2026, user-provided network capture, PCAPdroid on the
+# official app's own HTTP shootingMode/getParamAndSetting response):
+# this was 0x0202000000000024 - an unverified guess that turned out
+# wrong, and explains a real bug: writes using the old value never
+# reached the actual mosaicCount parameter at all (probably landing on
+# some unrelated/invalid param_id), so the device silently kept
+# whatever mosaicCount it already had (confirmed stuck at 100 in both
+# the official app AND this same HTTP capture) regardless of what our
+# own code tried to set it to - user-reported as a real-hardware Mosaic
+# session using 100 shots per panel despite requesting 20. The genuine
+# value is simply stackCount's own id + 1 (0x...010 + 1 = 0x...011),
+# confirmed directly from the device's own JSON response: {"name":
+# "mosaicCount", "paramId": 144678138029277201, ...} alongside
+# {"name": "stackCount", "paramId": 144678138029277200, ...} for the
+# same tele camera.
+PARAM_ID_ASTRO_MOSAIC_COUNT_TELE = 0x0202000000000011   # "mosaicCount", tele
 # BUG FOUND AND FIXED (Aug 2026, field-confirmed by a failed wide stackCount
 # write): this was 0x0202100000000000 - camera byte correctly flipped to
 # 0x10 for wide, but the trailing sub-parameter byte (0x10, "stackCount")
@@ -2184,11 +2200,17 @@ def perform_takeAstroPhoto(ir_index=1, force_start=False, session=None):
 
 def perform_start_mosaic_v3(horizontal_scale=2, vertical_scale=2, rotation=0, ir_index=1, force_start=False, session=None):
     """CMD_ASTRO_START_TELE_MOSAIC (11031, tele only - no wide mosaic
-    command exists). NOT independently confirmed by network capture -
-    the command constant was entirely missing from protocol.proto until
-    now (Aug 2026), confirmed only via the dwarfAlp registry (present in
-    the official app, request message ReqStartMosaic already existed in
-    astro.proto with no way to reference the command number).
+    command exists).
+
+    horizontal_scale/vertical_scale ARE framingX/framingY (confirmed
+    Sep 2026 via main_v3.py's own reference usage AND real hardware
+    testing - previously marked as an unverified guess at "grid
+    dimensions", that was wrong): integers 100-180 in steps of 10,
+    representing a 1.00x-1.80x framing scale (100 == 1.00x, 180 ==
+    1.80x - divide by 100 for the real multiplier). BOTH set to 100
+    (1.00x, i.e. no extra framing in either axis) means there is no
+    mosaic to do - main_v3.py's own option_A17() refuses to start in
+    that case, callers should do the same check before calling this.
 
     IMPORTANT - how a mosaic is linked to its target: ReqStartMosaic
     carries NO target/coordinates field at all (only horizontal_scale,
@@ -2199,18 +2221,13 @@ def perform_start_mosaic_v3(horizontal_scale=2, vertical_scale=2, rotation=0, ir
     call this function; the device handles the internal grid of small
     pointing offsets around that center itself.
 
-    horizontal_scale/vertical_scale: NOT confirmed - presumed to be the
-    mosaic grid dimensions (e.g. 2=2x2, 3=3x3) by analogy with similar
-    apps, but this is a guess, not verified by capture. Test with
-    caution and report back what a captured "2" vs "3" etc. actually
-    produces before relying on this.
     rotation: field-name only, meaning/units not confirmed.
     ir_index/force_start: same semantics as perform_takeAstroPhoto().
 
     See also perform_set_astro_mosaic_count_v3() (PARAM_ID_ASTRO_MOSAIC_COUNT_TELE)
-    for the total number of subframes to stack per panel - a separate
-    setting from the grid dimensions here, same relationship as
-    stackCount is to a normal single-target session.
+    for the number of subframes to stack PER PANEL - a separate setting
+    from the framing/grid here, same relationship as stackCount is to a
+    normal single-target session.
 
     `session`: optional DwarfSession - see perform_goto().
     """
@@ -2606,6 +2623,76 @@ def perform_stop_goto(session=None):
 
     return False
 
+def perform_continue_shooting(session=None):
+    """CMD_ASTRO_CONTINUE_SHOOTING (11050, protocol.proto: "APK 3.4.1:
+    continue after a recoverable shooting warning") - the OFFICIAL,
+    device-side confirmation that a recoverable shooting warning (e.g.
+    CODE_ASTRO_DARK_TEMP_MISMATCH) should be ignored and the session
+    continued, matching what the official app sends when the user taps
+    "continue" on the confirmation dialog it shows for this exact case
+    (user-identified, Sep 2026).
+
+    ReqContinueShooting carries no fields at all (astro.proto) - a pure
+    trigger, same pattern as perform_stop_goto() above.
+
+    IMPORTANT: this is a SEPARATE, real device-side action - simply
+    accepting a locally-faked OK for the original START_CAPTURE
+    response (as websockets_utils.py's own CODE_ASTRO_DARK_TEMP_
+    MISMATCH handling does, to unblock OUR OWN waiting caller) does NOT
+    by itself tell the DEVICE to actually proceed. If the device is
+    genuinely paused waiting for this confirmation, only this call
+    resolves that internally; the device is then expected to carry on
+    and send its own CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING
+    normally afterward, same as the non-blocking codes (CODE_ASTRO_
+    NEED_GOTO/CODE_ASTRO_OVEREXPOSURE_WARNING) already do without any
+    local intervention needed.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    module_id = 3  # MODULE_ASTRO
+    type_id = 0  # REQUEST
+
+    ReqContinueShooting_message = astro.ReqContinueShooting()
+
+    command = 11050  # CMD_ASTRO_CONTINUE_SHOOTING
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, ReqContinueShooting_message, command, type_id, module_id)
+    else:
+        response = connect_socket(ReqContinueShooting_message, command, type_id, module_id)
+
+    if response is not False:
+
+      if response == 0:
+          log.success("Continue Shooting success")
+          return True
+      else:
+          log.error(f"Error code: {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+
+    return False
+
+
+def perform_clear_needs_continue_shooting(session=None):
+    """Resets the needsContinueShooting flag (see perform_continue_
+    shooting()'s own docstring for what it means) after it has been
+    acted on - without this, a LATER, unrelated get_client_status()
+    check of this same flag would incorrectly trigger another
+    CMD_ASTRO_CONTINUE_SHOOTING follow-up call for a dark-temp-mismatch
+    that was already handled.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        client = active_session.client_instance
+    else:
+        client = websockets_utils.client_instance
+    if client is not None:
+        client.needsContinueShooting = False
+
 def perform_start_autofocus(infinite = False, session=None):
     """`session`: optional DwarfSession - see perform_goto()."""
 
@@ -2779,9 +2866,26 @@ def start_polar_align(session=None):
     module_id = 3  # MODULE_ASTRO
     type_id = 0; #REQUEST
 
+    lon = read_longitude(session=session)
+    lat = read_latitude(session=session)
+    if lon is None or lat is None:
+        # Without this check, assigning None to the protobuf float field
+        # below raises a bare "TypeError: must be real number, not
+        # NoneType" with no indication of WHAT is missing or WHERE to
+        # fix it (seen in the wild via astro_dwarf_ui, whose config.ini
+        # template leaves longitude/latitude blank - there's currently
+        # no UI screen to set them). EQ Solving genuinely cannot work
+        # without a real observer location, so fail clearly here instead.
+        log.error(
+            "EQ Solving requires longitude/latitude to be set in the "
+            "device's config.ini ([CONFIG] longitude=/latitude=) - "
+            f"currently: longitude={lon}, latitude={lat}."
+        )
+        return False
+
     ReqStartEqSolving_message = astro.ReqStartEqSolving ()
-    ReqStartEqSolving_message.lon = read_longitude(session=session);
-    ReqStartEqSolving_message.lat = read_latitude(session=session);
+    ReqStartEqSolving_message.lon = lon;
+    ReqStartEqSolving_message.lat = lat;
     command = 11018; #CMD_ASTRO_START_EQ_SOLVING
 
     active_session = _resolve_session(session)
@@ -3389,8 +3493,16 @@ def perform_set_astro_stack_count_v3(count, camera="tele", session=None):
 
 
 def perform_set_astro_mosaic_count_v3(count, session=None):
-    """Number of panels for an astro mosaic (tele camera only, no wide
-    equivalent observed). Range 1-249 (default 45).
+    """Number of subframes to stack PER PANEL for an astro mosaic (tele
+    camera only, no wide equivalent observed). Range 1-249.
+
+    CORRECTION (Sep 2026, user-confirmed via real testing): this
+    docstring previously described the range as "number of panels" -
+    that was a guess, not verified by capture, and turned out to be
+    wrong. It's the subframe-per-panel count, the mosaic equivalent of
+    perform_set_astro_stack_count_v3() for a single-target session -
+    the panel GRID itself is set separately, via perform_start_mosaic_v3()'s
+    own horizontal_scale/vertical_scale (framingX/framingY).
 
     `session`: optional DwarfSession - see perform_goto().
     """
@@ -3765,25 +3877,28 @@ def perform_stop_timelapse_v3(session=None):
 # get_client_status() to read that state without digging through the raw
 # JSON each time.
 
-def perform_read_astro_stacking_status_v3(session=None):
+def perform_read_astro_stacking_status_v3(session=None, type="Tele"):
     """Reads the current astro stacking session state from the client
-    status cache (get_client_status()). Returns a dict:
+    status cache (get_client_status()). `type`: "Tele" (default),
+    "Wide", or "Mosaic" - selects which set of cached counters to
+    report, since tele/wide/mosaic each track their own independently
+    (mosaic is tele-camera-only, see perform_start_mosaic_v3(), but
+    uses its own separate takeMosaicCount/takeMosaicStacked counters
+    rather than tele's takePhotoCount/takePhotoStacked).
+
+    Returns a dict:
 
     {
-        "capturing": bool,       # AstroCapture - a session is active
+        "capturing": bool,       # a session is active
         "current_count": int,    # number of subframes captured so far
         "stacked_count": int,    # number of subframes actually stacked
     }
 
-    (wide-camera equivalents are in get_client_status() directly -
-    AstroWideCapture/takeWidePhotoCount/takeWidePhotoStacked - not
-    duplicated here since the wide astro path is not yet confirmed
-    reliable, see MIGRATION_V3.md).
-
     Note: this reads the passively-updated cache (fed by notifications
     received while a stacking session is running) - it does not send any
     network request, and will not reflect anything before the first
-    notification has arrived after perform_start_astro_photo().
+    notification has arrived after perform_start_astro_photo() /
+    perform_start_mosaic_v3().
 
     `session`: optional DwarfSession - see perform_goto().
     """
@@ -3797,6 +3912,23 @@ def perform_read_astro_stacking_status_v3(session=None):
         # client_instance (not connected) instead of a dict.
         return None
     full_status = status.get("fullStatus", {})
+
+    if type == "Wide":
+        return {
+            "capturing": full_status.get("AstroWideCapture"),
+            "current_count": full_status.get("takeWidePhotoCount"),
+            "stacked_count": full_status.get("takeWidePhotoStacked"),
+        }
+    if type == "Mosaic":
+        # Mosaic is tele-camera-only (perform_start_mosaic_v3()'s own
+        # docstring) - "capturing" reuses the tele AstroCapture flag,
+        # since there's no separate AstroMosaicCapture-style field
+        # observed; only the progress counters are mosaic-specific.
+        return {
+            "capturing": full_status.get("AstroCapture"),
+            "current_count": full_status.get("takeMosaicCount"),
+            "stacked_count": full_status.get("takeMosaicStacked"),
+        }
     return {
         "capturing": full_status.get("AstroCapture"),
         "current_count": full_status.get("takePhotoCount"),
