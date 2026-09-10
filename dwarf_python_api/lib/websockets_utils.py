@@ -75,6 +75,7 @@ VALID_PAIRS = {
     # photo/progress notifications above.
     (protocol.CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_ASTRO_START_TELE_MOSAIC, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
+    (protocol.CMD_ASTRO_CONTINUE_SHOOTING, protocol.CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING),
     (protocol.CMD_CAMERA_TELE_SET_EXP_MODE, protocol.CMD_NOTIFY_TELE_SET_PARAM),
     (protocol.CMD_CAMERA_TELE_SET_EXP, protocol.CMD_NOTIFY_TELE_SET_PARAM),
     (protocol.CMD_CAMERA_TELE_SET_GAIN, protocol.CMD_NOTIFY_TELE_SET_PARAM),
@@ -327,6 +328,8 @@ class WebSocketClient:
         self.StreamTypeDwarf = None
         self.StreamTypeByCamera = {}  # keyed by cam_id (0=tele, 1=wide) - see CMD_NOTIFY_STREAM_TYPE handling below
         self.needsContinueShooting = False  # see CODE_ASTRO_DARK_TEMP_MISMATCH handling below - set True when the device needs an explicit CMD_ASTRO_CONTINUE_SHOOTING follow-up
+        self.needsContinueShootingPhoto = False  
+        self.needsContinueShootingWide = False
         self.FocusValueDwarf = None
         self.PowerIndStateDwarf = None
         self.RgbIndStateDwarf = None
@@ -1475,7 +1478,7 @@ class WebSocketClient:
                                     # blocked for the full 150s before giving up - accepting the
                                     # response as if it were OK, per the user's own diagnosis, fixes this.
                                     log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
-                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH):
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH) or (ComResponse_message.code == protocol.CODE_ASTRO_DARK_NOT_FOUND):
                                     # User-requested (Sep 2026): treat this as non-blocking -
                                     # a dark-frame temperature mismatch affects noise-reduction
                                     # quality, not whether the capture itself can proceed.
@@ -1487,7 +1490,7 @@ class WebSocketClient:
                                     # gb_timeout=150s) never got ANY answer for this request and simply
                                     # blocked for the full 150s before giving up - accepting the
                                     # response as if it were OK, per the user's own diagnosis, fixes this.
-                                    log.warning("START_CAPTURE : CODE_ASTRO_DARK_TEMP_MISMATCH message receive (non-blocking, capture continues)")
+                                    log.warning(f"START_CAPTURE : {getErrorCodeValueName(ComResponse_message.code)} message receive (non-blocking, capture continues)")
                                     # Protocol clarification (Sep 2026, user-confirmed): the REAL "session
                                     # started" confirmation is a SEPARATE notification
                                     # (CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING), not this direct command
@@ -1504,7 +1507,7 @@ class WebSocketClient:
                                     if not self.takePhotoStarted:
                                         await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success START_CAPTURE (dark temp mismatch ignored)", protocol.OK)
                                         self.needsContinueShooting = True
-                                    self.takePhotoStarted = True
+                                        self.needsContinueShootingPhoto = True
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
                                     log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
                                     if (self.takePhotoStarted):
@@ -1543,14 +1546,14 @@ class WebSocketClient:
                                     # BUG FIX (Sep 2026): also needs result_receive_messages() - see
                                     # the tele branch's own note on why omitting it caused a 150s hang.
                                     log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
-                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH):
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH) or (ComResponse_message.code == protocol.CODE_ASTRO_DARK_NOT_FOUND):
                                     # User-requested (Sep 2026): treat this as non-blocking -
                                     # a dark-frame temperature mismatch affects noise-reduction
                                     # quality, not whether the capture itself can proceed.
                                     # Ignore and continue the session rather than aborting it.
                                     # BUG FIX (Sep 2026): also needs result_receive_messages() - see
                                     # the tele branch's own note on why omitting it caused a 150s hang.
-                                    log.warning("START_CAPTURE : CODE_ASTRO_DARK_TEMP_MISMATCH message receive (non-blocking, capture continues)")
+                                    log.warning(f"START_CAPTURE : {getErrorCodeValueName(ComResponse_message.code)} message receive (non-blocking, capture continues)")
                                     # Protocol clarification (Sep 2026, user-confirmed): the REAL "session
                                     # started" confirmation is a SEPARATE notification
                                     # (CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING), not this direct command
@@ -1567,7 +1570,7 @@ class WebSocketClient:
                                     if not self.takeWidePhotoStarted:
                                         await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success START_CAPTURE (dark temp mismatch ignored)", protocol.OK)
                                         self.needsContinueShooting = True
-                                    self.takeWidePhotoStarted = True
+                                        self.needsContinueShootingWide = True
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
                                     log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
                                     if (self.takeWidePhotoStarted):
@@ -1608,12 +1611,12 @@ class WebSocketClient:
                                     # incrementing). Previously fell through to the generic "!= OK"
                                     # catch-all below and incorrectly aborted the whole session.
                                     log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
-                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH):
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH) or (ComResponse_message.code == protocol.CODE_ASTRO_DARK_NOT_FOUND):
                                     # User-requested (Sep 2026): treat this as non-blocking -
                                     # a dark-frame temperature mismatch affects noise-reduction
                                     # quality, not whether the capture itself can proceed.
                                     # Ignore and continue the session rather than aborting it.
-                                    log.warning("START_CAPTURE : CODE_ASTRO_DARK_TEMP_MISMATCH message receive (non-blocking, capture continues)")
+                                    log.warning(f"START_CAPTURE : {getErrorCodeValueName(ComResponse_message.code)} message receive (non-blocking, capture continues)")
                                     # Protocol clarification (Sep 2026, user-confirmed): the REAL "session
                                     # started" confirmation is a SEPARATE notification
                                     # (CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING), not this direct command
@@ -1630,7 +1633,7 @@ class WebSocketClient:
                                     if not self.takePhotoStarted:
                                         await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success START_CAPTURE (dark temp mismatch ignored)", protocol.OK)
                                         self.needsContinueShooting = True
-                                    self.takePhotoStarted = True
+                                        self.needsContinueShootingPhoto = True
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
                                     log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
                                     if (self.takePhotoStarted):
@@ -1667,12 +1670,12 @@ class WebSocketClient:
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_OVEREXPOSURE_WARNING):
                                     # Same fix as the tele branch above - field-confirmed non-blocking.
                                     log.warning("START_CAPTURE : CODE_ASTRO_OVEREXPOSURE_WARNING message receive (non-blocking, capture continues)")
-                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH):
+                                elif (ComResponse_message.code == protocol.CODE_ASTRO_DARK_TEMP_MISMATCH) or (ComResponse_message.code == protocol.CODE_ASTRO_DARK_NOT_FOUND):
                                     # User-requested (Sep 2026): treat this as non-blocking -
                                     # a dark-frame temperature mismatch affects noise-reduction
                                     # quality, not whether the capture itself can proceed.
                                     # Ignore and continue the session rather than aborting it.
-                                    log.warning("START_CAPTURE : CODE_ASTRO_DARK_TEMP_MISMATCH message receive (non-blocking, capture continues)")
+                                    log.warning(f"START_CAPTURE : {getErrorCodeValueName(ComResponse_message.code)} message receive (non-blocking, capture continues)")
                                     # Protocol clarification (Sep 2026, user-confirmed): the REAL "session
                                     # started" confirmation is a SEPARATE notification
                                     # (CMD_NOTIFY_STATE_CAPTURE_RAW_LIVE_STACKING), not this direct command
@@ -1689,7 +1692,7 @@ class WebSocketClient:
                                     if not self.takePhotoStarted:
                                         await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success START_CAPTURE (dark temp mismatch ignored)", protocol.OK)
                                         self.needsContinueShooting = True
-                                    self.takePhotoStarted = True
+                                        self.needsContinueShootingPhoto = True
                                 elif (ComResponse_message.code == protocol.CODE_ASTRO_FUNCTION_BUSY):
                                     log.warning("START_CAPTURE : CODE_ASTRO_FUNCTION_BUSY message receive")
                                     if (self.takePhotoStarted):
@@ -1752,6 +1755,19 @@ class WebSocketClient:
                                     log.info("Success ASTRO GO LIVE ENDING")
                                     log.success("Success ASTRO GO LIVE ENDING")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO GO LIVE ENDING", 0)
+                                    await asyncio.sleep(1)
+
+                                if ( self.command==protocol.CMD_ASTRO_CONTINUE_SHOOTING and ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING):
+                                    # we don't know last command yet!
+                                    log.info("ASTRO CAPTURE RUNNING")
+                                    log.success("ASTRO CAPTURE RUNNING")
+                                    if self.needsContinueShootingPhoto :
+                                        self.needsContinueShootingPhoto = False
+                                        self.takePhotoStarted = True
+                                    if self.needsContinueShootingWide:
+                                        self.needsContinueShootingWidePhoto = False
+                                        self.takeWidePhotoStarted = True
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE RUNNING", 0)
                                     await asyncio.sleep(1)
 
                                 if ( self.command==protocol.CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING and ResNotifyOperationState_message.state == notify.OPERATION_STATE_RUNNING):
@@ -2974,6 +2990,8 @@ class WebSocketClient:
         self.StreamTypeDwarf = None
         self.StreamTypeByCamera = {}  # keyed by cam_id (0=tele, 1=wide) - see CMD_NOTIFY_STREAM_TYPE handling below
         self.needsContinueShooting = False  # see CODE_ASTRO_DARK_TEMP_MISMATCH handling below - set True when the device needs an explicit CMD_ASTRO_CONTINUE_SHOOTING follow-up
+        self.needsContinueShootingPhoto = False  
+        self.needsContinueShootingWide = False
         self.FocusValueDwarf = None
         self.PowerIndStateDwarf = None
         self.RgbIndStateDwarf = None
