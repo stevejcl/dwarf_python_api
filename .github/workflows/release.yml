@@ -69,9 +69,9 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
 
-      - name: Install build tool
-        run: python -m pip install --upgrade build
-
+      - name: Install build tools
+        run: python -m pip install --upgrade pip setuptools build
+      
       - name: Clean dist
         run: rm -rf dist
 
