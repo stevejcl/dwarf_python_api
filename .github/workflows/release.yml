@@ -1,19 +1,19 @@
 name: Build and publish release
 
-# Triggers on any tag matching v1.2.3 style (e.g. v3.0.0), or can be run
-# manually from the Actions tab for a dry run without pushing a tag.
 on:
   push:
     tags:
       - 'v*.*.*'
+
   workflow_dispatch:
 
 permissions:
-  contents: write  # needed to create the GitHub Release and upload assets
+  contents: write
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,24 +23,62 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Read version from setup.py
+        id: version
+        run: |
+          VERSION=$(python -c "import re; text=open('setup.py', encoding='utf-8').read(); m=re.search(r'version\s*=\s*[\"'\'']([^\"'\'']+)[\"'\'']', text); print(m.group(1) if m else '')")
+
+          if [ -z "$VERSION" ]; then
+            echo "ERROR: Could not find version in setup.py"
+            exit 1
+          fi
+
+          echo "Version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+
+          echo "Creating tag: $TAG"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "ERROR: Tag $TAG already exists."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag "$TAG"
+          git push origin "$TAG"
+
       - name: Install build tool
         run: python -m pip install --upgrade build
 
-      - name: Clean dist/ before building (avoid re-attaching old committed releases)
+      - name: Clean dist
         run: rm -rf dist
 
       - name: Build sdist and wheel
         run: python -m build
 
-      - name: Upload build artifacts (workflow run, for manual dry-runs)
+      - name: Check package version
+        run: |
+          echo "Expected version: ${{ steps.version.outputs.version }}"
+          ls -la dist/
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/*
 
-      - name: Create GitHub Release with dist files attached
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Create GitHub Release
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           files: dist/*
           generate_release_notes: true
