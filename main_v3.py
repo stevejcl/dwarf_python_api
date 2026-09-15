@@ -1447,9 +1447,10 @@ def display_menu_motor():
     print("I3. Init Horizontal Position for D3")
     print("P. Polar Align Position")
     print("P3. Polar Align Position For D3")
+    print("PM. Polar Align Position For Mini")
     print("S. Turn 90° for Second Polar Align Position")
     print("S3. Turn 90° for Second Polar Align Position for D3")
-    print("RR. Option RR. Reset Rotation Axis")
+    print("RR. Option RR. Reset Rotation Axis (not for the Mini)")
     print("RS. Option RS. Reset Pitch Axis")
     print("GP. Option GP. Read Position (D3 only)")
     print("PA. Option PA. Auto Polar align")
@@ -1459,7 +1460,7 @@ def display_menu_motor():
 
 def get_user_choice_motor():
     try:
-        return input("Enter your choice (M1,M2,C,I,P,P3,S or 0 to return to main menu: ")
+        return input("Enter your choice (M1,M2,C,I,P,P3,PM,S or 0 to return to main menu: ")
         return input("Enter your choice (M1, M2) or 0 to return: ")
     except KeyboardInterrupt:
         print("Operation interrupted by the user (CTRL+C).")
@@ -1509,6 +1510,12 @@ def option_MP3():
     print("")
     # Add your Option MP functionality here
     motor_action(7)
+
+def option_MPM():
+    print("You selected Option P. Polar Align Position for Mini")
+    print("")
+    # Add your Option MP functionality here
+    motor_action(11)
 
 def option_MS():
     print("You selected Option S. Turn 90° for Second Polar Align Position")
@@ -1660,6 +1667,9 @@ def choice_motor():
 
         elif user_choice == 'P3':
             option_MP3()
+
+        elif user_choice == 'PM':
+            option_MPM()
 
         elif user_choice == 'S':
             option_MS()
