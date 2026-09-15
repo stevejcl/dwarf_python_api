@@ -215,10 +215,14 @@ async def init_socket(session: DwarfSession):
                         result = False
                     elif result_cnx["result"] == Dwarf_Result.WARNING and result_cnx["code"] == ERROR_SLAVEMODE:
                         log.error(f"[{session.dwarf_uid}] Can't send command, SLAVE MODE detected.")
-                        result = False
+                        # PRESERVED (was collapsed to False) - mirrors the
+                        # same change in websockets_utils.py's connect_socket -
+                        # additive, `is not False` still treats this as a
+                        # failure for every existing caller.
+                        result = ERROR_SLAVEMODE
                     elif result_cnx["result"] == Dwarf_Result.WARNING and result_cnx["code"] == ERROR_TIMEOUT:
                         log.error(f"[{session.dwarf_uid}] command TIMEOUT.")
-                        result = False
+                        result = ERROR_TIMEOUT
                     elif result_cnx["result"] == Dwarf_Result.WARNING:
                         log.error(f"[{session.dwarf_uid}] command error: {result_cnx.get('message')}")
                         result = False
@@ -266,10 +270,10 @@ async def send_socket_message(session: DwarfSession, message, command, type_id, 
                             result = False
                         elif result_cnx["result"] == Dwarf_Result.WARNING and result_cnx["code"] == ERROR_SLAVEMODE:
                             log.error(f"[{session.dwarf_uid}] Can't send command, SLAVE MODE detected.")
-                            result = False
+                            result = ERROR_SLAVEMODE
                         elif result_cnx["result"] == Dwarf_Result.WARNING and result_cnx["code"] == ERROR_TIMEOUT:
                             log.error(f"[{session.dwarf_uid}] command TIMEOUT.")
-                            result = False
+                            result = ERROR_TIMEOUT
                         elif result_cnx["result"] == Dwarf_Result.WARNING:
                             log.error(f"[{session.dwarf_uid}] command error: {result_cnx.get('message')}")
                             result = False
@@ -446,6 +450,12 @@ def get_client_status(session: DwarfSession):
         "startEQSolving": client.startEQSolving,
         "takePhotoCount": client.takePhotoCount,
         "takePhotoStacked": client.takePhotoStacked,
+        # Missing from this session-scoped copy until now (found by
+        # diffing field-by-field against websockets_utils.py's mono-dwarf
+        # get_client_status() - Sep 2026): mosaic progress, updated from
+        # CMD_NOTIFY_PROGRESS_CAPTURE_MOSAIC same as the other counters.
+        "takeMosaicCount": client.takeMosaicCount,
+        "takeMosaicStacked": client.takeMosaicStacked,
         "takeWidePhotoCount": client.takeWidePhotoCount,
         "takeWidePhotoStacked": client.takeWidePhotoStacked,
         "ErrorConnection": client.ErrorConnection,
