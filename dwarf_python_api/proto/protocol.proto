@@ -337,8 +337,20 @@ enum DwarfCMD {
     CMD_PANORAMA_STOP = 15501; // Stop panorama
     CMD_PANORAMA_START_EULER_RANGE = 15502; // Start panorama Euler Range
 
+    // Added from DwarfLab's "Embedded scheduled shooting" spec (module 13,
+    // MODULE_SHOOTING_SCHEDULE). Only CMD_GET_ALL_SHOOTING_SCHEDULE was
+    // previously registered here; the rest were missing even though
+    // shooting_schedule.proto (the message bodies) was already present.
+    CMD_SYNC_SHOOTING_SCHEDULE = 16100;
+    CMD_CANCEL_SHOOTING_SCHEDULE = 16101;
     CMD_GET_ALL_SHOOTING_SCHEDULE = 16102;
     CMD_V3_SCHEDULE_GET = 16102; // Deprecated compatibility alias.
+    CMD_GET_SHOOTING_SCHEDULE_BY_ID = 16103;
+    CMD_GET_SHOOTING_TASK_BY_ID = 16104;
+    CMD_REPLACE_SHOOTING_SCHEDULE = 16105;
+    CMD_UNLOCK_SHOOTING_SCHEDULE = 16106;
+    CMD_LOCK_SHOOTING_SCHEDULE = 16107;
+    CMD_DELETE_SHOOTING_SCHEDULE = 16108;
 
     CMD_GLOBAL_TASK_MANAGER_SWITCH_SHOOTING_MODE = 16402;
     CMD_V3_DEVICE_CONFIG_MODE_QUERY = 16402; // Deprecated compatibility alias.

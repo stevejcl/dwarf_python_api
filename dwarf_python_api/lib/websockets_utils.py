@@ -24,6 +24,7 @@ import dwarf_python_api.proto.motor_control_pb2 as motor
 import dwarf_python_api.proto.base_pb2 as base__pb2
 # V3: module MODULE_DEVICE_CONFIG (14), astro mode / camera init handshake
 import dwarf_python_api.proto.task_center_pb2 as task_center
+import dwarf_python_api.proto.shooting_schedule_pb2 as shooting_schedule
 # import data for config.py
 import dwarf_python_api.get_config_data
 
@@ -297,6 +298,33 @@ class WebSocketClient:
         self.AstroWideCapture = False
         self.RestartAstroCapture = False
         self.RestartAstroWideCapture = False
+        # V3: the last ResGetDeviceStateInfo we successfully parsed - see
+        # perform_get_device_state_info_full() in dwarf_utils.py. This is
+        # an ANSWER TO A REQUEST WE SENT, so unlike self.AstroCapture/
+        # takePhotoStarted/takeWidePhotoStarted (which only update on
+        # notifications matching self.command == the exact command WE
+        # last issued - see the CMD_ASTRO_START_CAPTURE_RAW_LIVE_STACKING
+        # etc. blocks below), it reflects the device's REAL, current
+        # camera/motor state at query time regardless of what started
+        # whatever is currently running there (this process, the official
+        # app, or an on-device native shooting-schedule task) - it's a
+        # fresh, explicit query/response, not a passively-matched push.
+        self.last_device_state_info = None
+        # Same reasoning as last_device_state_info above, for
+        # CMD_GET_ALL_SHOOTING_SCHEDULE (16102) - perform_get_all_
+        # shooting_schedule() only ever returned the bare code, so there
+        # was no way to see what's actually stored on the device (user-
+        # reported Sep 2026: "je ne vois pas le schedule dans la fenêtre
+        # de astro_dwarf_session" - no visibility at all after a sync).
+        self.last_all_shooting_schedule = None
+        # Per-motor-id cache of the last ResMotorPosition read - same gap
+        # as last_device_state_info/last_all_shooting_schedule above:
+        # CMD_STEP_MOTOR_GET_POSITION's real .position value was only
+        # ever logged, never returned to any caller (user-requested Sep
+        # 2026: needed this to empirically find the Dwarf Mini's own
+        # "positioning" reference angles for motor_action() - D2/D3 have
+        # hardcoded end_position values there already, Mini doesn't).
+        self.last_motor_position = {}  # {motor_id: ResMotorPosition}
         self.startEQSolving = False
         # EQ Solving position feedback (user-requested Sep 2026: "un
         # retour de la position EQ dans l'interface... sans besoin de
@@ -328,7 +356,7 @@ class WebSocketClient:
         self.StreamTypeDwarf = None
         self.StreamTypeByCamera = {}  # keyed by cam_id (0=tele, 1=wide) - see CMD_NOTIFY_STREAM_TYPE handling below
         self.needsContinueShooting = False  # see CODE_ASTRO_DARK_TEMP_MISMATCH handling below - set True when the device needs an explicit CMD_ASTRO_CONTINUE_SHOOTING follow-up
-        self.needsContinueShootingPhoto = False  
+        self.needsContinueShootingPhoto = False  # per-camera-type variants (user-added Sep 2026) - set/cleared independently for tele vs wide, see the CMD_ASTRO_CONTINUE_SHOOTING RUNNING handling below
         self.needsContinueShootingWide = False
         self.FocusValueDwarf = None
         self.PowerIndStateDwarf = None
@@ -419,15 +447,28 @@ class WebSocketClient:
                     # silent radio drop (socket never formally closed,
                     # just stops delivering anything) would leave
                     # wait_pong True indefinitely without ever being
-                    # treated as a disconnect. Now: if more than 2x the
-                    # ping interval has passed with no pong, treat the
+                    # treated as a disconnect. If more than N x the ping
+                    # interval has passed with no pong (and no OTHER
+                    # message either - see the receive loop's own reset
+                    # of ping_sent_at on any message, above), treat the
                     # connection as dead.
+                    #
+                    # Multiplier raised 2->3 (user-reported Sep 2026,
+                    # real hardware log): pong latency climbed as high as
+                    # ~9-10s during active heavy stacking, well under the
+                    # OLD 20s cutoff (10s ping_interval x2) but close
+                    # enough that a forced disconnect fired only 0.6s
+                    # before the pong actually arrived. 3x gives a
+                    # comfortable margin above that observed worst case
+                    # while the any-message reset above already handles
+                    # the common case of the device staying genuinely
+                    # responsive just not to the ping itself specifically.
                     if (
                         self.ping_sent_at is not None
-                        and time.monotonic() - self.ping_sent_at > self.ping_interval_task * 2
+                        and time.monotonic() - self.ping_sent_at > self.ping_interval_task * 3
                     ):
                         log.error(
-                            f"No pong received within {self.ping_interval_task * 2}s - "
+                            f"No pong received within {self.ping_interval_task * 3}s - "
                             "treating connection as dead."
                         )
                         self.PingTimeoutError = True
@@ -456,10 +497,25 @@ class WebSocketClient:
             # Perform cleanup if needed
             log.info("TERMINATING PING function.")
 
-    async def result_receive_messages(self, cmd_send, cmd_recv, result, message, code):
+    async def result_receive_messages(self, cmd_send, cmd_recv, result, message, code, azi_err=None, alt_err=None):
         try:
             log.info("result_receive_messages.")
             result_message = { 'cmd_send' : cmd_send, 'cmd_recv' : cmd_recv, 'result' : result, 'message' : message, 'code': code}
+            # azi_err/alt_err (user-identified Sep 2026): optional, only
+            # added when the caller actually has them (EQ Solving's own
+            # success path below) - conditional, not unconditional-with-
+            # None-default, because get_result_polar_value() (dwarf_utils.
+            # py) checks `'azi_err' in result_cnx` to decide whether real
+            # values are present; always adding the keys (even as None)
+            # would make that check pass for every OTHER call site too,
+            # then crash on decimal_to_dms(None). This was previously
+            # unreachable dead code - result_receive_messages() never
+            # carried these two fields at all, so get_result_polar_value()
+            # always fell through to its own "no result value" branch.
+            if azi_err is not None:
+                result_message['azi_err'] = azi_err
+            if alt_err is not None:
+                result_message['alt_err'] = alt_err
             log.info(result_message)
             async with self.result_queue_locked:
                 await self.result_queue.put(result_message)
@@ -505,6 +561,22 @@ class WebSocketClient:
                 else:
                     message = await self.websocket.recv()
                     if (message):
+                        # Refresh the pong watchdog clock on ANY message,
+                        # not just an explicit "pong" reply (user-
+                        # suggested Sep 2026, real hardware log: 20s
+                        # pong-timeout disconnects mid-session, while
+                        # CMD_NOTIFY_WAIT_SHOOTING_PROGRESS/CMD_NOTIFY_
+                        # LONG_EXP_PROGRESS notifications kept arriving
+                        # throughout - proof the connection was genuinely
+                        # alive, the device was just too busy actively
+                        # stacking to prioritize the ping reply itself).
+                        # Generalized to ANY received message rather than
+                        # naming only those two notification types, so
+                        # it also covers CMD_NOTIFY_PROGRESS_CAPTURE_RAW_
+                        # LIVE_STACKING and anything else the device
+                        # sends unprompted during a run.
+                        if self.wait_pong:
+                            self.ping_sent_at = time.monotonic()
                         if isinstance(message, str):
                             log.info("Receiving...")
                             log.info(message)
@@ -574,6 +646,7 @@ class WebSocketClient:
                             if (WsPacket_message.cmd == protocol.CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO):
                                 ResGetDeviceStateInfo_message = task_center.ResGetDeviceStateInfo()
                                 ResGetDeviceStateInfo_message.ParseFromString(WsPacket_message.data)
+                                self.last_device_state_info = ResGetDeviceStateInfo_message
 
                                 log.info("Decoding CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO")
                                 log.debug(f"receive code >> {ResGetDeviceStateInfo_message.code}")
@@ -757,6 +830,7 @@ class WebSocketClient:
                             if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_GET_POSITION):
                                 ResMotorPosition_message = motor.ResMotorPosition()
                                 ResMotorPosition_message.ParseFromString(WsPacket_message.data)
+                                self.last_motor_position[ResMotorPosition_message.id] = ResMotorPosition_message
 
                                 log.debug("Decoding CMD_STEP_MOTOR_GET_POSITION")
                                 log.info(f"receive id data >> {ResMotorPosition_message.id}")
@@ -868,6 +942,74 @@ class WebSocketClient:
                                 else:
                                     log.info("OK CMD_PARAM_SET_GAIN")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_PARAM_SET_GAIN", ComResponse_message.code)
+
+                            # CMD_SYNC_SHOOTING_SCHEDULE = 16100 (MODULE_SHOOTING_SCHEDULE, 13).
+                            # NEW - not yet field-confirmed by network capture. Response is
+                            # ResSyncShootingSchedule (richer than plain ComResponse: also
+                            # carries time_conflict_schedule_ids/can_replace), but we only
+                            # surface .code here, same pattern as the ComResponse blocks above.
+                            elif (self.command==protocol.CMD_SYNC_SHOOTING_SCHEDULE and WsPacket_message.cmd==protocol.CMD_SYNC_SHOOTING_SCHEDULE):
+                                ResSyncShootingSchedule_message = shooting_schedule.ResSyncShootingSchedule()
+                                ResSyncShootingSchedule_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_SYNC_SHOOTING_SCHEDULE")
+                                log.debug(f"receive code data >> {ResSyncShootingSchedule_message.code}")
+
+                                if (ResSyncShootingSchedule_message.code != protocol.OK):
+                                    log.error(f"Error CMD_SYNC_SHOOTING_SCHEDULE CODE {ResSyncShootingSchedule_message.code}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_SYNC_SHOOTING_SCHEDULE", ResSyncShootingSchedule_message.code)
+                                else:
+                                    log.info("OK CMD_SYNC_SHOOTING_SCHEDULE")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_SYNC_SHOOTING_SCHEDULE", ResSyncShootingSchedule_message.code)
+
+                            # CMD_CANCEL_SHOOTING_SCHEDULE = 16101. NEW - same caveats as above.
+                            elif (self.command==protocol.CMD_CANCEL_SHOOTING_SCHEDULE and WsPacket_message.cmd==protocol.CMD_CANCEL_SHOOTING_SCHEDULE):
+                                ResCancelShootingSchedule_message = shooting_schedule.ResCancelShootingSchedule()
+                                ResCancelShootingSchedule_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_CANCEL_SHOOTING_SCHEDULE")
+                                log.debug(f"receive code data >> {ResCancelShootingSchedule_message.code}")
+
+                                if (ResCancelShootingSchedule_message.code != protocol.OK):
+                                    log.error(f"Error CMD_CANCEL_SHOOTING_SCHEDULE CODE {ResCancelShootingSchedule_message.code}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_CANCEL_SHOOTING_SCHEDULE", ResCancelShootingSchedule_message.code)
+                                else:
+                                    log.info("OK CMD_CANCEL_SHOOTING_SCHEDULE")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_CANCEL_SHOOTING_SCHEDULE", ResCancelShootingSchedule_message.code)
+
+                            # CMD_GET_ALL_SHOOTING_SCHEDULE = 16102. NEW - same caveats as above.
+                            # Unlike the others this carries a repeated ShootingScheduleMsg list,
+                            # so the whole decoded message (not just .code) is worth returning to
+                            # the caller - passed through result_receive_messages as `message`.
+                            elif (self.command==protocol.CMD_GET_ALL_SHOOTING_SCHEDULE and WsPacket_message.cmd==protocol.CMD_GET_ALL_SHOOTING_SCHEDULE):
+                                ResGetAllShootingSchedule_message = shooting_schedule.ResGetAllShootingSchedule()
+                                ResGetAllShootingSchedule_message.ParseFromString(WsPacket_message.data)
+                                self.last_all_shooting_schedule = ResGetAllShootingSchedule_message
+
+                                log.debug("Decoding CMD_GET_ALL_SHOOTING_SCHEDULE")
+                                log.debug(f"receive code data >> {ResGetAllShootingSchedule_message.code}")
+
+                                if (ResGetAllShootingSchedule_message.code != protocol.OK):
+                                    log.error(f"Error CMD_GET_ALL_SHOOTING_SCHEDULE CODE {ResGetAllShootingSchedule_message.code}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_GET_ALL_SHOOTING_SCHEDULE", ResGetAllShootingSchedule_message.code)
+                                else:
+                                    log.info("OK CMD_GET_ALL_SHOOTING_SCHEDULE")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, ResGetAllShootingSchedule_message, ResGetAllShootingSchedule_message.code)
+
+                            # CMD_DELETE_SHOOTING_SCHEDULE = 16108. NEW - same caveats as above.
+                            elif (self.command==protocol.CMD_DELETE_SHOOTING_SCHEDULE and WsPacket_message.cmd==protocol.CMD_DELETE_SHOOTING_SCHEDULE):
+                                ResDeleteShootingSchedule_message = shooting_schedule.ResDeleteShootingSchedule()
+                                ResDeleteShootingSchedule_message.ParseFromString(WsPacket_message.data)
+
+                                log.debug("Decoding CMD_DELETE_SHOOTING_SCHEDULE")
+                                log.debug(f"receive code data >> {ResDeleteShootingSchedule_message.code}")
+
+                                if (ResDeleteShootingSchedule_message.code != protocol.OK):
+                                    log.error(f"Error CMD_DELETE_SHOOTING_SCHEDULE CODE {ResDeleteShootingSchedule_message.code}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_DELETE_SHOOTING_SCHEDULE", ResDeleteShootingSchedule_message.code)
+                                else:
+                                    log.info("OK CMD_DELETE_SHOOTING_SCHEDULE")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_DELETE_SHOOTING_SCHEDULE", ResDeleteShootingSchedule_message.code)
 
                             # CMD_PARAM_SET_WB = 16702 (not named in the dwarfAlp proto,
                             # sequential position + ReqSetWb structure confirmed by network
@@ -1761,11 +1903,16 @@ class WebSocketClient:
                                     # we don't know last command yet!
                                     log.info("ASTRO CAPTURE RUNNING")
                                     log.success("ASTRO CAPTURE RUNNING")
-                                    if self.needsContinueShootingPhoto :
+                                    if self.needsContinueShootingPhoto:
                                         self.needsContinueShootingPhoto = False
                                         self.takePhotoStarted = True
                                     if self.needsContinueShootingWide:
-                                        self.needsContinueShootingWidePhoto = False
+                                        # BUG FIX (Sep 2026): was clearing a never-declared
+                                        # self.needsContinueShootingWidePhoto instead of this
+                                        # actual flag, so needsContinueShootingWide never reset
+                                        # and could re-trigger takeWidePhotoStarted=True on a
+                                        # later, unrelated CONTINUE_SHOOTING cycle.
+                                        self.needsContinueShootingWide = False
                                         self.takeWidePhotoStarted = True
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE RUNNING", 0)
                                     await asyncio.sleep(1)
@@ -2646,7 +2793,12 @@ class WebSocketClient:
                                     log.info("CMD_ASTRO_START_EQ_SOLVING >> EXIT ")
                                     log.success(f"Success ASTRO START EQ SOLVING azi_err:  {ResStartEqSolving_message.azi_err}")
                                     log.success(f"Success ASTRO START EQ SOLVING alt_err:  {ResStartEqSolving_message.alt_err}")
-                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CAMERA ASTRO START EQ SOLVING", ResStartEqSolving_message.code)
+                                    await self.result_receive_messages(
+                                        self.command, WsPacket_message.cmd, Dwarf_Result.OK,
+                                        "OK CAMERA ASTRO START EQ SOLVING", ResStartEqSolving_message.code,
+                                        azi_err=ResStartEqSolving_message.azi_err,
+                                        alt_err=ResStartEqSolving_message.alt_err,
+                                    )
                             # CMD_ASTRO_STOP_EQ_SOLVING
                             elif (WsPacket_message.cmd==protocol.CMD_ASTRO_STOP_EQ_SOLVING and WsPacket_message.type == 3):
                                 ComResponse_message = base__pb2.ComResponse()
@@ -2990,7 +3142,7 @@ class WebSocketClient:
         self.StreamTypeDwarf = None
         self.StreamTypeByCamera = {}  # keyed by cam_id (0=tele, 1=wide) - see CMD_NOTIFY_STREAM_TYPE handling below
         self.needsContinueShooting = False  # see CODE_ASTRO_DARK_TEMP_MISMATCH handling below - set True when the device needs an explicit CMD_ASTRO_CONTINUE_SHOOTING follow-up
-        self.needsContinueShootingPhoto = False  
+        self.needsContinueShootingPhoto = False  # per-camera-type variants (user-added Sep 2026) - set/cleared independently for tele vs wide, see the CMD_ASTRO_CONTINUE_SHOOTING RUNNING handling below
         self.needsContinueShootingWide = False
         self.FocusValueDwarf = None
         self.PowerIndStateDwarf = None
@@ -3729,10 +3881,21 @@ async def init_socket():
                         result = False
                     elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_SLAVEMODE:
                         log.error("Can't send command , SLAVE MODE detected.")
-                        result = False
+                        # PRESERVED (was collapsed to False): callers that
+                        # need to tell "another client holds the connection"
+                        # apart from a generic failure/timeout - e.g.
+                        # perform_is_camera_actually_busy() treating this as
+                        # "probably busy" rather than "unknown" - need the
+                        # real code, not just a bare False. `is not False`
+                        # (the existing check in every perform_*() caller)
+                        # still treats this as a failure either way, since
+                        # ERROR_SLAVEMODE (-15) is not the False singleton -
+                        # this change is additive, no existing caller's
+                        # behavior changes.
+                        result = ERROR_SLAVEMODE
                     elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_TIMEOUT:
                         log.error("command TIMEOUT.")
-                        result = False
+                        result = ERROR_TIMEOUT
                     elif result_cnx['result'] == Dwarf_Result.WARNING:
                         log.error("command error: {result_cnx['message']}")
                         result = False
@@ -3792,10 +3955,12 @@ async def send_socket_message(message, command, type_id, module_id):
                             result = False
                         elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_SLAVEMODE:
                             log.error("Can't send command , SLAVE MODE detected.")
-                            result = False
+                            # PRESERVED (was collapsed to False) - see the
+                            # matching comment on the init_socket path above.
+                            result = ERROR_SLAVEMODE
                         elif result_cnx['result'] == Dwarf_Result.WARNING and result_cnx['code'] == ERROR_TIMEOUT:
                             log.error("command TIMEOUT.")
-                            result = False
+                            result = ERROR_TIMEOUT
                         elif result_cnx['result'] == Dwarf_Result.WARNING:
                             log.error("command error: {result_cnx['message']}")
                             result = False
