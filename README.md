@@ -1,5 +1,6 @@
 # dwarf_python_api
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Dwarf II, Dwarf 3, and Dwarf Mini - API functions to be used with python.
 
 This is the V3 branch, supporting the new V3 protobuf/WebSocket protocol used by current DWARFLAB firmware across all three models (Dwarf II, Dwarf 3, Dwarf Mini). The old V2-only API lives on the `main` branch for reference, but V3 is now the actively maintained version and the one new projects should use.
@@ -45,4 +46,6 @@ To use this library, you need :
 
      This installs from the `V3` branch (the default branch). To pin a specific branch explicitly regardless of what the default branch is set to (e.g. to stay on the old V2-only API), append `@branch-name` to the URL, e.g. `git+https://github.com/stevejcl/dwarf_python_api@main`.
 
+## License
 
+MIT -- see [LICENSE](LICENSE).
