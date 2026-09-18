@@ -325,6 +325,15 @@ class WebSocketClient:
         # "positioning" reference angles for motor_action() - D2/D3 have
         # hardcoded end_position values there already, Mini doesn't).
         self.last_motor_position = {}  # {motor_id: ResMotorPosition}
+        # User-requested (Sep 2026): the DEVICE_OCCUPIED handler below
+        # already builds a clear, actionable message when the device
+        # refuses a connection (close code 4409 - another client, likely
+        # the official app, already connected) - but it only ever
+        # reached the log file, never the astro_dwarf_session UI itself,
+        # which just showed a generic "Connection failed". Stashed here
+        # so a caller can surface the REAL reason after a failed connect
+        # attempt, same pattern as last_device_state_info etc.
+        self.last_connection_error = None
         self.startEQSolving = False
         # EQ Solving position feedback (user-requested Sep 2026: "un
         # retour de la position EQ dans l'interface... sans besoin de
@@ -669,6 +678,36 @@ class WebSocketClient:
                                     log.error(f"Error CMD_GLOBAL_TASK_GET_DEVICE_STATE_INFO CODE {ResGetDeviceStateInfo_message.code} >> EXIT")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error GET DEVICE STATE INFO", ResGetDeviceStateInfo_message.code)
                                 else:
+                                    # Populate StreamTypeByCamera from this
+                                    # full-state read (user-reported Sep
+                                    # 2026: reconnecting to an ALREADY
+                                    # RUNNING Dwarf left StreamTypeByCamera
+                                    # empty/stale, since the only other
+                                    # writer is CMD_NOTIFY_STREAM_TYPE - a
+                                    # PUSH notification the firmware only
+                                    # sends on an actual mode CHANGE, never
+                                    # on demand. ResGetDeviceStateInfo
+                                    # already carries the CURRENT stream
+                                    # type for both cameras (tele_camera_
+                                    # state_info.stream_type / wide_camera_
+                                    # state_info.stream_type), so extract it
+                                    # here rather than leaving the caller to
+                                    # wait indefinitely for a notification
+                                    # that may never arrive if the Dwarf's
+                                    # mode hasn't changed since it powered
+                                    # on. Assigned unconditionally (not
+                                    # diffed against `previous` like the
+                                    # push handler does) since this is a
+                                    # fresh full-state snapshot, not an
+                                    # incremental update - it should always
+                                    # win over a stale/missing prior value.
+                                    self.StreamTypeByCamera[0] = ResGetDeviceStateInfo_message.tele_camera_state_info.stream_type.stream_type
+                                    self.StreamTypeByCamera[1] = ResGetDeviceStateInfo_message.wide_camera_state_info.stream_type.stream_type
+                                    self.StreamTypeDwarf = self.StreamTypeByCamera[0]
+                                    log.notice(
+                                        "StreamTypeByCamera from GET_DEVICE_STATE_INFO: "
+                                        f"tele={self.StreamTypeByCamera[0]} wide={self.StreamTypeByCamera[1]}"
+                                    )
                                     log.success("Success GET DEVICE STATE INFO")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success GET DEVICE STATE INFO", ResGetDeviceStateInfo_message.code)
 
@@ -954,6 +993,7 @@ class WebSocketClient:
 
                                 log.debug("Decoding CMD_SYNC_SHOOTING_SCHEDULE")
                                 log.debug(f"receive code data >> {ResSyncShootingSchedule_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ResSyncShootingSchedule_message.code)}")
 
                                 if (ResSyncShootingSchedule_message.code != protocol.OK):
                                     log.error(f"Error CMD_SYNC_SHOOTING_SCHEDULE CODE {ResSyncShootingSchedule_message.code}")
@@ -3082,6 +3122,16 @@ class WebSocketClient:
                     " Another client (likely the official Dwarflab app) connected"
                     " while this session was active. Disconnect it there first."
                 )
+                # Same UI-surfacing mechanism as the OTHER DEVICE_OCCUPIED
+                # handler below (the "refused the connection outright"
+                # one) - this is the DIFFERENT case: we were already
+                # connected and got kicked out mid-session, not refused
+                # at connect time. Both need this set, or perform_get_
+                # last_connection_error() only ever sees whichever one
+                # was patched - found this gap (Sep 2026) by reviewing
+                # the fix, not from an actual live report of this exact
+                # case.
+                self.last_connection_error = "DEVICE_OCCUPIED"
             else:
                 log.error(f'Rcv: ConnectionClosedError', e)
             pass
@@ -3311,6 +3361,11 @@ class WebSocketClient:
                     " Another client (likely the official Dwarflab app) is already"
                     " connected to this device. Disconnect it there first, then retry."
                 )
+                # Short, UI-friendly version of the same message (the
+                # full one above is fine for a log line, too long for a
+                # notification toast) - see last_connection_error's own
+                # comment.
+                self.last_connection_error = "DEVICE_OCCUPIED"
             else:
                 log.error(f"Unhandled exception 1a: {e}")
             self.Init_Send_TeleGetSystemWorkingState = True

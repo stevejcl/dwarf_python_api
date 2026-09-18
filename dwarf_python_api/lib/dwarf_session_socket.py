@@ -53,6 +53,12 @@ from dwarf_python_api.lib.websockets_utils import (
 
 async def _start_socket(session: DwarfSession, ping_interval_task: int = 10) -> bool:
     """Mirrors websockets_utils.start_socket(), scoped to `session`."""
+    # Cleared at the start of every fresh attempt - otherwise a stale
+    # reason from a PREVIOUS failure could linger and be shown again on
+    # a later attempt that fails for an entirely different reason (or
+    # even succeeds, if something reads this without checking success
+    # first).
+    session.last_connection_error = None
     config = session.config
     uri = config.dwarf_ip
     client_id = config.client_id
@@ -415,6 +421,14 @@ def stop_event_loop(session: DwarfSession):
             log.warning(f"[{session.dwarf_uid}] Error closing event loop: {e}")
 
         log.debug(f"[{session.dwarf_uid}] Event loop and thread stopped.")
+        # Copy BEFORE the reset below discards the instance it lives on
+        # (see DwarfSession.last_connection_error's own comment for why
+        # this specific ordering matters - a failed connect's own
+        # cleanup calls this function automatically, same turn).
+        if session.client_instance is not None:
+            preserved_error = getattr(session.client_instance, "last_connection_error", None)
+            if preserved_error:
+                session.last_connection_error = preserved_error
         session.client_instance = None
 
 

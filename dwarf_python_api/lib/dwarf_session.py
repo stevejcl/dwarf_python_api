@@ -39,6 +39,16 @@ class DwarfSession:
     def __init__(self, config: DwarfConfig):
         self.config = config
         self.client_instance = None            # a websockets_utils.WebSocketClient once connected
+        # Survives stop_event_loop()'s reset of client_instance to None -
+        # unlike WebSocketClient.last_connection_error (which lives on
+        # the now-discarded instance), this is copied here by
+        # stop_event_loop() itself right before that reset, so a caller
+        # reading it AFTER a failed connect attempt's own automatic
+        # cleanup (field-confirmed Sep 2026: DEVICE_OCCUPIED is
+        # immediately followed by "Error WebSocket Disconnected" ->
+        # stop_event_loop() -> client_instance=None, all within the same
+        # failed connect() call) still finds it.
+        self.last_connection_error = None
         self.event_loop = None                  # this session's background asyncio loop
         self.event_loop_thread = None           # the thread running that loop
         self.previous_values: dict = {}         # per-session equivalent of the old global cache

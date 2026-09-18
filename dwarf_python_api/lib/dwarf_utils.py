@@ -2009,43 +2009,6 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
     protobuf sub-fields - the wire message only carries schedule_id, params
     (json), schedule_task_id, param_mode, create_from.
 
-    UNIT FIX (Sep 2026, third live test): startTime/endTime arrive here in
-    MILLISECONDS (JS Date.getTime(), from the catalog page). Converted to
-    SECONDS before embedding in the JSON, to match perform_sync_shooting_
-    schedule()'s own start_time/end_time/schedule_time fix below - same
-    reasoning: perform_time()'s CMD_SYSTEM_SET_TIME uses
-    math.floor(time.time()) (seconds), suggesting this firmware's time
-    fields are seconds-based generally. These two are JSON-embedded
-    business fields, not typed protobuf int64s, so the firmware might
-    parse them differently from the schedule-level ones - unconfirmed,
-    but converting for INTERNAL CONSISTENCY with the schedule-level fix
-    that's already field-confirmed to matter (a wildly wrong schedule-
-    level timestamp is what triggered -16308 in the first place).
-
-    INDEX FIX (Sep 2026, fourth live test): shutterIndex/gainIndex/
-    filterModeIndex arrived as null (the catalog page only ever sends
-    human-readable Names, never table indices - it has no access to the
-    device's own tables). The device accepted the sync (code 0) but then
-    failed every task INSTANTLY (SHOOTING_TASK_STATUS_FAILED, code -1,
-    updated_time == created_time) without ever attempting to point - a
-    name alone isn't enough, it needs the real numeric index. Resolved
-    here from the existing data_utils.py lookup tables - already used by
-    every other perform_*_v3 exposure/gain/filter setter in this file,
-    just never wired into the schedule path - rather than inventing a
-    new table. Confirmed against a real device dump (Sep 2026,
-    CMD_GET_ALL_SHOOTING_SCHEDULE read-back of the OFFICIAL APP'S OWN
-    past schedules, several SHOOTING_TASK_STATUS_SUCCESS): shutterIndex
-    160/162/165 for "45"/"60"/"120" match AllowedExposuresD3/Mini
-    exactly; filterModeIndex 1/2 for "Astro"/"Duo-Band" match
-    AllowedIRFilter's "Astro Filter"/"Duo-Band Filter" (the official
-    app's JSON drops the " Filter" suffix, the lookup table needs it
-    back - see the catalog page's _DWARF_FILTER_DEVICE_NAME map).
-    gainIndex in that same dump equals int(gainName) VERBATIM (e.g.
-    gainIndex:80 for gainName:"80") - NOT AllowedGainsD3's table index
-    (which would give 24 for "80") - consistent with data_utils.py's own
-    comment that V3 gain writes use the raw value directly, not an
-    index. Only used as a fallback when the caller hasn't already
-    supplied an index explicitly.
     """
     shutter_index = task.get("shutterIndex")
     if shutter_index is None and task.get("shutterName"):
@@ -2062,12 +2025,26 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
     if filter_index is None and task.get("filterModeName"):
         filter_index = get_ir_filter_index_by_name(task["filterModeName"])
 
+    start_time = int(task["startTime"]) if task.get("startTime") else None
+    if start_time and start_time > 10000000000:  # detect Epoch to ms
+        start_time = start_time // 1000
+
+    end_time = int(task["endTime"]) if task.get("endTime") else None
+    if end_time and end_time > 10000000000:
+        end_time = end_time // 1000
+        
+    # Get Mosaic value to default
+    is_mosaic = task.get("isMosaicMode", False)
+    h_scale = task.get("horizontalScale", 100)
+    v_scale = task.get("verticalScale", 100)
+    rotation = task.get("rotation", -1)
+
     task_params = {
         "name": task.get("name"),
         "ra": task.get("ra"),
         "dec": task.get("dec"),
-        "startTime": int(task["startTime"] / 1000) if task.get("startTime") else None,
-        "endTime": int(task["endTime"] / 1000) if task.get("endTime") else None,
+        "startTime": start_time,
+        "endTime": end_time,
         "shutterIndex": shutter_index,
         "shutterName": task.get("shutterName"),
         "gainIndex": gain_index,
@@ -2076,27 +2053,30 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
         "stacked": task.get("stacked"),
         "filterModeIndex": filter_index,
         "filterModeName": task.get("filterModeName"),
+        "isMosaicMode": is_mosaic,
+        "horizontalScale": h_scale,
+        "verticalScale": v_scale,
+        "rotation": rotation,
     }
     return shooting_schedule.ShootingTaskMsg(
         schedule_id=schedule_id,
-        params=json.dumps(task_params),
+        params=json.dumps(task_params, ensure_ascii=False),
         schedule_task_id=task.get("schedule_task_id") or "",
         param_mode=param_mode,
-        create_from=task.get("createFrom") or 0,
+        # 2, not 0 - matches a real PCAPdroid capture of the official
+        # Android app's own successful sync (its task was named
+        # "Manual" and used create_from=2) - see ShootingScheduleMsg's
+        # own comment on state/param_version, added at the same time
+        # from the same reference capture. Still overridable via
+        # task["createFrom"] if a caller has a specific reason to send
+        # something else.
+        create_from=task.get("createFrom", 2),
+        param_version=1,
     )
 
 
 def perform_sync_shooting_schedule(schedule, session=None):
     """CMD_SYNC_SHOOTING_SCHEDULE (16100), MODULE_SHOOTING_SCHEDULE (13).
-
-    NEW - not yet field-confirmed by network capture (no official app
-    trace seen yet with this module in use). Built directly from
-    DwarfLab's "Embedded scheduled shooting" PDF spec + shooting_schedule.proto
-    (already present in dwarf_python_api/proto). Module id (13), the
-    request/response message shapes, and the CMD numbers (added to
-    protocol.proto in this same change - only CMD_GET_ALL_SHOOTING_SCHEDULE
-    was previously registered) come from that PDF and from the ModuleId enum
-    already shipped in dwarfii_api (JS sibling project), which agrees on 13.
 
     `schedule` is a plain dict:
         {
@@ -2111,8 +2091,6 @@ def perform_sync_shooting_schedule(schedule, session=None):
                                 filterModeName, schedule_task_id,
                                 createFrom}, ... ]
         }
-    ra/dec units are NOT confirmed against firmware (hours vs degrees) -
-    verify before trusting this for an unattended session.
 
     Returns the ResSyncShootingSchedule.code (0 = OK) on success, or False
     if the device isn't connected / the call failed outright.
@@ -2120,18 +2098,14 @@ def perform_sync_shooting_schedule(schedule, session=None):
     module_id = 13  # MODULE_SHOOTING_SCHEDULE
     type_id = 0  # REQUEST
 
-    # Which AllowedExposures*/AllowedGains* table _build_shooting_task_msg
-    # should resolve names against - "5" (Mini) if we can't tell, since
-    # that's the only model this has been field-confirmed against so
-    # far. getattr()-defensive: astro_dwarf_ui can be slightly ahead of
-    # whichever dwarf_python_api is actually installed (same pattern as
-    # scheduler_runner.py's _set_dwarf_field()).
     dwarf_type = "5"
+    dwarf_model_id = 4
     _session_for_type = _resolve_session(session)
     if _session_for_type is not None:
         _dwarf_model_id = getattr(_session_for_type.config, "dwarf_model_id", None)
         if _dwarf_model_id is not None:
             dwarf_type = dwarf_python_api.get_config_data.config_to_dwarf_id_str(_dwarf_model_id)
+            dwarf_model_id = int(_dwarf_model_id)
 
     param_mode = schedule.get("paramsMode", 0)
     tasks = [
@@ -2139,53 +2113,31 @@ def perform_sync_shooting_schedule(schedule, session=None):
         for t in schedule.get("shooting_tasks", [])
     ]
 
+    start_time = int(schedule["startTime"]) if schedule.get("startTime") else 0
+    if start_time > 10000000000:
+        start_time = start_time // 1000
+
+    end_time = int(schedule["endTime"]) if schedule.get("endTime") else None
+    if end_time and end_time > 10000000000:
+        end_time = end_time // 1000
+
+    global_params = schedule.get("params", {})
+    if "calibrationMode" not in global_params:
+        global_params["calibrationMode"] = 0        
+
     ShootingScheduleMsg_message = shooting_schedule.ShootingScheduleMsg(
         schedule_id=schedule["scheduleId"],
         schedule_name=schedule.get("scheduleName", ""),
-        # HYPOTHESIS (Sep 2026, first live test): field-confirmed as
-        # REQUIRED - the device rejected an unset (0) device_id with
-        # CODE_SHOOTING_SCHEDULE_DEVICE_ID_NOT_MATCH (-16300, PDF §6.1).
-        # Reusing the same constant already used for the WsPacket
-        # ENVELOPE's own device_id (see websockets_utils.py's
-        # send_message(): device_id = 4  # V3 (Dwarf 3 / Dwarf mini)) -
-        # a different field on a different message, but the only
-        # confirmed-meaningful "device_id" value available. Verify this
-        # is actually what clears -16300 in the next live test; if not,
-        # this may need to come from DwarfConfig instead (a per-unit
-        # value, not a protocol-generation constant).
-        device_id=schedule.get("deviceId", 4),
-        start_time=int(schedule["startTime"] / 1000) if schedule.get("startTime") else 0,
-        end_time=int(schedule["endTime"] / 1000) if schedule.get("endTime") else 0,
+        device_id=schedule.get("deviceId", dwarf_model_id),
+        start_time=start_time,
+        end_time=end_time,
         lock=schedule.get("lock", 0),
         password=schedule.get("password", ""),
         param_mode=param_mode,
-        params=json.dumps(schedule.get("params", {})),
+        params=json.dumps(schedule.get("params", {}), ensure_ascii=False),
         shooting_tasks=tasks,
-        # HYPOTHESIS #2 (Sep 2026, second live test): device_id fixed
-        # CODE_SHOOTING_SCHEDULE_DEVICE_ID_NOT_MATCH, but CODE_SHOOTING_
-        # SCHEDULE_START_TIME_TOO_FAR (-16308) persisted even with a
-        # start_time genuinely within the device's 12h window. Re-reading
-        # the PDF's plan-table (§3.2.3) more carefully: startTime/endTime
-        # are marked "Can be empty", but schedule_time (field 17 - a
-        # DIFFERENT field, never set by this function before) is marked
-        # "Nonempty". Left unset, schedule_time defaults to protobuf's
-        # int64 zero - 1970-01-01 - which would trivially fail any
-        # "is this near now" check regardless of what start_time says.
-        # Setting it to "now" (when this sync request is issued) as the
-        # most literal reading of "scheduled timestamp" for a live sync
-        # call. Verify this actually clears -16308 in the next live test.
-        # UNIT FIX (Sep 2026, third live test): -16308 persisted even
-        # with schedule_time correctly set to "now" - because "now" was
-        # in MILLISECONDS while the firmware likely expects SECONDS.
-        # perform_time()'s own CMD_SYSTEM_SET_TIME uses math.floor(time.
-        # time()) (seconds) to set the device's clock - reusing ms here
-        # for a DIFFERENT time field on the same device would be
-        # internally inconsistent. Interpreting our ms value as seconds
-        # lands in the year 58669 (verified: datetime.fromtimestamp on
-        # the exact rejected value overflows Python's own datetime
-        # range) - trivially "too far" regardless of the real date.
-        # start_time/end_time above converted the same way. Verify this
-        # actually clears -16308 in the next live test.
+        state=shooting_schedule.SHOOTING_SCHEDULE_STATE_PENDING_SHOOT,
+        param_version=1,
         schedule_time=int(time.time()),
     )
     ReqSyncShootingSchedule_message = shooting_schedule.ReqSyncShootingSchedule(
@@ -2196,6 +2148,7 @@ def perform_sync_shooting_schedule(schedule, session=None):
 
     active_session = _resolve_session(session)
     if active_session is not None:
+        active_session.last_sync_error = None  # cleared at the start of every fresh attempt, same reasoning as last_connection_error's own clearing
         response = connect_socket_session(active_session, ReqSyncShootingSchedule_message, command, type_id, module_id)
     else:
         response = connect_socket(ReqSyncShootingSchedule_message, command, type_id, module_id)
@@ -2206,6 +2159,13 @@ def perform_sync_shooting_schedule(schedule, session=None):
             return True
         else:
             log.error(f"Error code: {response}")
+            if active_session is not None:
+                # Reuses the same helper that produces the ">> CODE_..."
+                # log lines already seen throughout this codebase, rather
+                # than a separate ad-hoc lookup - consistent with how
+                # every other error code gets named here.
+                name = websockets_utils.getErrorCodeValueName(response)
+                active_session.last_sync_error = name or str(response)
     else:
         log.error("Dwarf API: Dwarf Device not connected")
 
@@ -3540,6 +3500,53 @@ def motor_action( action, correction = 0, session=None ):
         log.error("Dwarf API: Dwarf Device not connected")
 
     return False
+
+
+def perform_get_last_sync_error(session=None):
+    """Returns the DwarfErrorCode NAME (e.g. "CODE_SHOOTING_SCHEDULE_
+    TIME_CONFLICT") for the most recent FAILED perform_sync_shooting_
+    schedule() call on this session, or None if the last attempt
+    succeeded / nothing has been tried yet. See DwarfSession.last_sync_
+    error's own comment for why this exists - user-requested (Sep 2026)
+    to show the real device rejection reason instead of a generic
+    "check the log" message.
+    """
+    active_session = _resolve_session(session)
+    return getattr(active_session, "last_sync_error", None) if active_session is not None else None
+
+
+def perform_get_last_connection_error(session=None):
+    """Returns a short, STABLE reason CODE for the most recent FAILED
+    connection attempt (currently only "DEVICE_OCCUPIED" - close code
+    4409, see WebSocketClient's own comment), or None if there isn't one
+    / the client isn't accessible yet. This is a generic library - it
+    does NOT own translation, so it returns a code for the caller's own
+    i18n system to map (e.g. astro_dwarf_session's t(f"conn_error_
+    {code.lower()}")), not a hardcoded English sentence.
+ 
+    BUG FIX (Sep 2026, field-confirmed): DEVICE_OCCUPIED's own log lines
+    are immediately followed, in the SAME failed connect() call, by
+    "Error WebSocket Disconnected" -> stop_event_loop() -> session.
+    client_instance = None - wiping WebSocketClient.last_connection_error
+    (and the instance it lived on) before a caller (e.g. pages/session.
+    py's _handle_connect, right after connect_and_enter_astro_mode
+    returns False) ever gets to read it. Checks session.
+    last_connection_error FIRST now - a durable copy stop_event_loop()
+    itself preserves there before that reset (see its own comment) -
+    falling back to the (usually already-gone) client_instance copy for
+    any path that doesn't go through stop_event_loop() at all.
+
+    Unlike the other perform_get_*_full() functions, this does NOT send
+    anything to the device - there's nothing to request, the connection
+    itself already failed. Just reads whatever was stashed before giving
+    up, so it's safe to call right after a failed connect/reconnect with
+    no risk of racing a live command.
+    """
+    active_session = _resolve_session(session)
+    if active_session is not None and getattr(active_session, "last_connection_error", None):
+        return active_session.last_connection_error
+    client = active_session.client_instance if active_session is not None else websockets_utils.client_instance
+    return getattr(client, "last_connection_error", None) if client else None
 
 
 def perform_get_motor_position_full(motor_id: int, session=None):

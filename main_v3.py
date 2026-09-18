@@ -112,6 +112,7 @@ from dwarf_python_api.lib.dwarf_utils import (
     read_camera_count,
     read_camera_wide_exposure,
     read_camera_wide_gain,
+    perform_sync_shooting_schedule,
 )
 from dwarf_python_api.get_live_data_dwarf import get_live_data
 
@@ -176,6 +177,8 @@ def display_menu_test():
     print("T3. Decoding Test Frames 3")
     print("T4. Decoding All Test Frames")
     print("D. Decoding Unmasked Wireshark Frame")
+    print("S. Testing Schedule Fonctions")
+    print("SM. Testing Schedule Mosaic Fonctions")
     print("0. Return")
 
 
@@ -189,7 +192,7 @@ def get_user_choice():
 
 def get_user_choice_test():
     try:
-        choice = input("Enter your choice (T1 to T4) or D or 0 to return to main menu: ")
+        choice = input("Enter your choice (T1 to T4) or D or S or SM or 0 to return to main menu: ")
     except KeyboardInterrupt:
         print("Operation interrupted by the user (CTRL+C).")
         choice = '0'
@@ -277,6 +280,118 @@ def option_24():
     print("")
     # Add your Option D1 functionality here
     return input_frame(False)
+
+def option_25():
+    print("You selected Option S. Testing Schedule Frame")
+    print("")
+
+    # timestamp Epoch actual in ms
+    now_ms = int(time.time() * 1000)
+
+    start_ms = now_ms + 900000      # In 15 minutes
+    end_ms = start_ms + (3600*1000) # Duration 1 hour
+
+    dwarf_model_id = dwarf_python_api.get_config_data.get_config_data().get('dwarf_id')
+    print(f"dwarf_model_id: {dwarf_model_id}")
+
+    # Test object provided without numeric indexes (name only) and dates in ms
+    input_schedule = {
+        "scheduleId": "test_session_2026_09.Android",
+        "scheduleName": "Session Test Vega",
+        "deviceId":  int(dwarf_model_id),
+        "startTime": start_ms,
+        "endTime": end_ms,
+        "paramsMode": 0,
+        "params": {
+            "longitude": -1.695556,
+            "latitude": 47.328951,
+            "cityName": "Vigneux-de-Bretagne",
+            "focusMode": 0
+        },
+        "shooting_tasks": [
+            {
+                "name": "Véga - HIP 91262",
+                "ra": 18.615813,
+                "dec": 38.791145,
+                "startTime": start_ms,
+                "endTime": end_ms,
+                # On ne fournit PAS les index pour tester la résolution automatique
+                "shutterName": "90",
+                "gainName": "40",
+                "filterModeName": "Astro Filter",
+                "count": 0,
+                "stacked": 0,
+                "isMosaicMode": False
+            }
+        ]
+    }
+
+    # Starting Test
+    success = perform_sync_shooting_schedule(input_schedule)
+    
+    if success:
+        print("\n>>> TEST SUCCESSFUL: The function executes and generates the expected message.")
+    else:
+        print("\n>>> TEST FAILED.")
+        
+    return
+
+def option_26():
+    print("You selected Option S. Testing Schedule Mosaic Frame")
+    print("")
+
+    # timestamp Epoch actual in ms
+    now_ms = int(time.time() * 1000)
+
+    start_ms = now_ms + (3600*1000*2) # In 2 hours
+    end_ms = start_ms + (3600*1000) # Duration 1 hour
+
+    dwarf_model_id = dwarf_python_api.get_config_data.get_config_data().get('dwarf_id')
+    print(f"dwarf_model_id: {dwarf_model_id}")
+
+    # Test object provided without numeric indexes (name only) and dates in ms
+    input_schedule = {
+        "scheduleId": "test_mosaic_2026_09.Android",
+        "scheduleName": "Session Test Vega",
+        "deviceId":  int(dwarf_model_id),
+        "startTime": start_ms,
+        "endTime": end_ms,
+        "paramsMode": 0,
+        "params": {
+            "longitude": -1.695556,
+            "latitude": 47.328951,
+            "cityName": "Vigneux-de-Bretagne",
+            "focusMode": 0
+        },
+        "shooting_tasks": [
+            {
+                "name": "Véga - HIP 91262",
+                "ra": 18.615813,
+                "dec": 38.791145,
+                "startTime": start_ms,
+                "endTime": end_ms,
+                # On ne fournit PAS les index pour tester la résolution automatique
+                "shutterName": "90",
+                "gainName": "40",
+                "filterModeName": "Astro Filter",
+                "count": 0,
+                "stacked": 0,
+                "isMosaicMode": True,
+                "horizontalScale": 150,
+                "verticalScale": 120,
+            }
+        ]
+    }
+
+    # Starting Test
+    success = perform_sync_shooting_schedule(input_schedule)
+    
+    if success:
+        print("\n>>> TEST SUCCESSFUL: The function executes and generates the expected message.")
+    else:
+        print("\n>>> TEST FAILED.")
+        
+    return
 
 
 # ---------------------------------------------------------------------------
@@ -1578,6 +1693,14 @@ def choice_test():
 
         elif user_choice == 'D':
             if (option_24() == '0'):
+              break
+
+        elif user_choice == 'S':
+            if (option_25() == '0'):
+              break
+
+        elif user_choice == 'SM':
+            if (option_26() == '0'):
               break
 
         elif user_choice == '0':

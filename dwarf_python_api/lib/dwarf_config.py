@@ -63,6 +63,7 @@ class DwarfConfig:
     # --- Location --------------------------------------------------------
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    city_name: Optional[str] = None
     timezone: str = ""
 
     # --- Camera defaults -------------------------------------------------
@@ -144,6 +145,7 @@ class DwarfConfig:
 
             latitude=ini_getfloat("latitude"),
             longitude=ini_getfloat("longitude"),
+            city_name=ini_get("city_name", ""),
             timezone=ini_get("timezone"),
 
             exposure=ini_get("exposure", "30"),
