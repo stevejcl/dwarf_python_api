@@ -396,6 +396,14 @@ class WebSocketClient:
                 self.abort_timeout = int(data_config.get('timeout_cmd', 900))
         else:
             log.info("Already initialized.")
+            
+    def initialize_count(self):
+        self.takePhotoCount = 0
+        self.takePhotoStacked = 0
+        self.takeMosaicCount = 0
+        self.takeMosaicStacked = 0
+        self.takeWidePhotoCount = 0
+        self.takeWidePhotoStacked = 0
 
     async def abort_tasks_timeout(self, timeout):
 
@@ -1961,6 +1969,7 @@ class WebSocketClient:
                                     log.info("ASTRO CAPTURE RUNNING")
                                     log.success("ASTRO CAPTURE RUNNING")
                                     self.takePhotoStarted = True
+                                    self.initialize_count()
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO CAPTURE RUNNING", 0)
                                     await asyncio.sleep(1)
 
@@ -1968,6 +1977,7 @@ class WebSocketClient:
                                     log.info("ASTRO MOSAIC CAPTURE RUNNING")
                                     log.success("ASTRO MOSAIC CAPTURE RUNNING")
                                     self.takePhotoStarted = True
+                                    self.initialize_count()
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO MOSAIC CAPTURE RUNNING", 0)
                                     await asyncio.sleep(1)
 
@@ -1982,6 +1992,7 @@ class WebSocketClient:
                                     log.info("ASTRO WIDE CAPTURE RUNNING")
                                     log.success("ASTRO WIDE CAPTURE RUNNING")
                                     self.takeWidePhotoStarted = True
+                                    self.initialize_count()
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE RUNNING", 0)
                                     await asyncio.sleep(1)
 
@@ -2044,6 +2055,7 @@ class WebSocketClient:
                                     log.info("ASTRO WIDE CAPTURE RUNNING")
                                     log.success("ASTRO WIDE CAPTURE RUNNING")
                                     self.takeWidePhotoStarted = True
+                                    self.initialize_count()
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK ASTRO WIDE CAPTURE RUNNING", 0)
                                     await asyncio.sleep(1)
 
@@ -2079,7 +2091,7 @@ class WebSocketClient:
                                 # into the TELE counters (self.takePhotoCount/Stacked) while the
                                 # WIDE ones (read by perform_read_astro_stacking_status_v3() via
                                 # get_client_status()) stayed at 0 forever.
-                                is_wide_session = (self.command == protocol.CMD_ASTRO_START_WIDE_CAPTURE_LIVE_STACKING)
+                                is_wide_session = (self.command == protocol.CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING or self.takeWidePhotoStarted)
                                 if is_wide_session:
                                     self.takeWidePhotoStarted = True
                                     if self.RestartAstroWideCapture:

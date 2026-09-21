@@ -2470,7 +2470,7 @@ def perform_waitEndAstroPhoto(retry = False, session=None):
     if response is not False: 
 
         if response == 0:
-            log.success("{message} success")
+            log.success(f"{message} success")
             return True
         elif response == -1:
             log.warning("ASTRO CAPTURE NOT STARTED")
@@ -2502,7 +2502,7 @@ def perform_waitEndAstroWidePhoto(retry = False, session=None):
     if response is not False: 
 
         if response == 0:
-            log.success("{message} success")
+            log.success(f"{message} success")
             return True
         elif response == -1:
             log.warning("ASTRO WIDE CAPTURE NOT STARTED")
@@ -2697,7 +2697,7 @@ def perform_stopAstroWidePhoto(session=None):
 
     ReqStopCaptureRawLiveStacking_message = astro.ReqStopCaptureRawLiveStacking()
 
-    command = 11017 #CMD_ASTRO_STOP_CAPTURE_RAW_LIVE_STACKING
+    command = 11017 #CMD_ASTRO_STOP_WIDE_CAPTURE_LIVE_STACKING
 
     active_session = _resolve_session(session)
     if active_session is not None:
