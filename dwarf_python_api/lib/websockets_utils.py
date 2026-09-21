@@ -3084,39 +3084,41 @@ class WebSocketClient:
                                     log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
 
                                 if( WsPacket_message.type == 2):
-                                    log.debug("Decoding Notification Frame")
-                                    ResNotifyStateAstroGoto_message = notify.AstroGotoState()
-                                    try:
-                                        ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
-                                    except Exception as parse_err:
-                                        # Field-confirmed (Aug 2026): the firmware can send a
-                                        # target_name that isn't valid UTF-8 (e.g. an accented
-                                        # character in a French DSO/target name encoded in
-                                        # Latin-1/cp1252 rather than UTF-8) - protobuf's strict
-                                        # string validation then raises DecodeError. Without this
-                                        # try/except, that error used to fall through to the
-                                        # generic handler below, which calls stop_task.set() and
-                                        # kills the entire receive loop/connection over a single
-                                        # malformed notification. Skip just this notification
-                                        # instead.
-                                        log.warning(f"Skipping malformed AstroGotoState notification (type=2): {parse_err}")
-                                        log.debug(f"raw data (hex): {WsPacket_message.data.hex()}")
-                                    else:
-                                        log.debug(f"receive notification data >> {ResNotifyStateAstroGoto_message.state}")
-                                        log.debug(f">> {getAstroStateName(ResNotifyStateAstroGoto_message.state)}")
+                                    # Purely diagnostic (user-confirmed
+                                    # Sep 2026: "cette partie est plus un
+                                    # log pour test et visiblement pas du
+                                    # tout pertinent") - this branch only
+                                    # runs when cmd matched nothing else
+                                    # in this whole if/elif chain, and the
+                                    # REAL AstroGotoState notifications
+                                    # (CMD_NOTIFY_STATE_ASTRO_GOTO=15211)
+                                    # are already handled by their own
+                                    # dedicated branch earlier - so this
+                                    # can never legitimately BE one.
+                                    # Parsing it as AstroGotoState anyway
+                                    # (as an earlier version here did) was
+                                    # always a guess: it could silently
+                                    # succeed with garbage field values,
+                                    # or fail with a misleading "bad
+                                    # UTF-8" that had nothing to do with
+                                    # any actual target name - confirmed
+                                    # Sep 2026 on a real cmd=16405
+                                    # (ResGetDeviceStateInfo) response
+                                    # that arrived here because self.
+                                    # command didn't match it at that
+                                    # moment, not because of anything
+                                    # wrong with the notification itself.
+                                    # Logged to its own .err file (user-
+                                    # requested Sep 2026), not the shared
+                                    # log - these can fire often on
+                                    # perfectly normal traffic.
+                                    log.log_unmatched_frame(f"Unmatched notification frame 2 (cmd={WsPacket_message.cmd}[{getDwarfCMDName(WsPacket_message.cmd)}], len={len(WsPacket_message.data)})")
+                                    log.log_unmatched_frame(f"raw data (hex): {WsPacket_message.data.hex()}")
 
                                 if( WsPacket_message.type == 3):
-                                    log.debug("Decoding Response Notification Frame")
-                                    ResNotifyStateAstroGoto_message = notify.AstroGotoState()
-                                    try:
-                                        ResNotifyStateAstroGoto_message.ParseFromString(WsPacket_message.data)
-                                    except Exception as parse_err:
-                                        # Same fix as type==2 above.
-                                        log.warning(f"Skipping malformed AstroGotoState notification (type=3): {parse_err}")
-                                        log.debug(f"raw data (hex): {WsPacket_message.data.hex()}")
-                                    else:
-                                        log.debug(f"receive notification data >> {ResNotifyStateAstroGoto_message.state}")
-                                        log.debug(f">> {getErrorCodeValueName(ResNotifyStateAstroGoto_message.state)}")
+                                    # Same reasoning as type==2 above.
+                                    log.log_unmatched_frame(f"Unmatched response/notification frame 3 (cmd={WsPacket_message.cmd}[{getDwarfCMDName(WsPacket_message.cmd)}], len={len(WsPacket_message.data)})")
+                                    log.log_unmatched_frame(f"raw data (hex): {WsPacket_message.data.hex()}")
                         else:
                             log.debug("Ignoring Unkown Type Frames")
                     else:

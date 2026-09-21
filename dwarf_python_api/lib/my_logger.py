@@ -104,6 +104,53 @@ class _DeviceLabelFilter(logging.Filter):
         record.device = f"[{label}] " if label else ""
         return True
 
+# --- Separate file for unmatched/untreated notification frames -------------
+# (user-requested Sep 2026, after tracing a misleading "bad UTF-8" warning
+# to websockets_utils.py's fallback branch for frames whose cmd matched no
+# known handler: "on risque d'en avoir beaucoup, notification non traite
+# par exemple" - these can fire often, on perfectly normal traffic, and
+# aren't actionable day-to-day, so they'd otherwise drown out the real
+# signal in the main log). Lazily created on first use, in its own child
+# logger with propagate=False so it never ALSO lands in the shared log
+# file or console - only this dedicated file.
+_unmatched_frame_logger = None
+
+
+def log_unmatched_frame(message: str) -> None:
+    """Logs to <main log file's basename>.err (or "unmatched_frames.err"
+    if no main log file is configured at the time of the FIRST call -
+    this only reads log_file once, lazily; it does not track later
+    update_log_file() renames, which is an acceptable simplification for
+    a low-stakes diagnostic file). Callers: websockets_utils.py's
+    fallback handling for notification/response frames whose cmd matched
+    nothing else in that if/elif chain.
+
+    Rotated to <path>.old on restart (user-requested Sep 2026: "les logs
+    vont etre enorme sinon" - unlike the main log, EVERY unmatched frame
+    lands here, on perfectly normal traffic, so this file can grow much
+    faster across repeated sessions) - same one-generation backup as
+    update_log_file()'s own log_file + '.old' handling, not a rotating
+    series of many backups."""
+    global _unmatched_frame_logger
+    if _unmatched_frame_logger is None:
+        base = log_file if log_file else "unmatched_frames"
+        err_path = os.path.splitext(base)[0] + ".err"
+        if os.path.exists(err_path):
+            try:
+                shutil.move(err_path, err_path + ".old")
+            except Exception as e:
+                print(f"Error moving unmatched-frames log file: {e}")
+        _unmatched_frame_logger = logging.getLogger("my_logger.unmatched_frames")
+        _unmatched_frame_logger.setLevel(logging.DEBUG)
+        _unmatched_frame_logger.propagate = False
+        handler = logging.FileHandler(err_path)
+        handler.setFormatter(logging.Formatter("%(asctime)s - %(device)s%(message)s"))
+        handler.addFilter(_SharedLogThreadFilter())
+        handler.addFilter(_DeviceLabelFilter())
+        _unmatched_frame_logger.addHandler(handler)
+    _unmatched_frame_logger.debug(message)
+
+
 # Function to update or create the log file handler
 def update_log_file(default_name: str = "app.log"):
     """
