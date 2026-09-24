@@ -97,6 +97,18 @@ VALID_PAIRS = {
     (protocol.CMD_RGB_POWER_POWERIND_OFF, protocol.CMD_NOTIFY_POWER_IND_STATE),
     (protocol.CMD_RGB_POWER_OPEN_RGB, protocol.CMD_NOTIFY_RGB_STATE),
     (protocol.CMD_RGB_POWER_CLOSE_RGB, protocol.CMD_NOTIFY_RGB_STATE),
+    # User-confirmed Sep 2026, real Dwarf 2 test + matching pcap of the
+    # official app doing the same thing: D2's firmware never sends the
+    # dedicated cmd=16703 response for this param (unlike D3/Mini,
+    # which do) - only this push notification ever arrives, for BOTH
+    # our code and the official app. See this same pair's own elif
+    # branch (self.command==CMD_PARAM_SET_GENERAL_INT_PARAM and
+    # WsPacket_message.cmd==CMD_NOTIFY_GENERAL_INT_PARAM) for the
+    # decode/caching side of this fallback - process_command() here is
+    # a SEPARATE gate that needed the same pair added, or a correctly-
+    # decoded result still gets discarded as "not the response we were
+    # waiting for" one layer up.
+    (protocol.CMD_PARAM_SET_GENERAL_INT_PARAM, protocol.CMD_NOTIFY_GENERAL_INT_PARAM),
 }
 
 # ID-to-name mapping
@@ -358,6 +370,7 @@ class WebSocketClient:
         self.InitHostReceived = False
         self.ErrorConnection = False
         self.BatteryLevelDwarf = None
+        self.IsChargingDwarf = None  # None until the first CMD_NOTIFY_CHARGE
         self.availableSizeDwarf = None
         self.totalSizeDwarf = None
         self.TemperatureLevelDwarf = None
@@ -547,6 +560,22 @@ class WebSocketClient:
     async def result_notification_messages(self, cmd_send, cmd_recv, result, message, code):
         try:
             log.debug("result_notification_messages.")
+            # Resets the SAME watchdog send_message() resets (see its
+            # own "# reset time out" comment) - user-reported Sep 2026,
+            # real overnight log: a healthy, actively-stacking capture
+            # got forcibly disconnected after exactly 900s (abort_
+            # timeout's own default) because reset_timeout was ONLY
+            # ever set on an OUTGOING command, never on an incoming
+            # notification - so a capture running longer than 900s with
+            # no outgoing command needed in between (the normal case:
+            # once a capture is running, all that arrives is these
+            # progress notifications) would always eventually trip the
+            # watchdog and tear down a perfectly fine connection. This
+            # function is the single place EVERY notification handler
+            # already funnels through (current_count/stacked_count
+            # progress, and many others), so resetting here once covers
+            # all of them without touching each call site individually.
+            self.reset_timeout = True
             notification_message = { 'cmd_send' : cmd_send, 'cmd_recv' : cmd_recv, 'result' : result, 'message' : message, 'code': code, 'notification' : True}
             log.debug(notification_message)
             log.notice(notification_message['message'])
@@ -1093,6 +1122,63 @@ class WebSocketClient:
                                 else:
                                     log.info("OK CMD_PARAM_SET_GENERAL_INT_PARAM")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_PARAM_SET_GENERAL_INT_PARAM", ComResponse_message.code)
+
+                            # Fallback for CMD_PARAM_SET_GENERAL_INT_PARAM
+                            # (user-confirmed Sep 2026, real Dwarf 2 test:
+                            # request timed out at 150s - D3/Mini's own
+                            # firmware DOES send the dedicated cmd=16703
+                            # response the branch above waits for, but D2's
+                            # firmware apparently never does for at least
+                            # the IR filter param - it only ever broadcasts
+                            # the SAME "push" CMD_NOTIFY_GENERAL_INT_PARAM
+                            # (15264) this whole module already treats as
+                            # its read-side mechanism, see that handler's
+                            # own module docstring). Accepting this
+                            # notification as ALSO satisfying a pending
+                            # SET wait is safe here specifically because
+                            # only one command is ever in flight system-
+                            # wide (the command-slot mechanism, astro_
+                            # dwarf_session's own connection_health.py) -
+                            # self.command==CMD_PARAM_SET_GENERAL_INT_PARAM
+                            # means WE are the only possible source of any
+                            # param change arriving right now.
+                            #
+                            # Gated to device_id == 1 (user-corrected Sep
+                            # 2026: D3's own device_id is 2, NOT 4 as
+                            # first assumed - Mini's is 4, D2's is 1).
+                            # WsPacket_message.device_id is the RESPONDING
+                            # device's own generation marker - unrelated
+                            # to the 4 we always SEND on outgoing requests
+                            # (see this file's own "device_id = 4  # V3
+                            # (Dwarf 3 / Dwarf mini)" comment, a fixed
+                            # client-side protocol-version claim, not
+                            # per-model, and misleadingly named given D3
+                            # itself replies with 2, not 4). Confirmed
+                            # only for D2 (device_id=1) so far - D3
+                            # (device_id=2) and Mini (device_id=4) both
+                            # correctly send the direct cmd=16703 response,
+                            # and without this exact-match gate (a looser
+                            # "!= 4" would have wrongly also caught D3's
+                            # device_id=2) they'd have this notification
+                            # resolve the wait FIRST every time (it tends
+                            # to arrive before the direct response),
+                            # causing a harmless but confusing double
+                            # resolution (observed live on D3: both fire,
+                            # no error either time, but only D2 actually
+                            # NEEDS this fallback at all).
+                            elif (self.command==protocol.CMD_PARAM_SET_GENERAL_INT_PARAM and WsPacket_message.cmd==protocol.CMD_NOTIFY_GENERAL_INT_PARAM and WsPacket_message.device_id == 1):
+                                GeneralIntParam_message = notify.GeneralIntParam()
+                                GeneralIntParam_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_NOTIFY_GENERAL_INT_PARAM (as SET fallback)")
+                                log.debug(f"receive param_id >> {hex(GeneralIntParam_message.param_id)}")
+                                log.debug(f"receive mode >> {GeneralIntParam_message.mode}")
+                                log.debug(f"receive value >> {GeneralIntParam_message.value}")
+                                self.cameraParamsDwarf[GeneralIntParam_message.param_id] = {
+                                    "mode": GeneralIntParam_message.mode,
+                                    "value": GeneralIntParam_message.value,
+                                }
+                                log.info(f"OK CMD_PARAM_SET_GENERAL_INT_PARAM (via push notification fallback, device_id={WsPacket_message.device_id})")
+                                await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success CMD_PARAM_SET_GENERAL_INT_PARAM (notification fallback)", protocol.OK)
 
                             # CMD_PARAM_SET_GENERAL_BOOL_PARAMS = 16705 (NOT CONFIRMED by network
                             # capture - inferred from sequential position in param.proto, see
@@ -2915,6 +3001,26 @@ class WebSocketClient:
                                    else:
                                        log.notice(f"Battery Level is {value}%")
                                    self.BatteryLevelDwarf = value
+                            # notify Charging state (user-confirmed
+                            # Sep 2026, real overnight test - plugging
+                            # in an external battery pack for the Mini
+                            # around 35% flipped this from 1 to 2, with
+                            # nothing pushed at all while it stays the
+                            # same - "1"=not charging, "2"=charging,
+                            # confirmed against the actual action taken
+                            # at that exact timestamp, not guessed from
+                            # the protocol alone). Real-time, event-
+                            # driven - much faster than polling
+                            # GET_DEVICE_STATE_INFO's own ChargingState
+                            # sub-message for the same fact.
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_CHARGE):
+                                ComResWithInt_message_message = base__pb2.ComResWithInt()
+                                ComResWithInt_message_message.ParseFromString(WsPacket_message.data)
+                                log.debug("Decoding CMD_NOTIFY_CHARGE")
+                                log.debug(f"receive request response value >> {ComResWithInt_message_message.value}")
+                                value = ComResWithInt_message_message.value
+                                self.IsChargingDwarf = (value == 2)
+                                log.notice(f"Charging: {self.IsChargingDwarf} (raw value {value})")
                             # CMD_NOTIFY_TEMPERATURE 15243
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_TEMPERATURE):
                                 ResNotifyTemperature_message = notify.Temperature()
@@ -3199,6 +3305,7 @@ class WebSocketClient:
 
         self.InitHostReceived = False
         self.BatteryLevelDwarf = None
+        self.IsChargingDwarf = None
         self.availableSizeDwarf = None
         self.totalSizeDwarf = None
         self.TemperatureLevelDwarf = None
@@ -4110,7 +4217,22 @@ def get_client_status():
         "FocusValueDwarf": client_instance.FocusValueDwarf,
         "PowerIndicatorDwarf": client_instance.PowerIndStateDwarf,
         "RgbIndicatorDwarf": client_instance.RgbIndStateDwarf,
-        "CameraParamsDwarf": client_instance.cameraParamsDwarf
+        "CameraParamsDwarf": client_instance.cameraParamsDwarf,
+        # Same reasoning as dwarf_session_socket.py's own get_client_
+        # status() - see that one's own comment on IsCharging. Prefers
+        # IsChargingDwarf (CMD_NOTIFY_CHARGE, real-time/event-driven,
+        # user-confirmed Sep 2026 against an actual plug-in event) over
+        # the ResGetDeviceStateInfo poll (only refreshed at health_
+        # check's own cadence) when both are available.
+        "IsCharging": (
+            client_instance.IsChargingDwarf
+            if client_instance.IsChargingDwarf is not None
+            else (
+                bool(client_instance.last_device_state_info.device_state_info.charging_state.state)
+                if client_instance.last_device_state_info is not None
+                else None
+            )
+        ),
     }
 
     # Detect changes

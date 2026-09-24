@@ -1566,6 +1566,45 @@ PARAM_ID_ASTRO_DISPLAY_SOURCE = 0x0202f00000000012    # "displaySource" (0=Singl
 # as tele exposure/gain (0x0201...), with its own sub-index (0x1e).
 PARAM_ID_ASTRO_STACK_BINNING = 0x020100000000001e    # "stackBinning" (0=4k, 1=2k)
 
+# CONFIRMED by network capture (Dwarf 3, Sep 2026, official app: all 3
+# IR/Astro filter positions tested one after another - VIS/Astro/Duo-
+# Band): CMD_PARAM_SET_GENERAL_INT_PARAM (16703) with param_id
+# 0x020100000000000d, values 1 (Astro Filter) and 2 (Duo-Band Filter)
+# explicitly sent - value 0 (VIS Filter) sends NO value field at all
+# (proto3 default: a field left at its zero value isn't serialized),
+# confirming the SAME 0/1/2 = Vis/Astro/Duo-Band mapping already used
+# by perform_set_ir_filter_v3()'s legacy CMD_CAMERA_TELE_SET_IRCUT
+# (10031) path - the two are not in conflict on the VALUES, only on
+# WHICH command the official app actually sends today (this one, not
+# the legacy one). Same-night cross-check: our own legacy SET_IRCUT
+# call was independently seen echoing this EXACT param_id back via
+# CMD_NOTIFY_GENERAL_INT_PARAM, so the legacy path was already landing
+# on the same underlying parameter - this isn't a "the old one was
+# broken" fix, just switching to the mechanism actually confirmed live
+# from the official app.
+#
+# Mini CONFIRMED too by a second, separate network capture, same
+# night: SAME param_id, same values 1/2 explicitly sent. That same
+# second capture also clarified "DARK" (Mini's own filter index 0,
+# named differently from D3's "VIS Filter" but same slot) - it's NEVER
+# sent through this mechanism at all in the official app; it only ever
+# showed up bundled inside the dedicated "Take Dark" calibration
+# action, not as a value this param can be set to directly. Mini's own
+# selectable option list (components/camera_settings.py in astro_
+# dwarf_session) excludes DARK for exactly this reason.
+#
+# D2 CONFIRMED too, a third and final network capture, same param_id
+# again: only 2 of its own 3 possible values sent this time (0 and 1 -
+# D2's own IR_CUT/IR_PASS, matching AllowedIRFilterD2 in data_utils.py
+# - its filter wheel has no 3rd/Duo-Band position at all, so there was
+# nothing to test there). Confirms the mechanism is genuinely
+# universal across all three models - only the NAME SET differs per
+# model (D2: IR_CUT/IR_PASS; D3/Mini: VIS or DARK/Astro/Duo-Band), the
+# actual param_id and command are identical everywhere. NOT yet
+# confirmed for the Wide camera on any model - see
+# perform_set_astro_ir_filter_v3()'s own docstring.
+PARAM_ID_ASTRO_IR_FILTER_TELE = 0x020100000000000d    # "irFilter", tele, astro mode
+
 # CMD_PARAM_SET_GENERAL_BOOL_PARAMS - NOT CONFIRMED by direct network
 # capture, inferred from the sequential position in param.proto
 # (ReqSetExposure=16700, ReqSetGain=16701, ReqSetWb=16702 [confirmed],
@@ -1686,7 +1725,11 @@ def perform_set_image_param_v3(param_id, value, session=None):
         response = connect_socket(message, command, type_id, module_id)
 
     if response is not False:
-        log.success(f"SET IMAGE PARAM (V3) {hex(param_id)} -> {response}")
+        # Same clarity fix as perform_set_ir_filter_v3's own comment -
+        # response is the raw result code (0=OK), not `value`, which is
+        # what was actually requested and sits right above, unused in
+        # this log line before.
+        log.success(f"SET IMAGE PARAM (V3) {hex(param_id)} -> value={value}, result_code={response}")
         return response
     else:
         log.error("Dwarf API: Dwarf Device not connected")
@@ -1856,7 +1899,15 @@ def perform_set_ir_filter_v3(name_or_index, session=None):
         response = connect_socket(ReqSetIrCut_message, command, type_id, module_id)
 
     if response is not False:
-        log.success(f"SET IR FILTER -> {response}")
+        # user-reported Sep 2026: "je vois SET IRCUT bizarre" - response
+        # here is connect_socket_session()'s own raw RESULT CODE (0=OK,
+        # matching the device's own 'code': 0 on success), NOT the
+        # filter index that was actually set - that's `index`, sitting
+        # right above, never shown here before. Confusing/misleading,
+        # not a functional bug: exposure/gain (SET EXPOSURE/GAIN (V3))
+        # log the exact same way, always showing 0 on success no matter
+        # what value was requested.
+        log.success(f"SET IR FILTER -> index={index}, result_code={response}")
         return response
     else:
         log.error("Dwarf API: Dwarf Device not connected")
@@ -4084,6 +4135,37 @@ def perform_set_astro_stack_binning_v3(value, session=None):
     `session`: optional DwarfSession - see perform_goto().
     """
     return perform_set_image_param_v3(PARAM_ID_ASTRO_STACK_BINNING, value, session=session)
+
+
+def perform_set_astro_ir_filter_v3(value, session=None):
+    """IR/Astro filter for the Tele camera in astro/DSO mode - the
+    modern V3 mechanism (CMD_PARAM_SET_GENERAL_INT_PARAM, see
+    PARAM_ID_ASTRO_IR_FILTER_TELE's own docstring for the network
+    capture that confirms it), NOT perform_set_ir_filter_v3()'s legacy
+    CMD_CAMERA_TELE_SET_IRCUT (10031) - that one still works (same-
+    night cross-check: it lands on this exact same underlying
+    parameter, confirmed via CMD_NOTIFY_GENERAL_INT_PARAM's own echo),
+    this is just the path actually confirmed live from the official
+    app for this specific case, kept separate rather than replacing
+    the legacy function outright since ITS OWN other callers
+    (non-astro photo mode, the Wide camera) haven't been independently
+    confirmed against this modern mechanism yet.
+
+    Confirmed on ALL THREE models (D2, D3, Mini - three separate
+    network captures, same night) - same param_id everywhere, values
+    matching each model's own name set. 0 = VIS Filter (D3) / DARK
+    (Mini) / IR_CUT (D2) - VIS/DARK NEVER actually sent this way by the
+    official app on D3/Mini (see PARAM_ID_ASTRO_IR_FILTER_TELE's own
+    docstring on Mini's DARK specifically) - IR_CUT (D2's own value 0)
+    WAS sent and confirmed. 1 = Astro Filter (D3/Mini) / IR_PASS (D2).
+    2 = Duo-Band Filter - D3/Mini only, D2's filter wheel has no 3rd
+    position at all. Same mapping as AllowedIRFilter/AllowedIRFilterD2/
+    AllowedIRFilterMini/perform_set_ir_filter_v3 - confirmed identical
+    across both mechanisms on every model, not just assumed.
+
+    `session`: optional DwarfSession - see perform_goto().
+    """
+    return perform_set_image_param_v3(PARAM_ID_ASTRO_IR_FILTER_TELE, int(value), session=session)
 
 
 def perform_set_bool_param_v3(param_id, value, session=None):

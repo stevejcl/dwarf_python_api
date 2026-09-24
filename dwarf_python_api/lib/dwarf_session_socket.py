@@ -487,6 +487,28 @@ def get_client_status(session: DwarfSession):
         "PowerIndicatorDwarf": client.PowerIndStateDwarf,
         "RgbIndicatorDwarf": client.RgbIndStateDwarf,
         "CameraParamsDwarf": client.cameraParamsDwarf,
+        # IsCharging (user-requested Sep 2026, for the battery icon):
+        # prefers client.IsChargingDwarf - CMD_NOTIFY_CHARGE, real-
+        # time/event-driven, decoded in websockets_utils.py right next
+        # to CMD_NOTIFY_ELE (battery %) - user-CONFIRMED Sep 2026
+        # against an actual plug-in event (value 1->2 exactly when an
+        # external battery pack was connected for the Mini around 35%,
+        # nothing pushed at all while it stays the same): raw value
+        # 2 = charging, 1 = not charging. Falls back to the
+        # ResGetDeviceStateInfo poll (cmd=16405, health_check's own
+        # cadence - client.last_device_state_info) only if no
+        # CMD_NOTIFY_CHARGE has arrived yet this session - THAT
+        # fallback's own int->bool meaning is still unconfirmed on
+        # real hardware, unlike the CMD_NOTIFY_CHARGE path above.
+        "IsCharging": (
+            client.IsChargingDwarf
+            if client.IsChargingDwarf is not None
+            else (
+                bool(client.last_device_state_info.device_state_info.charging_state.state)
+                if client.last_device_state_info is not None
+                else None
+            )
+        ),
     }
 
     with session.lock:

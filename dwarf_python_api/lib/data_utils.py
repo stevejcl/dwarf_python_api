@@ -351,14 +351,12 @@ class AllowedIRFilterD2:
 
 class AllowedIRFilterMini:
     """IR filter for Mini - user-confirmed (Sep 2026): same 0/1/2
-    indices as AllowedIRFilter (D3), but index 0 is named "DARK" here
-    instead of D3's "VIS Filter" - matches an earlier informal project
-    note that had already flagged this same DARK/Astro/Dual-Band naming
-    for the Mini specifically."""
+    indices as AllowedIRFilter (D3), but index 0 is named "DARK" 
+    Dark is removed from the list, use only in the Take Dark functionnality"""
     def __init__(self):
-        self.default_value_index = 0
+        self.default_value_index = 1
         self.values = [
-            {"index": 0, "name": "DARK"},
+#           {"index": 0, "name": "DARK"},
             {"index": 1, "name": "Astro Filter"},
             {"index": 2, "name": "Duo-Band Filter"},
         ]

@@ -55,6 +55,7 @@ from dwarf_python_api.lib.dwarf_utils import (
     perform_set_hue_v3,
     perform_set_sharpness_v3,
     perform_set_ir_filter_v3,
+    perform_set_astro_ir_filter_v3,
     perform_set_burst_count_v3,
     perform_set_burst_interval_by_name_v3,
     perform_set_timelapse_interval_by_name_v3,
@@ -120,6 +121,9 @@ from dwarf_python_api.lib.data_utils import (
     allowed_exposures,
     allowed_exposuresD3,
     allowed_exposuresMini,
+    allowed_ir_filter,
+    allowed_ir_filterD2,
+    allowed_ir_filterMini,
 )
 from dwarf_python_api.lib.data_wide_utils import (
     allowed_wide_exposures,
@@ -762,10 +766,42 @@ def option_C8():
 
 def option_C9():
     print("=== IR filter ===")
-    print("Options: VIS Filter, Astro Filter, Duo-Band Filter")
+    dwarf_id = dwarf_python_api.get_config_data.get_config_data().get('dwarf_id')
+    dwarf_id_str = dwarf_python_api.get_config_data.config_to_dwarf_id_str(dwarf_id) or "2"
+    # Per-model table (user-caught Sep 2026: get_ir_filter_index_by_
+    # name() only ever checks allowed_ir_filter, the D3 table - typing
+    # a D2/Mini-only name like IR_PASS/DARK there would silently fall
+    # back to D3's own default index instead of the right one, so this
+    # picks the correct table directly rather than going through that
+    # generic lookup).
+    if dwarf_id_str == "2":
+        table = allowed_ir_filterD2
+    elif dwarf_id_str == "5":
+        table = allowed_ir_filterMini
+    else:
+        table = allowed_ir_filter
+    print("Options:", ", ".join(v["name"] for v in table.values))
     name = input("Filter name: ").strip()
-    if name:
-        perform_set_ir_filter_v3(name)
+    if not name:
+        return
+    found = next((v for v in table.values if v["name"] == name), None)
+    if found is None:
+        print(f"Invalid filter name '{name}' for dwarf_id={dwarf_id_str}.")
+        return
+    index = found["index"]
+    # Modern mechanism confirmed Sep 2026 (D2/D3/Mini, three separate
+    # network captures - see protocol-learnings.md): CMD_PARAM_SET_
+    # GENERAL_INT_PARAM (16703), same param_id/values on all three
+    # models, only the name set differs. Default here so day-to-day
+    # manual testing exercises what the official app actually uses;
+    # the legacy CMD_CAMERA_TELE_SET_IRCUT (10031) is kept as an
+    # explicit option since it still works too and remains useful for
+    # comparison/protocol debugging.
+    mechanism = input("Mechanism - 1=legacy IRCUT, 2=modern GENERAL_INT_PARAM (default): ").strip()
+    if mechanism == "1":
+        perform_set_ir_filter_v3(index)
+    else:
+        perform_set_astro_ir_filter_v3(index)
 
 
 def option_C10():
@@ -1156,7 +1192,9 @@ def option_C22():
 
     if (camera_IR := read_camera_IR()):
         print("the IR value is:", camera_IR)
-        perform_set_ir_filter_v3(int(camera_IR))
+        # Modern mechanism (confirmed Sep 2026 on D2/D3/Mini alike -
+        # see option_C9's own comment / protocol-learnings.md).
+        perform_set_astro_ir_filter_v3(int(camera_IR))
 
     if (camera_binning := read_camera_binning()):
         print("the Binning value is:", camera_binning)
