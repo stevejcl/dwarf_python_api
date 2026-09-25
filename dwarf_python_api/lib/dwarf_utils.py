@@ -4584,14 +4584,28 @@ def perform_read_astro_stacking_status_v3(session=None, type="Tele"):
         # get_client_status() returns a JSON string when there is no
         # client_instance (not connected) instead of a dict.
         return None
+    if "error" in status:
+        return None
     full_status = status.get("fullStatus", {})
+    error_connection = full_status.get("ErrorConnection")
+
+    if error_connection:
+        # Connection is known-bad - don't report a (possibly stale)
+        # capturing/count state as if it were current.
+        return {
+            "capturing": False,
+            "current_count": None,
+            "stacked_count": None,
+            "error_connection": True,
+        }
 
     if type == "Wide":
         return {
             "capturing": full_status.get("AstroWideCapture"),
             "current_count": full_status.get("takeWidePhotoCount"),
             "stacked_count": full_status.get("takeWidePhotoStacked"),
-        }
+            "error_connection": False,
+          }
     if type == "Mosaic":
         # Mosaic is tele-camera-only (perform_start_mosaic_v3()'s own
         # docstring) - "capturing" reuses the tele AstroCapture flag,
@@ -4601,9 +4615,11 @@ def perform_read_astro_stacking_status_v3(session=None, type="Tele"):
             "capturing": full_status.get("AstroCapture"),
             "current_count": full_status.get("takeMosaicCount"),
             "stacked_count": full_status.get("takeMosaicStacked"),
+            "error_connection": False,
         }
     return {
         "capturing": full_status.get("AstroCapture"),
         "current_count": full_status.get("takePhotoCount"),
         "stacked_count": full_status.get("takePhotoStacked"),
+        "error_connection": False,
     }
