@@ -2092,6 +2092,7 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
 
     task_params = {
         "name": task.get("name"),
+        "wellknownName": task.get("wellknownName"),
         "ra": task.get("ra"),
         "dec": task.get("dec"),
         "startTime": start_time,
@@ -2108,6 +2109,8 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
         "horizontalScale": h_scale,
         "verticalScale": v_scale,
         "rotation": rotation,
+        "atlasSortTypeValue": task.get("atlasSortTypeValue", 0),
+        "cometQueryName": task.get("cometQueryName", ""),
     }
     return shooting_schedule.ShootingTaskMsg(
         schedule_id=schedule_id,
@@ -2191,6 +2194,7 @@ def perform_sync_shooting_schedule(schedule, session=None):
         param_version=1,
         schedule_time=int(time.time()),
     )
+    print(ShootingScheduleMsg_message)
     ReqSyncShootingSchedule_message = shooting_schedule.ReqSyncShootingSchedule(
         shooting_schedule=ShootingScheduleMsg_message
     )
