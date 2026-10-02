@@ -287,18 +287,7 @@ def ws_packet(payload: bytes):
     return fields if 5 in fields else None
 
 
-# Seen in captures but missing from protocol.proto (names are ours).
-EXTRA_CMD_NAMES = {
-    15509: "PANORAMA_START_FRAMING", 15510: "PANORAMA_STOP_FRAMING",
-    15512: "PANORAMA_UPDATE_FRAMING_RECT", 15513: "PANORAMA_STOP_FRAMING_AND_START_GRID",
-    15277: "NOTIFY_PANORAMA_STATE", 15297: "NOTIFY_PANORAMA_FRAMING_RECT",
-    15298: "NOTIFY_PANORAMA_FRAMING_PREVIEW (WebP)", 15299: "NOTIFY_PANORAMA_FRAMING_STATE",
-}
-
-
 def _name(enum, value):
-    if enum == "DwarfCMD" and value in EXTRA_CMD_NAMES:
-        return EXTRA_CMD_NAMES[value]
     if protocol is None:
         return str(value)
     try:

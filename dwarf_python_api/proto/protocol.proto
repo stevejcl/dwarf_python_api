@@ -313,6 +313,12 @@ enum DwarfCMD {
     CMD_V3_NOTIFY_VIDEO_STATE = 15275; // Deprecated compatibility alias.
     CMD_NOTIFY_TIMELAPSE_STATE = 15276;
     CMD_V3_NOTIFY_TIMELAPSE_STATE = 15276; // Deprecated compatibility alias.
+    // UNOFFICIAL - not in DwarfLab's protocol.proto. Reverse-engineered
+    // from PCAPdroid captures of the official app (30 Sep / 2 Oct 2026);
+    // the numbers are what the device uses, the NAMES are ours.
+    // Follows the official 15273-15276 PHOTO/BURST/RECORD/TIMELAPSE_STATE
+    // series; payload is the official notify.PanoramaState message.
+    CMD_NOTIFY_PANORAMA_STATE = 15277; // notify.PanoramaState: 1 started, 0 finished/stopped
     CMD_NOTIFY_ASTRO_AUTO_FOCUS_STATE = 15278;
     CMD_V3_NOTIFY_AUTOFOCUS_STATE = 15278; // Deprecated compatibility alias.
     CMD_NOTIFY_ASTRO_AUTO_FOCUS_FAST_STATE = 15280;
@@ -332,10 +338,24 @@ enum DwarfCMD {
     CMD_V3_NOTIFY_TEMPERATURE2 = 15292; // Deprecated compatibility alias.
     CMD_NOTIFY_SKY_TARGET_FINDER_STATE = 15296;
     CMD_V3_NOTIFY_OBSERVATION_STATE = 15296; // Deprecated compatibility alias.
+    // UNOFFICIAL - not in DwarfLab's protocol.proto. Reverse-engineered
+    // from PCAPdroid captures of the official app (30 Sep / 2 Oct 2026);
+    // the numbers are what the device uses, the NAMES are ours.
+    CMD_NOTIFY_PANORAMA_FRAMING_RECT = 15297; // notify.PanoramaFramingRect: echo of the framing rect
+    CMD_NOTIFY_PANORAMA_FRAMING_PREVIEW = 15298; // notify.PanoramaFramingPreview: WebP preview of the framed area
+    CMD_NOTIFY_PANORAMA_FRAMING_STATE = 15299; // notify.PanoramaFramingState: 1 framing, 2 closing, 0 idle
 
     CMD_PANORAMA_START_GRID = 15500; // Start panorama
     CMD_PANORAMA_STOP = 15501; // Stop panorama
     CMD_PANORAMA_START_EULER_RANGE = 15502; // Start panorama Euler Range
+    // UNOFFICIAL - not in DwarfLab's protocol.proto. Reverse-engineered
+    // from PCAPdroid captures of the official app (30 Sep / 2 Oct 2026);
+    // the numbers are what the device uses, the NAMES are ours.
+    // Manual framing of the new panorama (panorama.proto Req*Framing*).
+    CMD_PANORAMA_START_FRAMING = 15509; // ReqStartPanoramaFraming: open framing on the wide view
+    CMD_PANORAMA_STOP_FRAMING = 15510; // ReqStopPanoramaFraming: close framing (sent right after 15513)
+    CMD_PANORAMA_UPDATE_FRAMING_RECT = 15512; // ReqUpdatePanoramaFramingRect
+    CMD_PANORAMA_STOP_FRAMING_AND_START_GRID = 15513; // ReqStopPanoramaFramingAndStartGrid: start the shoot
 
     // Added from DwarfLab's "Embedded scheduled shooting" spec (module 13,
     // MODULE_SHOOTING_SCHEDULE). Only CMD_GET_ALL_SHOOTING_SCHEDULE was

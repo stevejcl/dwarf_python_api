@@ -7,7 +7,6 @@ import json
 import gzip
 import os
 import time
-import struct
 import concurrent.futures
 from enum import Enum
 
@@ -156,61 +155,26 @@ ID_FEATURE_PARAM_NAMES = {
 }
 
 
-# MODULE_PANORAMA (10) request commands answered with a ComResponse:
-# 15500 START_GRID, 15501 STOP, 15502 START_EULER_RANGE (protocol.proto),
-# and the manual-framing ones (not in protocol.proto), confirmed by a
-# PCAPdroid capture of the official app (30 Sep 2026): 15509 START_FRAMING,
-# 15510 STOP_FRAMING, 15512 UPDATE_FRAMING_RECT, 15513
-# STOP_FRAMING_AND_START_GRID.
-# NOTE: the device answers 15500 only when the panorama ENDS (it even
-# sends that 15500 reply unsolicited after a 15513 start) - a start is
-# acknowledged by CMD_NOTIFY_PANORAMA_STATE(1) instead, see below.
-PANORAMA_RESPONSE_CMDS = frozenset({15500, 15501, 15502, 15509, 15510, 15512, 15513})
-PANORAMA_START_CMDS = frozenset({15500, 15502})
+# MODULE_PANORAMA (10) request commands answered with a ComResponse. The
+# manual-framing ones (15509-15513) and the framing notifications are
+# UNOFFICIAL additions to protocol.proto / notify.proto (see there).
+# NOTE: the device answers START_GRID / START_EULER_RANGE only when the
+# panorama ENDS (even unsolicited after a 15513 start) - a start is
+# acknowledged by CMD_NOTIFY_PANORAMA_STATE = running instead, see below.
+PANORAMA_RESPONSE_CMDS = frozenset({
+    protocol.CMD_PANORAMA_START_GRID,
+    protocol.CMD_PANORAMA_STOP,
+    protocol.CMD_PANORAMA_START_EULER_RANGE,
+    protocol.CMD_PANORAMA_START_FRAMING,
+    protocol.CMD_PANORAMA_STOP_FRAMING,
+    protocol.CMD_PANORAMA_UPDATE_FRAMING_RECT,
+    protocol.CMD_PANORAMA_STOP_FRAMING_AND_START_GRID,
+})
+PANORAMA_START_CMDS = frozenset({protocol.CMD_PANORAMA_START_GRID, protocol.CMD_PANORAMA_START_EULER_RANGE})
 
-# Panorama notifications from the same capture (only 15219 is in
-# protocol.proto; names below are ours):
-CMD_NOTIFY_PANORAMA_STATE = 15277          # {1: 1} started, {} (0) finished
-CMD_NOTIFY_PANORAMA_FRAMING_RECT = 15297   # rect echo {1..4: x1,y1,x2,y2, 9/10: view FOV deg}
-CMD_NOTIFY_PANORAMA_FRAMING_PREVIEW = 15298  # {1: WebP image of the framed area}
-CMD_NOTIFY_PANORAMA_FRAMING_STATE = 15299  # {1: 1} framing, {1: 2} closing, {} (0) idle
-
-# Older firmware: CMD_NOTIFY_TELE_FUNCTION_STATE with function_id 6
-# (old JS client). Never sent by the V3 firmware in that capture.
+# CMD_NOTIFY_TELE_FUNCTION_STATE's function_id for a panorama, on old
+# firmware only (old JS client); never sent by the V3 firmware.
 PANORAMA_FUNCTION_ID = 6
-
-
-def _proto_fields(data: bytes) -> dict:
-    """Minimal protobuf decode of top-level fields -> {field: value}
-    (varint -> int, 64-bit -> double, 32-bit -> float, length -> bytes).
-    For panorama notifications that have no message in this V3 proto."""
-    def varint(i):
-        val = shift = 0
-        while True:
-            b = data[i]; i += 1
-            val |= (b & 0x7F) << shift; shift += 7
-            if not b & 0x80:
-                return val, i
-
-    fields, i = {}, 0
-    try:
-        while i < len(data):
-            key, i = varint(i)
-            field, wire = key >> 3, key & 7
-            if wire == 0:
-                fields[field], i = varint(i)
-            elif wire == 1:
-                fields[field] = struct.unpack("<d", data[i:i + 8])[0]; i += 8
-            elif wire == 5:
-                fields[field] = struct.unpack("<f", data[i:i + 4])[0]; i += 4
-            elif wire == 2:
-                n, i = varint(i)
-                fields[field] = data[i:i + n]; i += n
-            else:
-                break
-    except (IndexError, struct.error):
-        pass
-    return fields
 
 def fct_log_detail_tele_param(param):
     if not param:
@@ -876,8 +840,10 @@ class WebSocketClient:
                                     self.panorama_state["running"] = True
                                 log.info(f"Panorama progress: {PanoramaProgress_message.completed_count} / {PanoramaProgress_message.total_count}")
 
-                            if (WsPacket_message.cmd == CMD_NOTIFY_PANORAMA_STATE):
-                                running = _proto_fields(WsPacket_message.data).get(1, 0) == 1
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_PANORAMA_STATE):
+                                PanoramaState_message = notify.PanoramaState()
+                                PanoramaState_message.ParseFromString(WsPacket_message.data)
+                                running = PanoramaState_message.state == notify.OPERATION_STATE_RUNNING
                                 was_running = self.panorama_state["running"] is True
                                 self.panorama_state.update(running=running, updated=time.time())
                                 log.info("Panorama started" if running else "Panorama finished")
@@ -888,27 +854,33 @@ class WebSocketClient:
                                     log.success(f"Panorama started (command {self.command})")
                                     await self.result_receive_messages(self.command, self.command, Dwarf_Result.OK, "Panorama started", protocol.OK)
 
-                            if (WsPacket_message.cmd == CMD_NOTIFY_PANORAMA_FRAMING_STATE):
-                                framing = _proto_fields(WsPacket_message.data).get(1, 0)
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_PANORAMA_FRAMING_STATE):
+                                FramingState_message = notify.PanoramaFramingState()
+                                FramingState_message.ParseFromString(WsPacket_message.data)
+                                framing = FramingState_message.state
                                 self.panorama_state.update(framing=framing, updated=time.time())
                                 log.debug(f"Panorama framing state >> {framing}")
 
-                            if (WsPacket_message.cmd == CMD_NOTIFY_PANORAMA_FRAMING_RECT):
-                                f = _proto_fields(WsPacket_message.data)
-                                rect = tuple(float(f.get(k, 0.0)) for k in (1, 2, 3, 4))
-                                fov = (f[9], f[10]) if 9 in f and 10 in f else self.panorama_state["fov"]
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_PANORAMA_FRAMING_RECT):
+                                FramingRect_message = notify.PanoramaFramingRect()
+                                FramingRect_message.ParseFromString(WsPacket_message.data)
+                                m = FramingRect_message
+                                rect = (m.norm_x_tl, m.norm_y_tl, m.norm_x_br, m.norm_y_br)
+                                fov = (m.fov_w_deg, m.fov_h_deg) if m.fov_w_deg else self.panorama_state["fov"]
                                 self.panorama_state.update(rect=rect, fov=fov, updated=time.time())
                                 log.debug(f"Panorama framing rect >> {rect} fov {fov}")
 
-                            if (WsPacket_message.cmd == CMD_NOTIFY_PANORAMA_FRAMING_PREVIEW):
-                                preview = _proto_fields(WsPacket_message.data).get(1)
-                                if isinstance(preview, bytes):
-                                    self.panorama_state["preview_webp"] = preview
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_PANORAMA_FRAMING_PREVIEW):
+                                FramingPreview_message = notify.PanoramaFramingPreview()
+                                FramingPreview_message.ParseFromString(WsPacket_message.data)
+                                if FramingPreview_message.webp:
+                                    self.panorama_state["preview_webp"] = FramingPreview_message.webp
 
                             if (WsPacket_message.cmd == protocol.CMD_NOTIFY_TELE_FUNCTION_STATE):
-                                function_state = _proto_fields(WsPacket_message.data)
-                                if function_state.get(2) == PANORAMA_FUNCTION_ID:
-                                    running = function_state.get(1, 0) == notify.OPERATION_STATE_RUNNING
+                                CamFunctionState_message = notify.CamFunctionState()
+                                CamFunctionState_message.ParseFromString(WsPacket_message.data)
+                                if CamFunctionState_message.function_id == PANORAMA_FUNCTION_ID:
+                                    running = CamFunctionState_message.state == notify.OPERATION_STATE_RUNNING
                                     self.panorama_state.update(running=running, updated=time.time())
                                     log.info("Panorama started" if running else "Panorama finished")
 

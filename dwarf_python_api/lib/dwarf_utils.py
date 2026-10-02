@@ -4696,10 +4696,8 @@ def perform_read_astro_stacking_status_v3(session=None, type="Tele"):
 SHOOTING_MODE_PANORAMA = 7      # 16402 echo in the capture (from DSO = 2)
 SHOOTING_TECH_PANORAMA = 6      # 16403 echo in the capture
 
-CMD_PANORAMA_START_FRAMING = 15509
-CMD_PANORAMA_STOP_FRAMING = 15510
-CMD_PANORAMA_UPDATE_FRAMING_RECT = 15512
-CMD_PANORAMA_STOP_FRAMING_AND_START_GRID = 15513
+# The framing commands are UNOFFICIAL additions to protocol.proto
+# (protocol.CMD_PANORAMA_START_FRAMING ... _STOP_FRAMING_AND_START_GRID).
 
 # Replies are decoded by websockets_utils (PANORAMA_RESPONSE_CMDS).
 
@@ -4832,7 +4830,7 @@ def perform_start_panorama_by_euler_range(yaw_range, pitch_range, session=None):
 
 def perform_start_panorama_framing(session=None):
     """New panorama: opens framing mode (rectangle shown on the live view)."""
-    return _send_panorama(panorama.ReqStartPanoramaFraming(), CMD_PANORAMA_START_FRAMING,
+    return _send_panorama(panorama.ReqStartPanoramaFraming(), protocol.CMD_PANORAMA_START_FRAMING,
                           "Start panorama framing", session)
 
 
@@ -4845,7 +4843,7 @@ def perform_update_panorama_framing_rect(x1, y1, x2, y2, session=None):
     message = panorama.ReqUpdatePanoramaFramingRect(
         norm_x_tl=x1, norm_y_tl=y1, norm_x_br=x2, norm_y_br=y2
     )
-    return _send_panorama(message, CMD_PANORAMA_UPDATE_FRAMING_RECT,
+    return _send_panorama(message, protocol.CMD_PANORAMA_UPDATE_FRAMING_RECT,
                           "Update panorama framing rect", session)
 
 
@@ -4857,9 +4855,9 @@ def perform_start_panorama_grid(session=None):
     perform_get_panorama_state()."""
     _reset_panorama_state(session)
     if not _send_panorama(panorama.ReqStopPanoramaFramingAndStartGrid(),
-                          CMD_PANORAMA_STOP_FRAMING_AND_START_GRID, "Validate panorama framing", session):
+                          protocol.CMD_PANORAMA_STOP_FRAMING_AND_START_GRID, "Validate panorama framing", session):
         return False
-    return _send_panorama(panorama.ReqStopPanoramaFraming(), CMD_PANORAMA_STOP_FRAMING,
+    return _send_panorama(panorama.ReqStopPanoramaFraming(), protocol.CMD_PANORAMA_STOP_FRAMING,
                           "Close panorama framing", session)
 
 
