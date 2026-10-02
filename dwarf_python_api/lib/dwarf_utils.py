@@ -2141,11 +2141,10 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
         params=json.dumps(task_params, ensure_ascii=False),
         schedule_task_id=task.get("schedule_task_id") or "",
         param_mode=param_mode,
-        # 0 - the official app's own value for a catalog target (Oct 2026
-        # capture); its device-side dump only ever holds 0 or 1 (1 =
-        # "Manual"/mosaic tasks), never 2. Still overridable via
-        # task["createFrom"].
-        create_from=task.get("createFrom", 0),
+        # 2 = manual entry (not picked from the official app's Atlas,
+        # which sends 0) - what this library's callers do. Overridable
+        # via task["createFrom"].
+        create_from=task.get("createFrom", 2),
         param_version=1,
     )
 
