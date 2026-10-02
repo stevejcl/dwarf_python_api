@@ -162,6 +162,35 @@ ID_FEATURE_PARAM_NAMES = {
 # UPDATE_FRAMING_RECT, 15513 STOP_FRAMING_AND_START_GRID.
 PANORAMA_RESPONSE_CMDS = frozenset({15500, 15501, 15502, 15509, 15510, 15512, 15513})
 
+# CMD_NOTIFY_TELE_FUNCTION_STATE's function_id for a panorama (old JS
+# client: functionId == 6, state 1 = started, 0 = finished).
+PANORAMA_FUNCTION_ID = 6
+
+
+def _varint_fields(data: bytes) -> dict:
+    """Minimal protobuf decode of top-level varint fields -> {field: int}.
+    For ResNotifyCamFunctionState {state = 1; function_id = 2}, which only
+    exists in the old proto (not in this V3 notify.proto)."""
+    fields, i = {}, 0
+    while i < len(data):
+        key, shift = 0, 0
+        while True:
+            b = data[i]; i += 1
+            key |= (b & 0x7F) << shift; shift += 7
+            if not b & 0x80:
+                break
+        field, wire = key >> 3, key & 7
+        if wire != 0:  # only varints expected; stop on anything else
+            break
+        val, shift = 0, 0
+        while True:
+            b = data[i]; i += 1
+            val |= (b & 0x7F) << shift; shift += 7
+            if not b & 0x80:
+                break
+        fields[field] = val
+    return fields
+
 def fct_log_detail_tele_param(param):
     if not param:
         log.warning("No tele params found in response.")
@@ -330,6 +359,10 @@ class WebSocketClient:
         # app, or an on-device native shooting-schedule task) - it's a
         # fresh, explicit query/response, not a passively-matched push.
         self.last_device_state_info = None
+        # Panorama progress/state, updated from push notifications whoever
+        # started it (see the CMD_NOTIFY_PANORAMA_PROGRESS block):
+        # running None = unknown, True after function state 1, False after 0.
+        self.panorama_state = {"running": None, "completed": None, "total": None, "updated": None}
         # Same reasoning as last_device_state_info above, for
         # CMD_GET_ALL_SHOOTING_SCHEDULE (16102) - perform_get_all_
         # shooting_schedule() only ever returned the bare code, so there
@@ -803,6 +836,30 @@ class WebSocketClient:
                                 else:
                                     log.success(f"Success SWITCH SHOOTING TECH (tech={ResSwitchShootingTech_message.shooting_tech_id})")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success SWITCH SHOOTING TECH", ResSwitchShootingTech_message.shooting_tech_id)
+
+                            # Panorama progress (15219) and start/end (15215, function_id 6) -
+                            # how the old JS client detected that the device took a panorama
+                            # into account. Recorded on every arrival, not only while a
+                            # panorama command is in flight, so perform_get_panorama_state()
+                            # can be polled during the whole shoot.
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_PANORAMA_PROGRESS):
+                                PanoramaProgress_message = notify.PanoramaProgress()
+                                PanoramaProgress_message.ParseFromString(WsPacket_message.data)
+                                self.panorama_state.update(
+                                    completed=PanoramaProgress_message.completed_count,
+                                    total=PanoramaProgress_message.total_count,
+                                    updated=time.time(),
+                                )
+                                if self.panorama_state["running"] is None:
+                                    self.panorama_state["running"] = True
+                                log.info(f"Panorama progress: {PanoramaProgress_message.completed_count} / {PanoramaProgress_message.total_count}")
+
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_TELE_FUNCTION_STATE):
+                                function_state = _varint_fields(WsPacket_message.data)
+                                if function_state.get(2) == PANORAMA_FUNCTION_ID:
+                                    running = function_state.get(1, 0) == notify.OPERATION_STATE_RUNNING
+                                    self.panorama_state.update(running=running, updated=time.time())
+                                    log.info("Panorama started" if running else "Panorama finished")
 
                             # MODULE_PANORAMA (10) requests - old grid/euler panorama and the
                             # new manual framing (15509-15513, see dwarf_utils.py's Panorama

@@ -4736,8 +4736,72 @@ def perform_enter_panorama_mode(session=None):
     return True
 
 
-def perform_start_panorama_by_grid(session=None):
-    """Old panorama: CMD_PANORAMA_START_GRID (15500)."""
+def _panorama_client(session=None):
+    active_session = _resolve_session(session)
+    return active_session.client_instance if active_session is not None else websockets_utils.client_instance
+
+
+def _reset_panorama_state(session=None):
+    client = _panorama_client(session)
+    if client is not None and hasattr(client, "panorama_state"):
+        client.panorama_state.update(running=None, completed=0, total=None, updated=None)
+
+
+def perform_get_panorama_state(session=None):
+    """How far the device got, from its own push notifications (whoever
+    started the panorama): {"running": True/False/None, "completed": n,
+    "total": n, "updated": epoch s}. running is True once
+    CMD_NOTIFY_TELE_FUNCTION_STATE(function 6) says started or progress
+    arrives, False when it says finished, None if nothing received yet.
+    Returns None without a client."""
+    client = _panorama_client(session)
+    state = getattr(client, "panorama_state", None) if client else None
+    return dict(state) if state is not None else None
+
+
+# CMD_CAMERA_TELE_SET_FEATURE_PARAM ids for the old grid panorama (old JS
+# client: id 6 = rows, id 7 = cols, mode_index 1, value in continue_value).
+PANORAMA_FEATURE_ID_ROWS = 6
+PANORAMA_FEATURE_ID_COLS = 7
+
+
+def _set_tele_feature_param(param_id, value, label, session=None):
+    """CMD_CAMERA_TELE_SET_FEATURE_PARAM (10037), manual continuous value."""
+    message = camera.ReqSetFeatureParams()
+    message.param.hasAuto = False
+    message.param.auto_mode = 1  # Manual
+    message.param.id = param_id
+    message.param.mode_index = 1
+    message.param.index = 0
+    message.param.continue_value = float(value)
+
+    active_session = _resolve_session(session)
+    command = protocol.CMD_CAMERA_TELE_SET_FEATURE_PARAM
+    module_id = protocol.MODULE_CAMERA_TELE
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, 0, module_id)
+    else:
+        response = connect_socket(message, command, 0, module_id)
+    if response is False:
+        log.error("Dwarf API: Dwarf Device not connected")
+        return False
+    if response != 0:
+        log.error(f"{label}: error code {response}")
+        return False
+    log.success(f"{label} = {value}")
+    return True
+
+
+def perform_start_panorama_by_grid(rows=None, cols=None, session=None):
+    """Old panorama: CMD_PANORAMA_START_GRID (15500). With rows/cols, sets
+    the tele "Panorama row"/"Panorama col" feature params first, as the
+    old JS client did; without them the device uses its current grid.
+    Follow the shoot with perform_get_panorama_state()."""
+    if rows is not None and not _set_tele_feature_param(PANORAMA_FEATURE_ID_ROWS, rows, "Panorama rows", session):
+        return False
+    if cols is not None and not _set_tele_feature_param(PANORAMA_FEATURE_ID_COLS, cols, "Panorama cols", session):
+        return False
+    _reset_panorama_state(session)
     return _send_panorama(panorama.ReqStartPanoramaByGrid(), protocol.CMD_PANORAMA_START_GRID,
                           "Start panorama by grid", session)
 
@@ -4745,6 +4809,7 @@ def perform_start_panorama_by_grid(session=None):
 def perform_start_panorama_by_euler_range(yaw_range, pitch_range, session=None):
     """Old panorama: CMD_PANORAMA_START_EULER_RANGE (15502), ranges in degrees."""
     message = panorama.ReqStartPanoramaByEulerRange(yaw_range=float(yaw_range), pitch_range=float(pitch_range))
+    _reset_panorama_state(session)
     return _send_panorama(message, protocol.CMD_PANORAMA_START_EULER_RANGE,
                           "Start panorama by euler range", session)
 
@@ -4771,7 +4836,9 @@ def perform_update_panorama_framing_rect(x1, y1, x2, y2, session=None):
 def perform_start_panorama_grid(session=None):
     """Validates the framing and starts the panorama, like the app's
     button: 15513 then 15510, 40 ms apart in the capture (one tap). The
-    device computes the grid itself."""
+    device computes the grid itself. Follow the shoot with
+    perform_get_panorama_state()."""
+    _reset_panorama_state(session)
     if not _send_panorama(panorama.ReqStopPanoramaFramingAndStartGrid(),
                           CMD_PANORAMA_STOP_FRAMING_AND_START_GRID, "Validate panorama framing", session):
         return False
