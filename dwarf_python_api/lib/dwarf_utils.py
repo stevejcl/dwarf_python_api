@@ -2092,7 +2092,8 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
 
     task_params = {
         "name": task.get("name"),
-        "wellknownName": task.get("wellknownName"),
+        # Never null: callers like the catalog page don't send it.
+        "wellknownName": task.get("wellknownName") or task.get("name") or "",
         "ra": task.get("ra"),
         "dec": task.get("dec"),
         "startTime": start_time,
@@ -2175,9 +2176,10 @@ def perform_sync_shooting_schedule(schedule, session=None):
     if end_time and end_time > 10000000000:
         end_time = end_time // 1000
 
-    global_params = schedule.get("params", {})
-    if "calibrationMode" not in global_params:
-        global_params["calibrationMode"] = 0        
+    # Copy so the caller's dict (possibly a stored pending schedule) isn't
+    # mutated, and so calibrationMode is still sent when "params" is missing.
+    global_params = dict(schedule.get("params") or {})
+    global_params.setdefault("calibrationMode", 0)
 
     ShootingScheduleMsg_message = shooting_schedule.ShootingScheduleMsg(
         schedule_id=schedule["scheduleId"],
@@ -2188,7 +2190,7 @@ def perform_sync_shooting_schedule(schedule, session=None):
         lock=schedule.get("lock", 0),
         password=schedule.get("password", ""),
         param_mode=param_mode,
-        params=json.dumps(schedule.get("params", {}), ensure_ascii=False),
+        params=json.dumps(global_params, ensure_ascii=False),
         shooting_tasks=tasks,
         state=shooting_schedule.SHOOTING_SCHEDULE_STATE_PENDING_SHOOT,
         param_version=1,
