@@ -284,6 +284,14 @@ def _name(enum, value):
 
 # --- main ----------------------------------------------------------------
 
+def _default_out(capture: Path, tail: str) -> Path:
+    """<capture name without .pcap/.pcapng> + tail, next to the capture.
+    Not Path.with_suffix(): PCAPdroid names contain dots
+    ("PCAPdroid_02_oct._10_35_14") that it would treat as an extension."""
+    base = capture.stem if capture.suffix.lower() in (".pcap", ".pcapng", ".cap") else capture.name
+    return capture.with_name(base + tail)
+
+
 def write_filtered_pcap(raw_kept, path: Path):
     linktype = raw_kept[0][1] if raw_kept else 101
     with path.open("wb") as f:
@@ -307,9 +315,9 @@ def main():
 
     streams, raw_kept = tcp_streams(args.capture, args.port)
     if args.filter:
-        out = args.out or args.capture.with_name(args.capture.stem + "_dwarf.pcap")
+        out = args.out or _default_out(args.capture, "_dwarf.pcap")
         write_filtered_pcap(raw_kept, out)
-        print(f"{len(raw_kept)} packets on port {args.port} -> {out} ({out.stat().st_size // 1024} KB)")
+        print(f"{len(raw_kept)} packets on port {args.port} -> {out.resolve()} ({out.stat().st_size // 1024} KB)")
         return
 
     events = []
@@ -338,9 +346,12 @@ def main():
             f"{TYPE_NAMES.get(typ, typ):<8} {{{body}}}"
         )
 
-    out = args.out or args.capture.with_suffix(".txt")
+    out = args.out or _default_out(args.capture, ".txt")
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"{len(events)} Dwarf messages decoded -> {out}")
+    print(f"{len(events)} Dwarf messages decoded -> {out.resolve()}")
+    if not events:
+        print(f"No Dwarf WebSocket traffic found on port {args.port} - wrong port, "
+              "or the capture started after the app had connected (try --port).")
 
 
 if __name__ == "__main__":
