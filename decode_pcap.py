@@ -25,10 +25,24 @@ import struct
 import sys
 from pathlib import Path
 
-try:
-    import dwarf_python_api.proto.protocol_pb2 as protocol
-except Exception:  # still usable without the package: numbers only
-    protocol = None
+def _load_protocol():
+    """protocol_pb2 for command names, loaded straight from its file next to
+    this script, so the package's __init__ (websockets, logging...) and the
+    current directory don't matter. Needs only `protobuf`; without it the
+    tool still works and prints numbers."""
+    import importlib.util
+    path = Path(__file__).resolve().parent / "dwarf_python_api" / "proto" / "protocol_pb2.py"
+    try:
+        spec = importlib.util.spec_from_file_location("dwarf_protocol_pb2", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    except Exception as e:
+        print(f"(command names unavailable: {e}; pip install protobuf)", file=sys.stderr)
+        return None
+
+
+protocol = _load_protocol()
 
 TYPE_NAMES = {0: "request", 1: "reply", 2: "notify", 3: "response"}
 
@@ -273,7 +287,18 @@ def ws_packet(payload: bytes):
     return fields if 5 in fields else None
 
 
+# Seen in captures but missing from protocol.proto (names are ours).
+EXTRA_CMD_NAMES = {
+    15509: "PANORAMA_START_FRAMING", 15510: "PANORAMA_STOP_FRAMING",
+    15512: "PANORAMA_UPDATE_FRAMING_RECT", 15513: "PANORAMA_STOP_FRAMING_AND_START_GRID",
+    15277: "NOTIFY_PANORAMA_STATE", 15297: "NOTIFY_PANORAMA_FRAMING_RECT",
+    15298: "NOTIFY_PANORAMA_FRAMING_PREVIEW (WebP)", 15299: "NOTIFY_PANORAMA_FRAMING_STATE",
+}
+
+
 def _name(enum, value):
+    if enum == "DwarfCMD" and value in EXTRA_CMD_NAMES:
+        return EXTRA_CMD_NAMES[value]
     if protocol is None:
         return str(value)
     try:

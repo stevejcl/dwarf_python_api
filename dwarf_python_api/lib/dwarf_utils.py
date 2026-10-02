@@ -4677,23 +4677,26 @@ def perform_read_astro_stacking_status_v3(session=None, type="Tele"):
 # --- Panorama (MODULE_PANORAMA = 10) ------------------------------------
 # Old panorama: CMD_PANORAMA_START_GRID / START_EULER_RANGE (in
 # protocol.proto). New manual framing (rectangle drawn on the live view):
-# commands 15509-15513, NOT in protocol.proto - numbers from a PCAPdroid
-# capture of the official app (30 Sep 2026): 15509, 15512 and 15501 are
-# solid, 15513 probable, 15510 unidentified (sent empty right after 15513;
-# every framing request except the rect is an empty message, so only the
-# command number matters on the wire, not the Req* class).
+# commands 15509-15513, NOT in protocol.proto - confirmed by a PCAPdroid
+# capture of the official app (30 Sep 2026): 15509 opens framing
+# (framing-state notification 15299 -> 1), 15512 sets the rect (echoed by
+# 15297 + a WebP preview 15298), 15513 starts the shoot (panorama-state
+# notification 15277 -> 1), 15510 closes framing (15299 -> 2 then 0).
+# Progress then comes as CMD_NOTIFY_PANORAMA_PROGRESS (15219, n / total);
+# the end as 15277 -> 0 plus an unsolicited 15500 reply. Every framing
+# request except the rect is an empty message.
 SHOOTING_MODE_PANORAMA = 7      # 16402 echo in the capture (from DSO = 2)
 SHOOTING_TECH_PANORAMA = 6      # 16403 echo in the capture
 
 CMD_PANORAMA_START_FRAMING = 15509
-CMD_PANORAMA_FRAMING_15510 = 15510               # role unconfirmed (Stop or Reset framing)
+CMD_PANORAMA_STOP_FRAMING = 15510
 CMD_PANORAMA_UPDATE_FRAMING_RECT = 15512
 CMD_PANORAMA_STOP_FRAMING_AND_START_GRID = 15513
 
 # Replies are decoded by websockets_utils (PANORAMA_RESPONSE_CMDS).
 
-# Field of view (degrees) of the framing view, from notification 15297 in
-# the same capture - probably the wide camera; check on each model.
+# Field of view (degrees) of the framing view = the WIDE camera (15297
+# echoes it; GET_DEVICE_STATE_INFO gives the same 45.06 x 25.93 for wide).
 PANORAMA_FOV_W_DEG = 45.06
 PANORAMA_FOV_H_DEG = 25.935
 
@@ -4745,18 +4748,37 @@ def _reset_panorama_state(session=None):
     client = _panorama_client(session)
     if client is not None and hasattr(client, "panorama_state"):
         client.panorama_state.update(running=None, completed=0, total=None, updated=None)
+        # framing / rect / fov / preview are kept: they describe the
+        # framing that led to this start.
 
 
 def perform_get_panorama_state(session=None):
-    """How far the device got, from its own push notifications (whoever
-    started the panorama): {"running": True/False/None, "completed": n,
-    "total": n, "updated": epoch s}. running is True once
-    CMD_NOTIFY_TELE_FUNCTION_STATE(function 6) says started or progress
-    arrives, False when it says finished, None if nothing received yet.
-    Returns None without a client."""
+    """Panorama state from the device's own push notifications (whoever
+    started it), or None without a client:
+      running   True after 15277 = 1 (or first progress), False after
+                15277 = 0 (finished or stopped), None if nothing yet
+      completed / total   images taken / planned (15219)
+      framing   1 framing open, 2 closing, 0 idle (15299)
+      rect      (x1, y1, x2, y2) last framing rect echoed (15297)
+      fov       (w, h) degrees of the framing view (wide camera)
+      preview_webp  bytes of the last framing preview (15298), see
+                    perform_save_panorama_preview()
+      updated   epoch s of the last panorama notification"""
     client = _panorama_client(session)
     state = getattr(client, "panorama_state", None) if client else None
     return dict(state) if state is not None else None
+
+
+def perform_save_panorama_preview(path, session=None):
+    """Writes the last framing preview (WebP, 15298) to `path`; False if
+    none was received yet."""
+    state = perform_get_panorama_state(session)
+    data = state.get("preview_webp") if state else None
+    if not data:
+        return False
+    with open(path, "wb") as f:
+        f.write(data)
+    return True
 
 
 # CMD_CAMERA_TELE_SET_FEATURE_PARAM ids for the old grid panorama (old JS
@@ -4796,6 +4818,8 @@ def perform_start_panorama_by_grid(rows=None, cols=None, session=None):
     """Old panorama: CMD_PANORAMA_START_GRID (15500). With rows/cols, sets
     the tele "Panorama row"/"Panorama col" feature params first, as the
     old JS client did; without them the device uses its current grid.
+    The device only answers 15500 when the panorama ends, so success here
+    means "started" (CMD_NOTIFY_PANORAMA_STATE = 1, see websockets_utils).
     Follow the shoot with perform_get_panorama_state()."""
     if rows is not None and not _set_tele_feature_param(PANORAMA_FEATURE_ID_ROWS, rows, "Panorama rows", session):
         return False
@@ -4835,15 +4859,16 @@ def perform_update_panorama_framing_rect(x1, y1, x2, y2, session=None):
 
 def perform_start_panorama_grid(session=None):
     """Validates the framing and starts the panorama, like the app's
-    button: 15513 then 15510, 40 ms apart in the capture (one tap). The
+    button: 15513 (start) then 15510 (close framing), 40 ms apart in the
+    capture (one tap). The
     device computes the grid itself. Follow the shoot with
     perform_get_panorama_state()."""
     _reset_panorama_state(session)
     if not _send_panorama(panorama.ReqStopPanoramaFramingAndStartGrid(),
                           CMD_PANORAMA_STOP_FRAMING_AND_START_GRID, "Validate panorama framing", session):
         return False
-    return _send_panorama(panorama.ReqStopPanoramaFraming(), CMD_PANORAMA_FRAMING_15510,
-                          "Launch panorama", session)
+    return _send_panorama(panorama.ReqStopPanoramaFraming(), CMD_PANORAMA_STOP_FRAMING,
+                          "Close panorama framing", session)
 
 
 def perform_stop_panorama(session=None):
