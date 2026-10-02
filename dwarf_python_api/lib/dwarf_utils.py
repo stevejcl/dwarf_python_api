@@ -1492,10 +1492,9 @@ PARAM_ID_TIMELAPSE_DURATION = 0x0102f0000000001a
 # Classic panorama grid - same family, first byte 0x07 = panorama shooting
 # mode. CONFIRMED by a capture of the official app (2 Oct 2026): changing
 # the grid sends CMD_PARAM_SET_GENERAL_INT_PARAM with these two ids,
-# echoed by notification 15264, value = number of images (final 3 and 3
-# gave a 9-image panorama). Which one is rows vs cols is ASSUMED from the
-# old API's order (row id before col id) - to confirm with a non-square
-# grid.
+# echoed by notification 15264, value = number of images. Rows vs cols
+# CONFIRMED with a 3 cols x 4 rows grid (2 Oct 2026): only ...1c changed
+# (3 -> 4) and the panorama announced 12 images.
 PARAM_ID_PANORAMA_ROWS = 0x0702f0000000001c
 PARAM_ID_PANORAMA_COLS = 0x0702f0000000001d
 
