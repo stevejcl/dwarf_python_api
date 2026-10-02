@@ -114,6 +114,17 @@ from dwarf_python_api.lib.dwarf_utils import (
     read_camera_wide_exposure,
     read_camera_wide_gain,
     perform_sync_shooting_schedule,
+    perform_enter_panorama_mode,
+    perform_set_panorama_grid_v3,
+    perform_panorama_grid,
+    perform_start_panorama_by_euler_range,
+    perform_start_panorama_framing,
+    perform_update_panorama_framing_rect,
+    perform_start_panorama_grid,
+    perform_stop_panorama,
+    perform_get_panorama_state,
+    perform_save_panorama_preview,
+    panorama_rect_from_degrees,
 )
 from dwarf_python_api.get_live_data_dwarf import get_live_data
 
@@ -164,6 +175,7 @@ def display_menu():
     print("A. Astro Functions (GOTO, calibration, EQ, stacking)")
     print("M. Motor Functions (Polar Position, joystick)")
     print("L. Light Functions (RGB / power indicator)")
+    print("N. Panorama Functions (grid / manual framing)")
     print("I. Get Live Image Data Function")
     print("S. Show status (get_client_status)")
     print("D. Force Disconnection")
@@ -188,7 +200,7 @@ def display_menu_test():
 
 def get_user_choice():
     try:
-        return input("Enter your choice (1,2,B,C,A,M,L,I,S,D,P,R) or 0 to exit: ")
+        return input("Enter your choice (1,2,B,C,A,M,L,N,I,S,D,P,R) or 0 to exit: ")
     except KeyboardInterrupt:
         print("Operation interrupted by the user (CTRL+C).")
         return '0'
@@ -1805,6 +1817,206 @@ def choice_lights():
             print("Invalid choice. Please enter a correct value.")
 
 
+# ---------------------------------------------------------------------------
+# Panorama sub-menu (MODULE_PANORAMA, module 10) - sequences confirmed by
+# PCAPdroid captures of the official app (30 Sep / 2 Oct 2026), see the
+# Panorama section of dwarf_utils.py. Both kinds run in panorama mode
+# (shooting mode 7 / tech 6): N1 first, or use N3 / N7 which include it.
+# ---------------------------------------------------------------------------
+
+def display_menu_panorama():
+    print("")
+    print("----------------- PANORAMA -----------------")
+    print("N1. Enter panorama mode (mode 7 / tech 6)")
+    print("    -- Classic panorama (grid) --")
+    print("N2. Set grid (rows x cols)")
+    print("N3. Full classic panorama: mode + grid + start")
+    print("NE. Start by euler range (yaw / pitch degrees, old API)")
+    print("    -- New panorama (manual framing on the wide view) --")
+    print("N4. Open framing")
+    print("N5. Set framing rect (size in degrees, centre)")
+    print("N6. Validate framing and start")
+    print("N7. Full framed panorama: mode + framing + rect + start")
+    print("NV. Save last framing preview (WebP)")
+    print("    -- Both --")
+    print("N8. Follow progress until the end (CTRL+C to stop following)")
+    print("N9. Show panorama state")
+    print("NS. Stop panorama")
+    print("0.  Return")
+
+
+def get_user_choice_panorama():
+    try:
+        return input("Enter your choice (N1 to N9, NE, NV, NS) or 0 to return: ")
+    except KeyboardInterrupt:
+        print("Operation interrupted by the user (CTRL+C).")
+        return '0'
+
+
+def _ask_number(prompt, default, cast=float):
+    """Input with a default value; returns None on invalid input."""
+    raw = input(f"{prompt} [{default}]: ").strip()
+    try:
+        return cast(raw) if raw else default
+    except ValueError:
+        print(f"Invalid number: {raw!r}")
+        return None
+
+
+def _ask_grid():
+    rows = _ask_number("Rows", 2, int)
+    cols = _ask_number("Columns", 3, int) if rows is not None else None
+    if rows is None or cols is None or rows < 1 or cols < 1:
+        print("Rows and columns must be integers >= 1.")
+        return None
+    return rows, cols
+
+
+def _ask_rect():
+    """Framing rect from a size in degrees around a centre of the wide view
+    (0.5, 0.5 = centre). The wide view is ~45 x 26 degrees."""
+    width = _ask_number("Width (degrees)", 10.0)
+    height = _ask_number("Height (degrees)", 8.0) if width is not None else None
+    cx = _ask_number("Centre X (0..1)", 0.5) if height is not None else None
+    cy = _ask_number("Centre Y (0..1)", 0.5) if cx is not None else None
+    if None in (width, height, cx, cy):
+        return None
+    rect = panorama_rect_from_degrees(cx, cy, width, height)
+    print(f"Rect (x1, y1, x2, y2) = {tuple(round(v, 4) for v in rect)}")
+    return rect
+
+
+def _print_panorama_state(state=None):
+    state = state if state is not None else perform_get_panorama_state()
+    if state is None:
+        print("No client / not connected.")
+        return
+    preview = state.get("preview_webp")
+    print(f"running={state.get('running')}  images={state.get('completed')}/{state.get('total')}  "
+          f"framing={state.get('framing')}  rect={state.get('rect')}  fov={state.get('fov')}  "
+          f"preview={'%d bytes' % len(preview) if preview else None}")
+
+
+def option_N1():
+    print("=== Enter panorama mode ===")
+    print("OK" if perform_enter_panorama_mode() else "Failed")
+
+
+def option_N2():
+    print("=== Set panorama grid ===")
+    grid = _ask_grid()
+    if grid:
+        print("OK" if perform_set_panorama_grid_v3(*grid) else "Failed")
+
+
+def option_N3():
+    print("=== Full classic panorama (grid) ===")
+    print("Leave rows empty to keep the grid stored on the Dwarf.")
+    raw = input("Rows [keep]: ").strip()
+    rows = cols = None
+    if raw:
+        try:
+            rows = int(raw)
+            cols = int(input("Columns: ").strip())
+        except ValueError:
+            print("Rows and columns must be integers.")
+            return
+    print("Started" if perform_panorama_grid(rows, cols) else "Failed")
+
+
+def option_NE():
+    print("=== Start panorama by euler range (old API, untested on V3) ===")
+    yaw = _ask_number("Yaw range (degrees)", 30.0)
+    pitch = _ask_number("Pitch range (degrees)", 10.0) if yaw is not None else None
+    if yaw is not None and pitch is not None:
+        print("Started" if perform_start_panorama_by_euler_range(yaw, pitch) else "Failed")
+
+
+def option_N4():
+    print("=== Open framing ===")
+    print("OK" if perform_start_panorama_framing() else "Failed")
+
+
+def option_N5():
+    print("=== Set framing rect ===")
+    rect = _ask_rect()
+    if rect:
+        print("OK" if perform_update_panorama_framing_rect(*rect) else "Failed")
+
+
+def option_N6():
+    print("=== Validate framing and start ===")
+    print("Started" if perform_start_panorama_grid() else "Failed")
+
+
+def option_N7():
+    print("=== Full framed panorama ===")
+    rect = _ask_rect()
+    if not rect:
+        return
+    ok = (perform_enter_panorama_mode()
+          and perform_start_panorama_framing()
+          and perform_update_panorama_framing_rect(*rect))
+    if ok:
+        time.sleep(1)  # let the device answer with the rect echo + preview
+        _print_panorama_state()
+        ok = perform_start_panorama_grid()
+    print("Started" if ok else "Failed")
+
+
+def option_NV():
+    print("=== Save framing preview ===")
+    path = input("File [panorama_preview.webp]: ").strip() or "panorama_preview.webp"
+    print(f"Saved to {path}" if perform_save_panorama_preview(path) else "No preview received yet (open framing / set a rect first).")
+
+
+def option_N8():
+    print("=== Follow panorama progress (CTRL+C to stop following) ===")
+    seen_running = False
+    try:
+        while True:
+            state = perform_get_panorama_state()
+            _print_panorama_state(state)
+            if state is None:
+                return
+            if state.get("running"):
+                seen_running = True
+            elif seen_running and state.get("running") is False:
+                print("Panorama finished.")
+                return
+            time.sleep(2)
+    except KeyboardInterrupt:
+        print("Stopped following (the panorama keeps running - use NS to stop it).")
+
+
+def option_N9():
+    print("=== Panorama state ===")
+    _print_panorama_state()
+
+
+def option_NS():
+    print("=== Stop panorama ===")
+    print("OK (the current image completes first)" if perform_stop_panorama() else "Failed")
+
+
+def choice_panorama():
+    actions = {
+        'N1': option_N1, 'N2': option_N2, 'N3': option_N3, 'NE': option_NE,
+        'N4': option_N4, 'N5': option_N5, 'N6': option_N6, 'N7': option_N7,
+        'NV': option_NV, 'N8': option_N8, 'N9': option_N9, 'NS': option_NS,
+    }
+    while True:
+        display_menu_panorama()
+        choice = get_user_choice_panorama().upper()
+        if choice == '0':
+            print("Return to the main menu")
+            break
+        elif choice in actions:
+            actions[choice]()
+        else:
+            print("Invalid choice. Please enter a correct value.")
+
+
 def choice_motor():
     while True:
         display_menu_motor()
@@ -1884,6 +2096,8 @@ def main():
             choice_motor()
         elif choice == 'L':
             choice_lights()
+        elif choice == 'N':
+            choice_panorama()
         elif choice == 'I':
             perform_enter_photo_mode()
             get_live_data()
