@@ -1489,6 +1489,15 @@ PARAM_ID_BURST_COUNT = 0x0102f00000000015     # confirmed: value=5 for "5 photos
 PARAM_ID_BURST_SETTING = PARAM_ID_BURST_INTERVAL
 PARAM_ID_TIMELAPSE_INTERVAL = 0x0102f00000000019
 PARAM_ID_TIMELAPSE_DURATION = 0x0102f0000000001a
+# Classic panorama grid - same family, first byte 0x07 = panorama shooting
+# mode. CONFIRMED by a capture of the official app (2 Oct 2026): changing
+# the grid sends CMD_PARAM_SET_GENERAL_INT_PARAM with these two ids,
+# echoed by notification 15264, value = number of images (final 3 and 3
+# gave a 9-image panorama). Which one is rows vs cols is ASSUMED from the
+# old API's order (row id before col id) - to confirm with a non-square
+# grid.
+PARAM_ID_PANORAMA_ROWS = 0x0702f0000000001c
+PARAM_ID_PANORAMA_COLS = 0x0702f0000000001d
 
 # Device-level parameters (deviceParams), discovered via the live HTTP API
 # shootingMode/getParamAndSetting - not yet tested for writing
@@ -4781,52 +4790,33 @@ def perform_save_panorama_preview(path, session=None):
     return True
 
 
-# CMD_CAMERA_TELE_SET_FEATURE_PARAM ids for the old grid panorama (old JS
-# client: id 6 = rows, id 7 = cols, mode_index 1, value in continue_value).
-PANORAMA_FEATURE_ID_ROWS = 6
-PANORAMA_FEATURE_ID_COLS = 7
-
-
-def _set_tele_feature_param(param_id, value, label, session=None):
-    """CMD_CAMERA_TELE_SET_FEATURE_PARAM (10037), manual continuous value."""
-    message = camera.ReqSetFeatureParams()
-    message.param.hasAuto = False
-    message.param.auto_mode = 1  # Manual
-    message.param.id = param_id
-    message.param.mode_index = 1
-    message.param.index = 0
-    message.param.continue_value = float(value)
-
-    active_session = _resolve_session(session)
-    command = protocol.CMD_CAMERA_TELE_SET_FEATURE_PARAM
-    module_id = protocol.MODULE_CAMERA_TELE
-    if active_session is not None:
-        response = connect_socket_session(active_session, message, command, 0, module_id)
-    else:
-        response = connect_socket(message, command, 0, module_id)
-    if response is False:
-        log.error("Dwarf API: Dwarf Device not connected")
-        return False
-    if response != 0:
-        log.error(f"{label}: error code {response}")
-        return False
-    log.success(f"{label} = {value}")
+def perform_set_panorama_grid_v3(rows, cols, session=None):
+    """Classic panorama grid size: CMD_PARAM_SET_GENERAL_INT_PARAM (16703)
+    on PARAM_ID_PANORAMA_ROWS / PARAM_ID_PANORAMA_COLS, as the official app
+    does (2 Oct 2026 capture, sent after switching to panorama mode).
+    True if both were accepted."""
+    for value, param_id, label in ((rows, PARAM_ID_PANORAMA_ROWS, "rows"),
+                                   (cols, PARAM_ID_PANORAMA_COLS, "cols")):
+        if int(value) < 1:
+            log.error(f"Panorama {label} must be >= 1 (got {value})")
+            return False
+        if perform_set_image_param_v3(param_id, int(value), session=session) != 0:
+            log.error(f"Panorama: setting {label}={value} failed")
+            return False
     return True
 
 
 def perform_start_panorama_by_grid(rows=None, cols=None, session=None):
-    """Classic panorama: CMD_PANORAMA_START_GRID (15500), empty request.
-    Capture of the current official app (2 Oct 2026): it sends 15500 alone,
-    no grid-size parameter at all - the device used its current grid (3x3
-    there). rows/cols are optional and use the OLD JS client's way (tele
-    feature params 6/7 via CMD_CAMERA_TELE_SET_FEATURE_PARAM), NOT seen in
-    any V3 capture: untested on V3 firmware.
+    """Classic panorama: CMD_PANORAMA_START_GRID (15500), empty request,
+    on the grid stored on the device. With rows/cols, sets that grid first
+    (perform_set_panorama_grid_v3); without them the current one is used.
     The device only answers 15500 when the panorama ends, so success here
     means "started" (CMD_NOTIFY_PANORAMA_STATE = 1, see websockets_utils).
     Follow the shoot with perform_get_panorama_state()."""
-    if rows is not None and not _set_tele_feature_param(PANORAMA_FEATURE_ID_ROWS, rows, "Panorama rows", session):
+    if (rows is None) != (cols is None):
+        log.error("Panorama grid: give both rows and cols, or neither")
         return False
-    if cols is not None and not _set_tele_feature_param(PANORAMA_FEATURE_ID_COLS, cols, "Panorama cols", session):
+    if rows is not None and not perform_set_panorama_grid_v3(rows, cols, session=session):
         return False
     _reset_panorama_state(session)
     return _send_panorama(panorama.ReqStartPanoramaByGrid(), protocol.CMD_PANORAMA_START_GRID,
