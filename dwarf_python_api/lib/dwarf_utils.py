@@ -2051,6 +2051,33 @@ def perform_goto(ra, dec, target, goto_only=False, rotation=None, session=None):
 
     return False
 
+def _to_epoch_s(value):
+    """Epoch seconds from seconds or milliseconds (None/0 -> None)."""
+    if not value:
+        return None
+    value = int(value)
+    return value // 1000 if value > 10000000000 else value
+
+
+def _minute_window(start_s, end_s):
+    """Snaps a task window to whole minutes, like the official app does.
+
+    Field-confirmed (Oct 2026, PCAPdroid capture + CMD_GET_ALL_SHOOTING_
+    SCHEDULE dump): every schedule the device ever accepted has a duration
+    that is an exact number of minutes, and the current official app also
+    aligns start/end on :00 seconds. A window like start + N min + 5 s (or
+    the catalog page's millisecond-sized slots) is rejected with
+    CODE_SHOOTING_SCHEDULE_INVALID_SHOOTING_DURATION (-16301).
+    """
+    if start_s is None or end_s is None:
+        return start_s, end_s
+    start_s -= start_s % 60
+    end_s -= end_s % 60
+    if end_s <= start_s:
+        end_s = start_s + 60
+    return start_s, end_s
+
+
 def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
     """task: dict with keys matching shooting_schedule.proto's §3.2.2.3
     business fields (name, ra, dec, startTime, endTime, shutterIndex,
@@ -2076,14 +2103,10 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
     if filter_index is None and task.get("filterModeName"):
         filter_index = get_ir_filter_index_by_name(task["filterModeName"])
 
-    start_time = int(task["startTime"]) if task.get("startTime") else None
-    if start_time and start_time > 10000000000:  # detect Epoch to ms
-        start_time = start_time // 1000
+    start_time, end_time = _minute_window(
+        _to_epoch_s(task.get("startTime")), _to_epoch_s(task.get("endTime"))
+    )
 
-    end_time = int(task["endTime"]) if task.get("endTime") else None
-    if end_time and end_time > 10000000000:
-        end_time = end_time // 1000
-        
     # Get Mosaic value to default
     is_mosaic = task.get("isMosaicMode", False)
     h_scale = task.get("horizontalScale", 100)
@@ -2092,7 +2115,8 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
 
     task_params = {
         "name": task.get("name"),
-        "wellknownName": task.get("wellknownName"),
+        # Never null: callers like the catalog page don't send it.
+        "wellknownName": task.get("wellknownName") or task.get("name") or "",
         "ra": task.get("ra"),
         "dec": task.get("dec"),
         "startTime": start_time,
@@ -2117,13 +2141,9 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
         params=json.dumps(task_params, ensure_ascii=False),
         schedule_task_id=task.get("schedule_task_id") or "",
         param_mode=param_mode,
-        # 2, not 0 - matches a real PCAPdroid capture of the official
-        # Android app's own successful sync (its task was named
-        # "Manual" and used create_from=2) - see ShootingScheduleMsg's
-        # own comment on state/param_version, added at the same time
-        # from the same reference capture. Still overridable via
-        # task["createFrom"] if a caller has a specific reason to send
-        # something else.
+        # 2 = manual entry (not picked from the official app's Atlas,
+        # which sends 0) - what this library's callers do. Overridable
+        # via task["createFrom"].
         create_from=task.get("createFrom", 2),
         param_version=1,
     )
@@ -2167,17 +2187,24 @@ def perform_sync_shooting_schedule(schedule, session=None):
         for t in schedule.get("shooting_tasks", [])
     ]
 
-    start_time = int(schedule["startTime"]) if schedule.get("startTime") else 0
-    if start_time > 10000000000:
-        start_time = start_time // 1000
+    # Schedule window = span of its (minute-snapped) tasks, so it can't
+    # disagree with them after _minute_window(); falls back to the
+    # caller's own values when no task carries times.
+    task_windows = [json.loads(tk.params) for tk in tasks]
+    task_starts = [p["startTime"] for p in task_windows if p.get("startTime")]
+    task_ends = [p["endTime"] for p in task_windows if p.get("endTime")]
+    if task_starts and task_ends:
+        start_time, end_time = min(task_starts), max(task_ends)
+    else:
+        start_time, end_time = _minute_window(
+            _to_epoch_s(schedule.get("startTime")), _to_epoch_s(schedule.get("endTime"))
+        )
+    start_time = start_time or 0
 
-    end_time = int(schedule["endTime"]) if schedule.get("endTime") else None
-    if end_time and end_time > 10000000000:
-        end_time = end_time // 1000
-
-    global_params = schedule.get("params", {})
-    if "calibrationMode" not in global_params:
-        global_params["calibrationMode"] = 0        
+    # Copy so the caller's dict (possibly a stored pending schedule) isn't
+    # mutated, and so calibrationMode is still sent when "params" is missing.
+    global_params = dict(schedule.get("params") or {})
+    global_params.setdefault("calibrationMode", 0)
 
     ShootingScheduleMsg_message = shooting_schedule.ShootingScheduleMsg(
         schedule_id=schedule["scheduleId"],
@@ -2188,11 +2215,14 @@ def perform_sync_shooting_schedule(schedule, session=None):
         lock=schedule.get("lock", 0),
         password=schedule.get("password", ""),
         param_mode=param_mode,
-        params=json.dumps(schedule.get("params", {}), ensure_ascii=False),
+        params=json.dumps(global_params, ensure_ascii=False),
         shooting_tasks=tasks,
         state=shooting_schedule.SHOOTING_SCHEDULE_STATE_PENDING_SHOOT,
         param_version=1,
         schedule_time=int(time.time()),
+        # Sent by the official app too (Oct 2026 capture).
+        created_time=int(time.time()),
+        updated_time=int(time.time()),
     )
     print(ShootingScheduleMsg_message)
     ReqSyncShootingSchedule_message = shooting_schedule.ReqSyncShootingSchedule(
