@@ -154,6 +154,14 @@ ID_FEATURE_PARAM_NAMES = {
     15: "Astro mosaic sub img to take",
 }
 
+
+# MODULE_PANORAMA (10) request commands answered with a ComResponse:
+# 15500 START_GRID, 15501 STOP, 15502 START_EULER_RANGE (protocol.proto),
+# and the manual-framing ones from a capture of the official app (not in
+# protocol.proto): 15509 START_FRAMING, 15510 (unidentified), 15512
+# UPDATE_FRAMING_RECT, 15513 STOP_FRAMING_AND_START_GRID.
+PANORAMA_RESPONSE_CMDS = frozenset({15500, 15501, 15502, 15509, 15510, 15512, 15513})
+
 def fct_log_detail_tele_param(param):
     if not param:
         log.warning("No tele params found in response.")
@@ -795,6 +803,25 @@ class WebSocketClient:
                                 else:
                                     log.success(f"Success SWITCH SHOOTING TECH (tech={ResSwitchShootingTech_message.shooting_tech_id})")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success SWITCH SHOOTING TECH", ResSwitchShootingTech_message.shooting_tech_id)
+
+                            # MODULE_PANORAMA (10) requests - old grid/euler panorama and the
+                            # new manual framing (15509-15513, see dwarf_utils.py's Panorama
+                            # section). Reply decoded as a plain ComResponse: an empty reply
+                            # parses as code 0 (OK), and any extra field is just ignored.
+                            if (WsPacket_message.cmd in PANORAMA_RESPONSE_CMDS and WsPacket_message.cmd == self.command):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.info(f"Decoding PANORAMA command {WsPacket_message.cmd}")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error PANORAMA command {WsPacket_message.cmd} CODE {ComResponse_message.code} {getErrorCodeValueName(ComResponse_message.code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, f"Error PANORAMA {WsPacket_message.cmd}", ComResponse_message.code)
+                                else:
+                                    log.info(f"OK PANORAMA command {WsPacket_message.cmd}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, f"Success PANORAMA {WsPacket_message.cmd}", ComResponse_message.code)
 
                             # CMD_STEP_MOTOR_RUN = 14000; // Motor motion
                             if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_RUN):
