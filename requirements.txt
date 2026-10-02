@@ -1,6 +1,6 @@
 websockets==11.0.3
 
-protobuf>=4.25.8
+protobuf>=7.35.1
 
 bleak==1.1.1
 
