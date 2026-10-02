@@ -878,11 +878,13 @@ class WebSocketClient:
 
                             if (WsPacket_message.cmd == CMD_NOTIFY_PANORAMA_STATE):
                                 running = _proto_fields(WsPacket_message.data).get(1, 0) == 1
+                                was_running = self.panorama_state["running"] is True
                                 self.panorama_state.update(running=running, updated=time.time())
                                 log.info("Panorama started" if running else "Panorama finished")
                                 # START_GRID / START_EULER_RANGE are only answered when the
                                 # panorama ends: this notification is the real start ack.
-                                if running and self.command in PANORAMA_START_CMDS:
+                                # Sent twice in a row by the device (Oct 2026 capture) - ack once.
+                                if running and not was_running and self.command in PANORAMA_START_CMDS:
                                     log.success(f"Panorama started (command {self.command})")
                                     await self.result_receive_messages(self.command, self.command, Dwarf_Result.OK, "Panorama started", protocol.OK)
 

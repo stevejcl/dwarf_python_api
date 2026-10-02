@@ -4815,9 +4815,12 @@ def _set_tele_feature_param(param_id, value, label, session=None):
 
 
 def perform_start_panorama_by_grid(rows=None, cols=None, session=None):
-    """Old panorama: CMD_PANORAMA_START_GRID (15500). With rows/cols, sets
-    the tele "Panorama row"/"Panorama col" feature params first, as the
-    old JS client did; without them the device uses its current grid.
+    """Classic panorama: CMD_PANORAMA_START_GRID (15500), empty request.
+    Capture of the current official app (2 Oct 2026): it sends 15500 alone,
+    no grid-size parameter at all - the device used its current grid (3x3
+    there). rows/cols are optional and use the OLD JS client's way (tele
+    feature params 6/7 via CMD_CAMERA_TELE_SET_FEATURE_PARAM), NOT seen in
+    any V3 capture: untested on V3 firmware.
     The device only answers 15500 when the panorama ends, so success here
     means "started" (CMD_NOTIFY_PANORAMA_STATE = 1, see websockets_utils).
     Follow the shoot with perform_get_panorama_state()."""
@@ -4884,6 +4887,12 @@ def panorama_rect_from_degrees(center_x=0.5, center_y=0.5, width_deg=8.0, height
     half_h = (height_deg / fov_h_deg) / 2
     return (max(0.0, center_x - half_w), max(0.0, center_y - half_h),
             min(1.0, center_x + half_w), min(1.0, center_y + half_h))
+
+
+def perform_panorama_grid(rows=None, cols=None, session=None):
+    """Classic panorama, full sequence from the 2 Oct 2026 capture: panorama
+    mode (7/6) then START_GRID. Returns once started (15277 = 1)."""
+    return perform_enter_panorama_mode(session) and perform_start_panorama_by_grid(rows, cols, session=session)
 
 
 def perform_panorama(x1, y1, x2, y2, session=None):
