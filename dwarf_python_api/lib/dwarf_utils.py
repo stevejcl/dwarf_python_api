@@ -2224,7 +2224,7 @@ def perform_sync_shooting_schedule(schedule, session=None):
         created_time=int(time.time()),
         updated_time=int(time.time()),
     )
-    print(ShootingScheduleMsg_message)
+    log.debug(f"ShootingScheduleMsg: {ShootingScheduleMsg_message}")
     ReqSyncShootingSchedule_message = shooting_schedule.ReqSyncShootingSchedule(
         shooting_schedule=ShootingScheduleMsg_message
     )
