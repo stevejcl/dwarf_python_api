@@ -129,6 +129,46 @@ message PanoramaProgress {
     uint32 camera_type = 3;
 }
 
+// ---------------------------------------------------------------------
+// UNOFFICIAL messages - not in DwarfLab's notify.proto. Reverse-engineered
+// from PCAPdroid captures of the official app (30 Sep / 2 Oct 2026): field
+// numbers and types are what the device sends, the message and field
+// NAMES are ours. Fields never seen are absent.
+// ---------------------------------------------------------------------
+
+// (CMD_NOTIFY_PANORAMA_STATE, 15277, uses the OFFICIAL PanoramaState
+// message further down: state 1 = running, 0 = finished / stopped.)
+
+// CMD_NOTIFY_PANORAMA_FRAMING_STATE (15299).
+message PanoramaFramingState {
+    int32 state = 1;              // 1 = framing open, 2 = closing, 0 = idle
+}
+
+// CMD_NOTIFY_PANORAMA_FRAMING_RECT (15297), echo of each
+// CMD_PANORAMA_UPDATE_FRAMING_RECT, in fractions (0..1) of the wide view.
+message PanoramaFramingRect {
+    double norm_x_tl = 1;
+    double norm_y_tl = 2;
+    double norm_x_br = 3;
+    double norm_y_br = 4;
+    int32 unknown_7 = 7;          // always 1 in the captures
+    int32 unknown_8 = 8;          // always 1 in the captures
+    double fov_w_deg = 9;         // 45.06 = wide camera horizontal FOV
+    double fov_h_deg = 10;        // 25.94 = wide camera vertical FOV
+}
+
+// CMD_NOTIFY_PANORAMA_FRAMING_PREVIEW (15298).
+message PanoramaFramingPreview {
+    bytes webp = 1;               // WebP image of the framed area
+}
+
+// CMD_NOTIFY_TELE_FUNCTION_STATE (15215) on OLD firmware only (V2 proto's
+// ResNotifyCamFunctionState); never sent by the V3 firmware for a panorama.
+message CamFunctionState {
+    OperationState state = 1;
+    uint32 function_id = 2;       // 6 = panorama
+}
+
 message RgbState {
     int32 state = 1;
 }

@@ -154,6 +154,28 @@ ID_FEATURE_PARAM_NAMES = {
     15: "Astro mosaic sub img to take",
 }
 
+
+# MODULE_PANORAMA (10) request commands answered with a ComResponse. The
+# manual-framing ones (15509-15513) and the framing notifications are
+# UNOFFICIAL additions to protocol.proto / notify.proto (see there).
+# NOTE: the device answers START_GRID / START_EULER_RANGE only when the
+# panorama ENDS (even unsolicited after a 15513 start) - a start is
+# acknowledged by CMD_NOTIFY_PANORAMA_STATE = running instead, see below.
+PANORAMA_RESPONSE_CMDS = frozenset({
+    protocol.CMD_PANORAMA_START_GRID,
+    protocol.CMD_PANORAMA_STOP,
+    protocol.CMD_PANORAMA_START_EULER_RANGE,
+    protocol.CMD_PANORAMA_START_FRAMING,
+    protocol.CMD_PANORAMA_STOP_FRAMING,
+    protocol.CMD_PANORAMA_UPDATE_FRAMING_RECT,
+    protocol.CMD_PANORAMA_STOP_FRAMING_AND_START_GRID,
+})
+PANORAMA_START_CMDS = frozenset({protocol.CMD_PANORAMA_START_GRID, protocol.CMD_PANORAMA_START_EULER_RANGE})
+
+# CMD_NOTIFY_TELE_FUNCTION_STATE's function_id for a panorama, on old
+# firmware only (old JS client); never sent by the V3 firmware.
+PANORAMA_FUNCTION_ID = 6
+
 def fct_log_detail_tele_param(param):
     if not param:
         log.warning("No tele params found in response.")
@@ -322,6 +344,13 @@ class WebSocketClient:
         # app, or an on-device native shooting-schedule task) - it's a
         # fresh, explicit query/response, not a passively-matched push.
         self.last_device_state_info = None
+        # Panorama progress/state, updated from push notifications whoever
+        # started it (see the CMD_NOTIFY_PANORAMA_PROGRESS block):
+        # running None = unknown, True after function state 1, False after 0.
+        self.panorama_state = {
+            "running": None, "completed": None, "total": None, "updated": None,
+            "framing": None, "rect": None, "fov": None, "preview_webp": None,
+        }
         # Same reasoning as last_device_state_info above, for
         # CMD_GET_ALL_SHOOTING_SCHEDULE (16102) - perform_get_all_
         # shooting_schedule() only ever returned the bare code, so there
@@ -795,6 +824,84 @@ class WebSocketClient:
                                 else:
                                     log.success(f"Success SWITCH SHOOTING TECH (tech={ResSwitchShootingTech_message.shooting_tech_id})")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success SWITCH SHOOTING TECH", ResSwitchShootingTech_message.shooting_tech_id)
+
+                            # Panorama notifications (V3 capture, 30 Sep 2026) - recorded on
+                            # every arrival, whoever started the panorama, so
+                            # perform_get_panorama_state() can be polled during the shoot.
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_PANORAMA_PROGRESS):
+                                PanoramaProgress_message = notify.PanoramaProgress()
+                                PanoramaProgress_message.ParseFromString(WsPacket_message.data)
+                                self.panorama_state.update(
+                                    completed=PanoramaProgress_message.completed_count,
+                                    total=PanoramaProgress_message.total_count,
+                                    updated=time.time(),
+                                )
+                                if self.panorama_state["running"] is None:
+                                    self.panorama_state["running"] = True
+                                log.info(f"Panorama progress: {PanoramaProgress_message.completed_count} / {PanoramaProgress_message.total_count}")
+
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_PANORAMA_STATE):
+                                PanoramaState_message = notify.PanoramaState()
+                                PanoramaState_message.ParseFromString(WsPacket_message.data)
+                                running = PanoramaState_message.state == notify.OPERATION_STATE_RUNNING
+                                was_running = self.panorama_state["running"] is True
+                                self.panorama_state.update(running=running, updated=time.time())
+                                log.info("Panorama started" if running else "Panorama finished")
+                                # START_GRID / START_EULER_RANGE are only answered when the
+                                # panorama ends: this notification is the real start ack.
+                                # Sent twice in a row by the device (Oct 2026 capture) - ack once.
+                                if running and not was_running and self.command in PANORAMA_START_CMDS:
+                                    log.success(f"Panorama started (command {self.command})")
+                                    await self.result_receive_messages(self.command, self.command, Dwarf_Result.OK, "Panorama started", protocol.OK)
+
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_PANORAMA_FRAMING_STATE):
+                                FramingState_message = notify.PanoramaFramingState()
+                                FramingState_message.ParseFromString(WsPacket_message.data)
+                                framing = FramingState_message.state
+                                self.panorama_state.update(framing=framing, updated=time.time())
+                                log.debug(f"Panorama framing state >> {framing}")
+
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_PANORAMA_FRAMING_RECT):
+                                FramingRect_message = notify.PanoramaFramingRect()
+                                FramingRect_message.ParseFromString(WsPacket_message.data)
+                                m = FramingRect_message
+                                rect = (m.norm_x_tl, m.norm_y_tl, m.norm_x_br, m.norm_y_br)
+                                fov = (m.fov_w_deg, m.fov_h_deg) if m.fov_w_deg else self.panorama_state["fov"]
+                                self.panorama_state.update(rect=rect, fov=fov, updated=time.time())
+                                log.debug(f"Panorama framing rect >> {rect} fov {fov}")
+
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_PANORAMA_FRAMING_PREVIEW):
+                                FramingPreview_message = notify.PanoramaFramingPreview()
+                                FramingPreview_message.ParseFromString(WsPacket_message.data)
+                                if FramingPreview_message.webp:
+                                    self.panorama_state["preview_webp"] = FramingPreview_message.webp
+
+                            if (WsPacket_message.cmd == protocol.CMD_NOTIFY_TELE_FUNCTION_STATE):
+                                CamFunctionState_message = notify.CamFunctionState()
+                                CamFunctionState_message.ParseFromString(WsPacket_message.data)
+                                if CamFunctionState_message.function_id == PANORAMA_FUNCTION_ID:
+                                    running = CamFunctionState_message.state == notify.OPERATION_STATE_RUNNING
+                                    self.panorama_state.update(running=running, updated=time.time())
+                                    log.info("Panorama started" if running else "Panorama finished")
+
+                            # MODULE_PANORAMA (10) requests - old grid/euler panorama and the
+                            # new manual framing (15509-15513, see dwarf_utils.py's Panorama
+                            # section). Reply decoded as a plain ComResponse: an empty reply
+                            # parses as code 0 (OK), and any extra field is just ignored.
+                            if (WsPacket_message.cmd in PANORAMA_RESPONSE_CMDS and WsPacket_message.cmd == self.command):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+
+                                log.info(f"Decoding PANORAMA command {WsPacket_message.cmd}")
+                                log.debug(f"receive code data >> {ComResponse_message.code}")
+                                log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
+
+                                if (ComResponse_message.code != protocol.OK):
+                                    log.error(f"Error PANORAMA command {WsPacket_message.cmd} CODE {ComResponse_message.code} {getErrorCodeValueName(ComResponse_message.code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, f"Error PANORAMA {WsPacket_message.cmd}", ComResponse_message.code)
+                                else:
+                                    log.info(f"OK PANORAMA command {WsPacket_message.cmd}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, f"Success PANORAMA {WsPacket_message.cmd}", ComResponse_message.code)
 
                             # CMD_STEP_MOTOR_RUN = 14000; // Motor motion
                             if (WsPacket_message.cmd==protocol.CMD_STEP_MOTOR_RUN):

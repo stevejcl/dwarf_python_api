@@ -41,6 +41,7 @@ import dwarf_python_api.proto.ble_pb2 as ble
 import dwarf_python_api.proto.rgb_pb2 as rgb_power
 import dwarf_python_api.proto.task_center_pb2 as task_center
 import dwarf_python_api.proto.notify_pb2 as notify
+import dwarf_python_api.proto.panorama_pb2 as panorama
 import dwarf_python_api.proto.shooting_schedule_pb2 as shooting_schedule
 import dwarf_python_api.proto.param_pb2 as param
 
@@ -1488,6 +1489,14 @@ PARAM_ID_BURST_COUNT = 0x0102f00000000015     # confirmed: value=5 for "5 photos
 PARAM_ID_BURST_SETTING = PARAM_ID_BURST_INTERVAL
 PARAM_ID_TIMELAPSE_INTERVAL = 0x0102f00000000019
 PARAM_ID_TIMELAPSE_DURATION = 0x0102f0000000001a
+# Classic panorama grid - same family, first byte 0x07 = panorama shooting
+# mode. CONFIRMED by a capture of the official app (2 Oct 2026): changing
+# the grid sends CMD_PARAM_SET_GENERAL_INT_PARAM with these two ids,
+# echoed by notification 15264, value = number of images. Rows vs cols
+# CONFIRMED with a 3 cols x 4 rows grid (2 Oct 2026): only ...1c changed
+# (3 -> 4) and the panorama announced 12 images.
+PARAM_ID_PANORAMA_ROWS = 0x0702f0000000001c
+PARAM_ID_PANORAMA_COLS = 0x0702f0000000001d
 
 # Device-level parameters (deviceParams), discovered via the live HTTP API
 # shootingMode/getParamAndSetting - not yet tested for writing
@@ -2090,7 +2099,15 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
     """
     shutter_index = task.get("shutterIndex")
     if shutter_index is None and task.get("shutterName"):
-        shutter_index = get_exposure_index_by_name(task["shutterName"], dwarf_type)
+        # strict: an exposure this model doesn't have used to fall back
+        # silently to the default (1/30 s) - the device accepted the
+        # schedule and shot the whole night at 1/30 s.
+        shutter_index = get_exposure_index_by_name(str(task["shutterName"]), dwarf_type, strict=True)
+        if shutter_index is None:
+            raise ValueError(
+                f"Exposure {task['shutterName']} s not available on this Dwarf model "
+                f"(task {task.get('name')!r})"
+            )
 
     gain_index = task.get("gainIndex")
     if gain_index is None and task.get("gainName") is not None:
@@ -2182,10 +2199,16 @@ def perform_sync_shooting_schedule(schedule, session=None):
             dwarf_model_id = int(_dwarf_model_id)
 
     param_mode = schedule.get("paramsMode", 0)
-    tasks = [
-        _build_shooting_task_msg(t, schedule["scheduleId"], param_mode, dwarf_type)
-        for t in schedule.get("shooting_tasks", [])
-    ]
+    try:
+        tasks = [
+            _build_shooting_task_msg(t, schedule["scheduleId"], param_mode, dwarf_type)
+            for t in schedule.get("shooting_tasks", [])
+        ]
+    except ValueError as e:
+        log.error(f"Shooting schedule not sent: {e}")
+        if _session_for_type is not None:
+            _session_for_type.last_sync_error = f"INVALID_EXPOSURE: {e}"
+        return False
 
     # Schedule window = span of its (minute-snapped) tasks, so it can't
     # disagree with them after _minute_window(); falls back to the
@@ -4657,3 +4680,211 @@ def perform_read_astro_stacking_status_v3(session=None, type="Tele"):
         "stacked_count": full_status.get("takePhotoStacked"),
         "error_connection": False,
     }
+
+
+# --- Panorama (MODULE_PANORAMA = 10) ------------------------------------
+# Old panorama: CMD_PANORAMA_START_GRID / START_EULER_RANGE (in
+# protocol.proto). New manual framing (rectangle drawn on the live view):
+# commands 15509-15513, NOT in protocol.proto - confirmed by a PCAPdroid
+# capture of the official app (30 Sep 2026): 15509 opens framing
+# (framing-state notification 15299 -> 1), 15512 sets the rect (echoed by
+# 15297 + a WebP preview 15298), 15513 starts the shoot (panorama-state
+# notification 15277 -> 1), 15510 closes framing (15299 -> 2 then 0).
+# Progress then comes as CMD_NOTIFY_PANORAMA_PROGRESS (15219, n / total);
+# the end as 15277 -> 0 plus an unsolicited 15500 reply. Every framing
+# request except the rect is an empty message.
+SHOOTING_MODE_PANORAMA = 7      # 16402 echo in the capture (from DSO = 2)
+SHOOTING_TECH_PANORAMA = 6      # 16403 echo in the capture
+
+# The framing commands are UNOFFICIAL additions to protocol.proto
+# (protocol.CMD_PANORAMA_START_FRAMING ... _STOP_FRAMING_AND_START_GRID).
+
+# Replies are decoded by websockets_utils (PANORAMA_RESPONSE_CMDS).
+
+# Field of view (degrees) of the framing view = the WIDE camera (15297
+# echoes it; GET_DEVICE_STATE_INFO gives the same 45.06 x 25.93 for wide).
+PANORAMA_FOV_W_DEG = 45.06
+PANORAMA_FOV_H_DEG = 25.935
+
+
+def _send_panorama(message, command, label, session=None):
+    """Sends one MODULE_PANORAMA request; True on code 0."""
+    module_id = protocol.MODULE_PANORAMA
+    type_id = 0  # REQUEST
+
+    active_session = _resolve_session(session)
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
+
+    if response is not False:
+        if response == 0:
+            log.success(f"{label} command success")
+            return True
+        log.error(f"{label}: error code {response}")
+    else:
+        log.error("Dwarf API: Dwarf Device not connected")
+    return False
+
+
+def perform_enter_panorama_mode(session=None):
+    """Switches the Dwarf to Panorama: SWITCH_SHOOTING_MODE (7) then
+    SWITCH_SHOOTING_TECH (6), as the official app does when Panorama is
+    picked (no ENTER_CAMERA at that point in the capture).
+
+    `session`: optional DwarfSession - see perform_goto()."""
+    # Both helpers return the device's effective mode/tech id on success
+    # (and the error code otherwise), so compare against what was asked.
+    if perform_switch_shooting_mode(SHOOTING_MODE_PANORAMA, session=session) != SHOOTING_MODE_PANORAMA:
+        log.error("Panorama: switch shooting mode failed")
+        return False
+    if perform_switch_shooting_tech(SHOOTING_TECH_PANORAMA, session=session) != SHOOTING_TECH_PANORAMA:
+        log.error("Panorama: switch shooting tech failed")
+        return False
+    return True
+
+
+def _panorama_client(session=None):
+    active_session = _resolve_session(session)
+    return active_session.client_instance if active_session is not None else websockets_utils.client_instance
+
+
+def _reset_panorama_state(session=None):
+    client = _panorama_client(session)
+    if client is not None and hasattr(client, "panorama_state"):
+        client.panorama_state.update(running=None, completed=0, total=None, updated=None)
+        # framing / rect / fov / preview are kept: they describe the
+        # framing that led to this start.
+
+
+def perform_get_panorama_state(session=None):
+    """Panorama state from the device's own push notifications (whoever
+    started it), or None without a client:
+      running   True after 15277 = 1 (or first progress), False after
+                15277 = 0 (finished or stopped), None if nothing yet
+      completed / total   images taken / planned (15219)
+      framing   1 framing open, 2 closing, 0 idle (15299)
+      rect      (x1, y1, x2, y2) last framing rect echoed (15297)
+      fov       (w, h) degrees of the framing view (wide camera)
+      preview_webp  bytes of the last framing preview (15298), see
+                    perform_save_panorama_preview()
+      updated   epoch s of the last panorama notification"""
+    client = _panorama_client(session)
+    state = getattr(client, "panorama_state", None) if client else None
+    return dict(state) if state is not None else None
+
+
+def perform_save_panorama_preview(path, session=None):
+    """Writes the last framing preview (WebP, 15298) to `path`; False if
+    none was received yet."""
+    state = perform_get_panorama_state(session)
+    data = state.get("preview_webp") if state else None
+    if not data:
+        return False
+    with open(path, "wb") as f:
+        f.write(data)
+    return True
+
+
+def perform_set_panorama_grid_v3(rows, cols, session=None):
+    """Classic panorama grid size: CMD_PARAM_SET_GENERAL_INT_PARAM (16703)
+    on PARAM_ID_PANORAMA_ROWS / PARAM_ID_PANORAMA_COLS, as the official app
+    does (2 Oct 2026 capture, sent after switching to panorama mode).
+    True if both were accepted."""
+    for value, param_id, label in ((rows, PARAM_ID_PANORAMA_ROWS, "rows"),
+                                   (cols, PARAM_ID_PANORAMA_COLS, "cols")):
+        if int(value) < 1:
+            log.error(f"Panorama {label} must be >= 1 (got {value})")
+            return False
+        if perform_set_image_param_v3(param_id, int(value), session=session) != 0:
+            log.error(f"Panorama: setting {label}={value} failed")
+            return False
+    return True
+
+
+def perform_start_panorama_by_grid(rows=None, cols=None, session=None):
+    """Classic panorama: CMD_PANORAMA_START_GRID (15500), empty request,
+    on the grid stored on the device. With rows/cols, sets that grid first
+    (perform_set_panorama_grid_v3); without them the current one is used.
+    The device only answers 15500 when the panorama ends, so success here
+    means "started" (CMD_NOTIFY_PANORAMA_STATE = 1, see websockets_utils).
+    Follow the shoot with perform_get_panorama_state()."""
+    if (rows is None) != (cols is None):
+        log.error("Panorama grid: give both rows and cols, or neither")
+        return False
+    if rows is not None and not perform_set_panorama_grid_v3(rows, cols, session=session):
+        return False
+    _reset_panorama_state(session)
+    return _send_panorama(panorama.ReqStartPanoramaByGrid(), protocol.CMD_PANORAMA_START_GRID,
+                          "Start panorama by grid", session)
+
+
+def perform_start_panorama_by_euler_range(yaw_range, pitch_range, session=None):
+    """Old panorama: CMD_PANORAMA_START_EULER_RANGE (15502), ranges in degrees."""
+    message = panorama.ReqStartPanoramaByEulerRange(yaw_range=float(yaw_range), pitch_range=float(pitch_range))
+    _reset_panorama_state(session)
+    return _send_panorama(message, protocol.CMD_PANORAMA_START_EULER_RANGE,
+                          "Start panorama by euler range", session)
+
+
+def perform_start_panorama_framing(session=None):
+    """New panorama: opens framing mode (rectangle shown on the live view)."""
+    return _send_panorama(panorama.ReqStartPanoramaFraming(), protocol.CMD_PANORAMA_START_FRAMING,
+                          "Start panorama framing", session)
+
+
+def perform_update_panorama_framing_rect(x1, y1, x2, y2, session=None):
+    """Sets the panorama rectangle as fractions (0..1) of the view:
+    (x1, y1) top-left, (x2, y2) bottom-right."""
+    if not (0.0 <= x1 < x2 <= 1.0 and 0.0 <= y1 < y2 <= 1.0):
+        log.error("Panorama rect must satisfy 0 <= x1 < x2 <= 1 and 0 <= y1 < y2 <= 1")
+        return False
+    message = panorama.ReqUpdatePanoramaFramingRect(
+        norm_x_tl=x1, norm_y_tl=y1, norm_x_br=x2, norm_y_br=y2
+    )
+    return _send_panorama(message, protocol.CMD_PANORAMA_UPDATE_FRAMING_RECT,
+                          "Update panorama framing rect", session)
+
+
+def perform_start_panorama_grid(session=None):
+    """Validates the framing and starts the panorama, like the app's
+    button: 15513 (start) then 15510 (close framing), 40 ms apart in the
+    capture (one tap). The
+    device computes the grid itself. Follow the shoot with
+    perform_get_panorama_state()."""
+    _reset_panorama_state(session)
+    if not _send_panorama(panorama.ReqStopPanoramaFramingAndStartGrid(),
+                          protocol.CMD_PANORAMA_STOP_FRAMING_AND_START_GRID, "Validate panorama framing", session):
+        return False
+    return _send_panorama(panorama.ReqStopPanoramaFraming(), protocol.CMD_PANORAMA_STOP_FRAMING,
+                          "Close panorama framing", session)
+
+
+def perform_stop_panorama(session=None):
+    """Stops the running panorama (CMD_PANORAMA_STOP, 15501)."""
+    return _send_panorama(panorama.ReqStopPanorama(), protocol.CMD_PANORAMA_STOP, "Stop panorama", session)
+
+
+def panorama_rect_from_degrees(center_x=0.5, center_y=0.5, width_deg=8.0, height_deg=8.0,
+                               fov_w_deg=PANORAMA_FOV_W_DEG, fov_h_deg=PANORAMA_FOV_H_DEG):
+    """Size in degrees -> normalized rect (x1, y1, x2, y2), clamped to the
+    view. center_x / center_y are fractions of the view (0.5 = centre)."""
+    half_w = (width_deg / fov_w_deg) / 2
+    half_h = (height_deg / fov_h_deg) / 2
+    return (max(0.0, center_x - half_w), max(0.0, center_y - half_h),
+            min(1.0, center_x + half_w), min(1.0, center_y + half_h))
+
+
+def perform_panorama_grid(rows=None, cols=None, session=None):
+    """Classic panorama, full sequence from the 2 Oct 2026 capture: panorama
+    mode (7/6) then START_GRID. Returns once started (15277 = 1)."""
+    return perform_enter_panorama_mode(session) and perform_start_panorama_by_grid(rows, cols, session=session)
+
+
+def perform_panorama(x1, y1, x2, y2, session=None):
+    """Full sequence from the capture: panorama mode, framing, rect, start."""
+    return (perform_enter_panorama_mode(session)
+            and perform_start_panorama_framing(session)
+            and perform_update_panorama_framing_rect(x1, y1, x2, y2, session)
+            and perform_start_panorama_grid(session))
