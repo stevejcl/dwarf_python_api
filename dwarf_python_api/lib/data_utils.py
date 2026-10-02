@@ -145,7 +145,11 @@ def get_exposure_value_by_index(index, dwarf_type = "2"):
     name = get_exposure_name_by_index(index, dwarf_type)
     return 1 if name == "Auto" else eval(name)
 
-def get_exposure_index_by_name(name, dwarf_type = "2"):
+def get_exposure_index_by_name(name, dwarf_type = "2", strict = False):
+    """Index of exposure `name` in this model's table. An unknown name
+    (e.g. "180" on a Dwarf 3, anything over "15" on a Dwarf 2) returns the
+    table's default index (1/30 s) - or None with strict=True, so callers
+    that must not silently change the exposure can detect it."""
     found_option = False
     if (dwarf_type == "5"):  # Dwarf Mini (device id "5"): own table (has an extra 180s step vs D3)
         found_option = next((option for option in allowed_exposuresMini.values if option["name"] == name), None)
@@ -156,7 +160,9 @@ def get_exposure_index_by_name(name, dwarf_type = "2"):
     else:
         found_option = next((option for option in allowed_exposures.values if option["name"] == name), None)
         default_value_index = allowed_exposures.default_value_index
-    return found_option["index"] if found_option else default_value_index
+    if found_option:
+        return found_option["index"]
+    return None if strict else default_value_index
 
 class AllowedGains:
     def __init__(self):

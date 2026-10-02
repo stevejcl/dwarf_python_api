@@ -2090,7 +2090,15 @@ def _build_shooting_task_msg(task, schedule_id, param_mode, dwarf_type="5"):
     """
     shutter_index = task.get("shutterIndex")
     if shutter_index is None and task.get("shutterName"):
-        shutter_index = get_exposure_index_by_name(task["shutterName"], dwarf_type)
+        # strict: an exposure this model doesn't have used to fall back
+        # silently to the default (1/30 s) - the device accepted the
+        # schedule and shot the whole night at 1/30 s.
+        shutter_index = get_exposure_index_by_name(str(task["shutterName"]), dwarf_type, strict=True)
+        if shutter_index is None:
+            raise ValueError(
+                f"Exposure {task['shutterName']} s not available on this Dwarf model "
+                f"(task {task.get('name')!r})"
+            )
 
     gain_index = task.get("gainIndex")
     if gain_index is None and task.get("gainName") is not None:
@@ -2182,10 +2190,16 @@ def perform_sync_shooting_schedule(schedule, session=None):
             dwarf_model_id = int(_dwarf_model_id)
 
     param_mode = schedule.get("paramsMode", 0)
-    tasks = [
-        _build_shooting_task_msg(t, schedule["scheduleId"], param_mode, dwarf_type)
-        for t in schedule.get("shooting_tasks", [])
-    ]
+    try:
+        tasks = [
+            _build_shooting_task_msg(t, schedule["scheduleId"], param_mode, dwarf_type)
+            for t in schedule.get("shooting_tasks", [])
+        ]
+    except ValueError as e:
+        log.error(f"Shooting schedule not sent: {e}")
+        if _session_for_type is not None:
+            _session_for_type.last_sync_error = f"INVALID_EXPOSURE: {e}"
+        return False
 
     # Schedule window = span of its (minute-snapped) tasks, so it can't
     # disagree with them after _minute_window(); falls back to the
