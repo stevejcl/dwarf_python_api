@@ -1138,6 +1138,20 @@ class WebSocketClient:
                                 log.debug("Decoding CMD_SYNC_SHOOTING_SCHEDULE")
                                 log.debug(f"receive code data >> {ResSyncShootingSchedule_message.code}")
                                 log.debug(f">> {getErrorCodeValueName(ResSyncShootingSchedule_message.code)}")
+                                # The reply echoes the schedule with updated_time stamped by the
+                                # DEVICE clock (official-app capture, Oct 2026: equal to the send
+                                # time). A large offset means the Dwarf's clock is wrong, which
+                                # makes it misjudge every start/end time (e.g. -16301 for a window
+                                # it thinks has already started).
+                                device_now = ResSyncShootingSchedule_message.shooting_schedule.updated_time
+                                if device_now:
+                                    clock_offset = device_now - int(time.time())
+                                    clock_msg = f"Dwarf clock offset vs this PC: {clock_offset:+d} s ({clock_offset / 3600:+.2f} h)"
+                                    (log.warning if abs(clock_offset) > 120 else log.info)(clock_msg)
+                                if ResSyncShootingSchedule_message.time_conflict_schedule_ids:
+                                    log.warning(f"Time conflict with schedules: {list(ResSyncShootingSchedule_message.time_conflict_schedule_ids)}"
+                                                f" (can_replace={ResSyncShootingSchedule_message.can_replace})")
+                                log.debug(f"Sync reply >> {ResSyncShootingSchedule_message}")
 
                                 if (ResSyncShootingSchedule_message.code != protocol.OK):
                                     log.error(f"Error CMD_SYNC_SHOOTING_SCHEDULE CODE {ResSyncShootingSchedule_message.code}")
