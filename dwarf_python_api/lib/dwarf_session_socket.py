@@ -310,6 +310,57 @@ async def send_socket_message(session: DwarfSession, message, command, type_id, 
     return result
 
 
+# CMD_SYSTEM_SET_TIME / SET_TIME_ZONE / SET_LOCATION (MODULE_SYSTEM = 4).
+_CLOCK_COMMANDS = (13000, 13001, 13010)
+
+
+def _clock_messages(session: DwarfSession):
+    """(message, command) for SET_TIME, SET_TIME_ZONE and SET_LOCATION from
+    this PC's clock and session.config - built exactly like perform_time()/
+    perform_timezone()/perform_set_location() (byte-identical to the
+    official app's SET_TIME). Timezone / location are skipped when not
+    configured."""
+    from datetime import datetime
+    import math
+    import dwarf_python_api.proto.system_pb2 as system
+
+    messages = []
+    set_time = system.ReqSetTime()
+    set_time.timestamp = math.floor(time.time())
+    offset_h = (datetime.now() - datetime.utcnow()).total_seconds() / 3600
+    set_time.timezone_offset = round(offset_h * 4) / 4
+    messages.append((set_time, 13000))
+
+    timezone = getattr(session.config, "timezone", None)
+    if timezone:
+        messages.append((system.ReqSetTimezone(timezone=timezone), 13001))
+
+    latitude = getattr(session.config, "latitude", None)
+    longitude = getattr(session.config, "longitude", None)
+    if latitude is not None and longitude is not None:
+        messages.append((system.ReqSetLocation(latitude=latitude, longitude=longitude, altitude=0), 13010))
+    return messages
+
+
+def _sync_device_clock(session: DwarfSession, loop) -> None:
+    """Right after a NEW connection: send time / timezone / location, as the
+    official app does on every connection. The native shooting schedule
+    runs on the device clock, and a Dwarf reached only through this library
+    could otherwise keep a wrong one (Oct 2026: -16301 on valid windows).
+    Covers every way a connection is opened - an explicit connect or the
+    first perform_*() call of any kind. Best effort: never fails the
+    caller's command."""
+    for message, command in _clock_messages(session):
+        try:
+            code = loop.run_until_complete(send_socket_message(session, message, command, 0, 4))
+            if code is False or (isinstance(code, int) and code != 0):
+                log.warning(f"[{session.dwarf_uid}] Clock sync: command {command} returned {code}")
+        except Exception as e:
+            log.warning(f"[{session.dwarf_uid}] Clock sync: command {command} failed: {e}")
+            return
+    log.info(f"[{session.dwarf_uid}] Device time / timezone / location sent after connection.")
+
+
 def connect_socket(session: DwarfSession, message, command, type_id, module_id):
     """Mirrors websockets_utils.connect_socket(), scoped to `session`.
 
@@ -334,6 +385,10 @@ def connect_socket(session: DwarfSession, message, command, type_id, module_id):
     try:
         if not session.client_instance or not session.client_instance.start_client:
             result = loop.run_until_complete(init_socket(session))
+            # Fresh connection: set the device clock first (not when the
+            # caller is itself sending one of these commands).
+            if session.client_instance and result is not False and command not in _CLOCK_COMMANDS:
+                _sync_device_clock(session, loop)
 
         if session.client_instance and (result is not False):
             result = loop.run_until_complete(
