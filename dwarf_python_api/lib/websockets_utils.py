@@ -326,6 +326,11 @@ class WebSocketClient:
         # a lower-level protocol closure, a different failure mode.
         self.PingTimeoutError = False
         self.stopcalibration = False
+        # Name of the target the Dwarf is tracking / capturing, as sent by
+        # the device in its tracking and capture progress notifications -
+        # known whoever started the capture (this client, another app, a
+        # native shooting schedule). "" until one of them is received.
+        self.currentTargetName = ""
         self.takePhotoStarted = False
         self.takeWidePhotoStarted = False
         self.AstroCapture = False
@@ -1666,6 +1671,8 @@ class WebSocketClient:
                                 log.debug(f"receive notification data >> {ResNotifyStateAstroGoto_message.state}")
                                 log.debug(f">> {getAstroStateName(ResNotifyStateAstroGoto_message.state)}")
                                 log.debug(f"receive notification target_name >> {ResNotifyStateAstroGoto_message.target_name}")
+                                if ResNotifyStateAstroGoto_message.target_name:
+                                    self.currentTargetName = ResNotifyStateAstroGoto_message.target_name
 
                                 # ASTRO_STATE_RUNNING = 1; // Running 
                                 # Can be sending during CMD_CAMERA_TELE_GET_SYSTEM_WORKING_STATE
@@ -2309,6 +2316,8 @@ class WebSocketClient:
                                         self.AstroCapture = True
                                 log.debug("Decoding CMD_NOTIFY_PROGRASS_CAPTURE_RAW_LIVE_STACKING")
                                 log.debug(f"receive notification target_name >> {ResNotifyProgressCaptureRawLiveStacking_message.target_name}")
+                                if ResNotifyProgressCaptureRawLiveStacking_message.target_name:
+                                    self.currentTargetName = ResNotifyProgressCaptureRawLiveStacking_message.target_name
                                 log.debug(f"receive notification total_count >> {ResNotifyProgressCaptureRawLiveStacking_message.total_count}")
                                 update_count_type = ResNotifyProgressCaptureRawLiveStacking_message.update_type
                                 if is_wide_session:
@@ -2338,6 +2347,8 @@ class WebSocketClient:
                                     self.AstroWideCapture = True
                                 log.debug("Decoding CMD_NOTIFY_PROGRASS_WIDE_CAPTURE_RAW_LIVE_STACKING")
                                 log.debug(f"receive notification target_name >> {ResNotifyProgressCaptureRawLiveStacking_message.target_name}")
+                                if ResNotifyProgressCaptureRawLiveStacking_message.target_name:
+                                    self.currentTargetName = ResNotifyProgressCaptureRawLiveStacking_message.target_name
                                 log.debug(f"receive notification total_count >> {ResNotifyProgressCaptureRawLiveStacking_message.total_count}")
                                 update_count_type = ResNotifyProgressCaptureRawLiveStacking_message.update_type
                                 if (update_count_type == 0 or update_count_type == 2):
@@ -2357,6 +2368,8 @@ class WebSocketClient:
                                     self.AstroCapture = True
                                 log.debug("Decoding CMD_NOTIFY_PROGRESS_CAPTURE_MOSAIC")
                                 log.debug(f"receive notification target_name >> {ResNotifyProgressCaptureMosaic_message.target_name}")
+                                if ResNotifyProgressCaptureMosaic_message.target_name:
+                                    self.currentTargetName = ResNotifyProgressCaptureMosaic_message.target_name
                                 log.debug(f"receive notification total_count >> {ResNotifyProgressCaptureMosaic_message.total_count}")
                                 update_count_type = ResNotifyProgressCaptureMosaic_message.update_type
                                 if (update_count_type == 0 or update_count_type == 2):
@@ -4313,6 +4326,7 @@ def get_client_status():
 
     status = {
         "HostMode": client_instance.InitHostReceived,
+        "CurrentTargetName": client_instance.currentTargetName,
         "takePhotoStarted": client_instance.takePhotoStarted,
         "takeWidePhotoStarted": client_instance.takeWidePhotoStarted,
         "AstroCapture": client_instance.AstroCapture,

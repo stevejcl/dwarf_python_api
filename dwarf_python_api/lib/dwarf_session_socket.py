@@ -512,6 +512,9 @@ def get_client_status(session: DwarfSession):
 
     status = {
         "HostMode": client.InitHostReceived,
+        # Target the Dwarf is tracking / capturing (from its notifications,
+        # whoever started it) - see WebSocketClient.currentTargetName.
+        "CurrentTargetName": getattr(client, "currentTargetName", ""),
         "takePhotoStarted": client.takePhotoStarted,
         "takeWidePhotoStarted": client.takeWidePhotoStarted,
         "AstroCapture": client.AstroCapture,
