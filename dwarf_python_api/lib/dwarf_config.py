@@ -82,6 +82,10 @@ class DwarfConfig:
     stellarium_ip: str = ""
     stellarium_port: Optional[int] = None
 
+    # --- Dwarfium Scope Archive (links from Astro Dwarf Session) ----------
+    dwarfium_base_url: str = ""
+    dwarfium_id: str = ""
+
     # --- Logging / behaviour ----------------------------------------------
     log_file: str = "app.log"
     debug: bool = False
@@ -161,6 +165,8 @@ class DwarfConfig:
 
             stellarium_ip=ini_get("stellarium_ip"),
             stellarium_port=ini_getint("stellarium_port"),
+            dwarfium_base_url=ini_get("dwarfium_base_url"),
+            dwarfium_id=ini_get("dwarfium_id"),
 
             log_file=py_values.get("log_file") or "app.log",
             debug=bool(py_values.get("debug")),
