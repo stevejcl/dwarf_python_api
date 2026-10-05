@@ -35,6 +35,7 @@ import time
 import configparser
 
 import dwarf_python_api.lib.my_logger as log
+from dwarf_python_api.lib.dwarf_utils import parse_dec_to_float, parse_ra_to_float
 from dwarf_python_api.lib.dwarf_utils import (
     set_HostMaster,
     perform_time,
@@ -526,7 +527,7 @@ def input_manual_target():
     try:
         decimal_Dec = float(manual_declination)
     except ValueError:
-        decimal_Dec = parse_ra_to_float(manual_declination)
+        decimal_Dec = parse_dec_to_float(manual_declination)
     print("Converted to:", decimal_Dec)
     print("")
     go_goto = input("Press Enter to continue or 0 to exit: ")

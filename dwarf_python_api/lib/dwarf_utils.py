@@ -647,8 +647,9 @@ def parse_dec_to_float(dec_string):
 
     degrees, minutes, seconds = map(float, dec_string.split(':'))
 
-    # Convert to decimal degrees
-    dec_decimal = sign * degrees + minutes / 60 + seconds / 3600
+    # Convert to decimal degrees - the sign applies to the whole value
+    # ("-17:36:06" is -17.6017, not -17 + 0.6017)
+    dec_decimal = sign * (degrees + minutes / 60 + seconds / 3600)
 
     return dec_decimal
 
