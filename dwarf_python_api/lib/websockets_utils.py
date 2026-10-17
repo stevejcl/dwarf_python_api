@@ -779,6 +779,32 @@ class WebSocketClient:
                                         "StreamTypeByCamera from GET_DEVICE_STATE_INFO: "
                                         f"tele={self.StreamTypeByCamera[0]} wide={self.StreamTypeByCamera[1]}"
                                     )
+                                    # Battery, charging and storage from the
+                                    # same snapshot (user-reported Oct 2026:
+                                    # nothing shown for a Dwarf Mini) - the
+                                    # CMD_NOTIFY_ELE / CHARGE / SDCARD_INFO
+                                    # handlers only fill them when the Dwarf
+                                    # pushes one, which it may not do after a
+                                    # connection while nothing changes.
+                                    state_info = ResGetDeviceStateInfo_message.device_state_info
+                                    if ResGetDeviceStateInfo_message.HasField("device_state_info"):
+                                        if state_info.HasField("battery_info"):
+                                            self.BatteryLevelDwarf = state_info.battery_info.percentage
+                                        if state_info.HasField("charging_state"):
+                                            self.IsChargingDwarf = (state_info.charging_state.state == 2)
+                                        if state_info.HasField("storage_info") and state_info.storage_info.total_size:
+                                            self.availableSizeDwarf = state_info.storage_info.available_size
+                                            self.totalSizeDwarf = state_info.storage_info.total_size
+                                        # The Mini doesn't push CMD_NOTIFY_TEMPERATURE
+                                        # (user log, Oct 2026: only the D3 did)
+                                        if state_info.HasField("temperature") and state_info.temperature.code == protocol.OK:
+                                            self.TemperatureLevelDwarf = state_info.temperature.temperature
+                                        log.notice(
+                                            "From GET_DEVICE_STATE_INFO: "
+                                            f"battery={self.BatteryLevelDwarf}% charging={self.IsChargingDwarf} "
+                                            f"storage={self.availableSizeDwarf}/{self.totalSizeDwarf} GB "
+                                            f"temperature={self.TemperatureLevelDwarf}°C"
+                                        )
                                     log.success("Success GET DEVICE STATE INFO")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success GET DEVICE STATE INFO", ResGetDeviceStateInfo_message.code)
 
