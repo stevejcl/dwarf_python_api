@@ -795,10 +795,15 @@ class WebSocketClient:
                                         if state_info.HasField("storage_info") and state_info.storage_info.total_size:
                                             self.availableSizeDwarf = state_info.storage_info.available_size
                                             self.totalSizeDwarf = state_info.storage_info.total_size
+                                        # The Mini doesn't push CMD_NOTIFY_TEMPERATURE
+                                        # (user log, Oct 2026: only the D3 did)
+                                        if state_info.HasField("temperature") and state_info.temperature.code == protocol.OK:
+                                            self.TemperatureLevelDwarf = state_info.temperature.temperature
                                         log.notice(
                                             "From GET_DEVICE_STATE_INFO: "
                                             f"battery={self.BatteryLevelDwarf}% charging={self.IsChargingDwarf} "
-                                            f"storage={self.availableSizeDwarf}/{self.totalSizeDwarf} GB"
+                                            f"storage={self.availableSizeDwarf}/{self.totalSizeDwarf} GB "
+                                            f"temperature={self.TemperatureLevelDwarf}°C"
                                         )
                                     log.success("Success GET DEVICE STATE INFO")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "Success GET DEVICE STATE INFO", ResGetDeviceStateInfo_message.code)
