@@ -74,6 +74,8 @@ from dwarf_python_api.lib.dwarf_utils import (
     perform_motor_joystick_v3,
     perform_motor_joystick_stop_v3,
     motor_action,
+    perform_get_motor_position_full,
+    perform_motor_run_to_v3,
     perform_disconnect,
     perform_reboot,
     perform_powerdown,
@@ -1620,6 +1622,8 @@ def display_menu_motor():
     print("RR. Option RR. Reset Rotation Axis (not for the Mini)")
     print("RS. Option RS. Reset Pitch Axis")
     print("GP. Option GP. Read Position (D3 only)")
+    print("SP. Option SP. Save the Pitch Position (opening position)")
+    print("GO. Option GO. Go to the saved Pitch Position (Pitch reset first)")
     print("PA. Option PA. Auto Polar align")
     print("PS. Option PS. Stop Polar align")
     print("0.  Return")
@@ -1627,7 +1631,7 @@ def display_menu_motor():
 
 def get_user_choice_motor():
     try:
-        return input("Enter your choice (M1,M2,C,C2,I,P,P3,PM,S or 0 to return to main menu: ")
+        return input("Enter your choice (M1,M2,C,C2,I,P,P3,PM,S,SP,GO or 0 to return to main menu: ")
     except KeyboardInterrupt:
         print("Operation interrupted by the user (CTRL+C).")
         return '0'
@@ -1719,6 +1723,40 @@ def option_GP():
     print("")
     # Add your Option GP functionality here
     motor_action(8)
+
+SAVED_POSITION_FILE = "saved_position.json"
+
+def option_SP():
+    print("You selected Option SP.  Save the Pitch Position")
+    print("")
+    # The opening position: the Pitch position, to come back to after the
+    # lenses were closed (Astro Dwarf Session's end of the night)
+    pitch = perform_get_motor_position_full(2)
+    if pitch is None:
+        print("Pitch position not read.")
+        return
+    with open(SAVED_POSITION_FILE, "w", encoding="utf-8") as f:
+        json.dump({"pitch": round(float(pitch), 2), "saved_at": time.strftime("%Y-%m-%d %H:%M")}, f)
+    print(f"Pitch position saved: {pitch:.2f} ({SAVED_POSITION_FILE})")
+
+def option_GO():
+    print("You selected Option GO.  Go to the saved Pitch Position")
+    print("")
+    try:
+        with open(SAVED_POSITION_FILE, encoding="utf-8") as f:
+            pitch = float(json.load(f)["pitch"])
+    except (OSError, ValueError, KeyError, TypeError):
+        print(f"No saved position ({SAVED_POSITION_FILE}): use SP first.")
+        return
+    # Pitch reset first: its reference may be lost (Dwarf powered off and on)
+    if not motor_action(6):
+        print("Pitch reset failed.")
+        return
+    ok = perform_motor_run_to_v3(2, pitch, speed=10)
+    print(f"Go to Pitch {pitch:.2f}: {'done' if ok else 'failed'}")
+    read = perform_get_motor_position_full(2)
+    if read is not None:
+        print(f"Pitch position now: {read:.2f}")
 
 def option_PA():
     print("You selected Option PA.  Auto Polar align")
@@ -2069,6 +2107,12 @@ def choice_motor():
 
         elif user_choice == 'GP':
             option_GP()
+
+        elif user_choice == 'SP':
+            option_SP()
+
+        elif user_choice == 'GO':
+            option_GO()
 
         elif user_choice == 'PA':
             option_PA()
