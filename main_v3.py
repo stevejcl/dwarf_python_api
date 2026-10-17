@@ -1622,7 +1622,7 @@ def display_menu_motor():
     print("RR. Option RR. Reset Rotation Axis (not for the Mini)")
     print("RS. Option RS. Reset Pitch Axis")
     print("GP. Option GP. Read Position (D3 only)")
-    print("SP. Option SP. Save the Position (Pitch, + Rotation on D2/D3) - reset the axes first")
+    print("SP. Option SP. Save the Position (axes reset first; Pitch, + Rotation on D2/D3)")
     print("GO. Option GO. Go to the saved Position (axes reset first)")
     print("PA. Option PA. Auto Polar align")
     print("PS. Option PS. Stop Polar align")
@@ -1738,18 +1738,25 @@ def option_SP():
     # The opening position, to come back to after the lenses were closed
     # (Astro Dwarf Session's end of the night). The Dwarf gives a motor
     # position only once that axis was reset since it was switched on
-    # (NEED RESET) - and a reset moves the axis to its limit, so it can't
-    # be done here: reset first, place the Dwarf with the joystick, then SP.
+    # (NEED RESET): reset first - the axis goes to its limit and comes back
+    # to where it was (user-confirmed), so the position read is the one
+    # the user placed it at. The Mini's Rotation can't be reset.
+    mini = _is_mini()
+    if not mini and not motor_action(5):
+        print("Rotation reset failed.")
+        return
+    if not motor_action(6):
+        print("Pitch reset failed.")
+        return
     pitch = perform_get_motor_position_full(2)
     if pitch is None:
-        print("Pitch position not read - the Dwarf gives it only once the axis was reset since it was")
-        print("switched on (NEED RESET): reset it first (RS, or a polar position / calibration), then SP.")
+        print("Pitch position not read.")
         return
     saved = {"pitch": round(float(pitch), 2), "saved_at": time.strftime("%Y-%m-%d %H:%M")}
-    if not _is_mini():
+    if not mini:
         rotation = perform_get_motor_position_full(1)
         if rotation is None:
-            print("Rotation position not read (NEED RESET?): reset it first (RR, or a polar position), then SP.")
+            print("Rotation position not read.")
             return
         saved["rotation"] = round(float(rotation), 2)
     with open(SAVED_POSITION_FILE, "w", encoding="utf-8") as f:
