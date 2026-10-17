@@ -3431,8 +3431,23 @@ def motor_action( action, correction = 0, session=None ):
       else:
           response = connect_socket(ReqMotorReset_message, command, type_id, module_id)
 
-    #Closed Barrel Position
+    #Closed Barrel Position D3 / Mini
     if (action == 1):
+      ReqMotorRunTo_message = motor.ReqMotorRunTo ()
+      ReqMotorRunTo_message.id= 2;
+      ReqMotorRunTo_message.end_position = 0 + correction;
+      ReqMotorRunTo_message.speed = 10; # 5 gears: 0.1, 1, 5, 10, 30 degrees/s
+      ReqMotorRunTo_message.speed_ramping = 100;
+      ReqMotorRunTo_message.resolution_level = 2;
+      command = 14001; #CMD_STEP_MOTOR_RUN_TO
+      active_session = _resolve_session(session)
+      if active_session is not None:
+          response = connect_socket_session(active_session, ReqMotorRunTo_message, command, type_id, module_id)
+      else:
+          response = connect_socket(ReqMotorRunTo_message, command, type_id, module_id)
+
+    #Closed Barrel Position D2
+    if (action == 12):
       ReqMotorRunTo_message = motor.ReqMotorRunTo ()
       ReqMotorRunTo_message.id= 2;
       ReqMotorRunTo_message.end_position = 317 + correction;

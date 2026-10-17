@@ -1609,6 +1609,7 @@ def display_menu_motor():
     print("M1. One-off movement (angle + amplitude)")
     print("M2. Stop the movement")
     print("C. Closed Barrel Position")
+    print("C2. Closed Barrel Position for D2")
     print("I. Init Horizontal Position")
     print("I3. Init Horizontal Position for D3")
     print("P. Polar Align Position")
@@ -1626,8 +1627,7 @@ def display_menu_motor():
 
 def get_user_choice_motor():
     try:
-        return input("Enter your choice (M1,M2,C,I,P,P3,PM,S or 0 to return to main menu: ")
-        return input("Enter your choice (M1, M2) or 0 to return: ")
+        return input("Enter your choice (M1,M2,C,C2,I,P,P3,PM,S or 0 to return to main menu: ")
     except KeyboardInterrupt:
         print("Operation interrupted by the user (CTRL+C).")
         return '0'
@@ -1652,6 +1652,13 @@ def option_MC():
     print("")
     # Add your Option MC functionality here
     motor_action(1)
+
+def option_MC2():
+    print("You selected Option C2. Closed Barrel Position for D2")
+    print("")
+    # Add your Option MC2 functionality here
+    motor_action(12)
+
 
 def option_MI():
     print("You selected Option I. Init Horizontal Position")
@@ -2029,6 +2036,9 @@ def choice_motor():
 
         elif user_choice == 'C':
             option_MC()
+
+        elif user_choice == 'C2':
+            option_MC2()
 
         elif user_choice == 'I':
             option_MI()
