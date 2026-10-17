@@ -3617,6 +3617,9 @@ def motor_action( action, correction = 0, session=None ):
     # answer that the limit position was hit - that very end (user log, D3,
     # Oct 2026: CODE_STEP_MOTOR_LIMIT_POSITION_HIT on action 1, reported as
     # a failed command). Done when the Pitch is now near the closed position.
+    if action in (1, 12) and response == protocol.CODE_STEP_MOTOR_LIMIT_POSITION_HIT:
+        log.success("Motor Action success (closed barrel: limit position reached)")
+        return True
     if action in (1, 12) and response != 0:
         closed_at = (0 if action == 1 else 317) + correction
         position = perform_get_motor_position_full(2, session=session)
