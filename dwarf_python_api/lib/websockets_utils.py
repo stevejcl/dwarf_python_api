@@ -286,6 +286,12 @@ class StopClientException(Exception):
 
 # new version protobuf enabled
 # use a Class
+def _plausible_temperature(value) -> bool:
+    """A Dwarf temperature in degrees C - not a placeholder such as the
+    -270 sent before its first measure after starting."""
+    return value is not None and -60 <= value <= 120
+
+
 class WebSocketClient:
     # use init just once or after error connecting
     Init_Send_TeleGetSystemWorkingState = True;
@@ -797,7 +803,11 @@ class WebSocketClient:
                                             self.totalSizeDwarf = state_info.storage_info.total_size
                                         # The Mini doesn't push CMD_NOTIFY_TEMPERATURE
                                         # (user log, Oct 2026: only the D3 did)
-                                        if state_info.HasField("temperature") and state_info.temperature.code == protocol.OK:
+                                        # -270 or so before the Dwarf's first
+                                        # measure after starting (user-seen):
+                                        # implausible values are left out
+                                        if (state_info.HasField("temperature") and state_info.temperature.code == protocol.OK
+                                                and _plausible_temperature(state_info.temperature.temperature)):
                                             self.TemperatureLevelDwarf = state_info.temperature.temperature
                                         log.notice(
                                             "From GET_DEVICE_STATE_INFO: "
@@ -3204,9 +3214,12 @@ class WebSocketClient:
                                 # Now: always store the latest value (so
                                 # get_client_status() / the UI is never
                                 # stale), only THROTTLE the noisy log line.
-                                if (self.TemperatureLevelDwarf is None or abs(self.TemperatureLevelDwarf - value) >= 5):
-                                   log.notice(f"Temperature is {value}°C - {(value*9/5)+32}°F")
-                                self.TemperatureLevelDwarf = value
+                                if not _plausible_temperature(value):
+                                    log.debug(f"Temperature {value} ignored (not measured yet)")
+                                else:
+                                    if (self.TemperatureLevelDwarf is None or abs(self.TemperatureLevelDwarf - value) >= 5):
+                                       log.notice(f"Temperature is {value}°C - {(value*9/5)+32}°F")
+                                    self.TemperatureLevelDwarf = value
                             # CMD_NOTIFY_CMOS_TEMPERATURE 15292 - camera sensor temperature
                             # (as opposed to CMD_NOTIFY_TEMPERATURE above, which is the
                             # device's general/ambient temperature). One notification per
