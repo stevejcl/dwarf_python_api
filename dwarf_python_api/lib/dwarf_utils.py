@@ -3638,8 +3638,8 @@ def motor_action( action, correction = 0, session=None ):
 
 
 # Degrees from the closed Pitch position still counted as closed (the
-# limit stop may be hit just before it)
-_CLOSED_BARREL_TOLERANCE = 10
+# Dwarf touches the limit stop, then rebounds by about 3)
+_CLOSED_BARREL_TOLERANCE = 5
 
 
 def perform_get_last_sync_error(session=None):
