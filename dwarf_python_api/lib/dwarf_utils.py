@@ -3613,6 +3613,17 @@ def motor_action( action, correction = 0, session=None ):
       else:
           response = connect_socket(ReqMotorServiceJoystickFixedAngle_message, command, type_id, module_id)
 
+    # Closing the barrel runs the Pitch to its closed end: the Dwarf may
+    # answer that the limit position was hit - that very end (user log, D3,
+    # Oct 2026: CODE_STEP_MOTOR_LIMIT_POSITION_HIT on action 1, reported as
+    # a failed command). Done when the Pitch is now near the closed position.
+    if action in (1, 12) and response != 0:
+        closed_at = (0 if action == 1 else 317) + correction
+        position = perform_get_motor_position_full(2, session=session)
+        if position is not None and abs(position - closed_at) <= _CLOSED_BARREL_TOLERANCE:
+            log.success(f"Motor Action success (closed barrel: Pitch at {position:.1f})")
+            return True
+
     if response is not False: 
 
       if response == 0:
@@ -3624,6 +3635,11 @@ def motor_action( action, correction = 0, session=None ):
         log.error("Dwarf API: Dwarf Device not connected")
 
     return False
+
+
+# Degrees from the closed Pitch position still counted as closed (the
+# Dwarf touches the limit stop, then rebounds by about 3)
+_CLOSED_BARREL_TOLERANCE = 5
 
 
 def perform_get_last_sync_error(session=None):
