@@ -1733,7 +1733,8 @@ def option_SP():
     # lenses were closed (Astro Dwarf Session's end of the night)
     pitch = perform_get_motor_position_full(2)
     if pitch is None:
-        print("Pitch position not read.")
+        print("Pitch position not read - the Dwarf gives it only once the axis was reset since it was")
+        print("switched on (NEED RESET): reset it first (RS, or a polar position / calibration), then SP.")
         return
     with open(SAVED_POSITION_FILE, "w", encoding="utf-8") as f:
         json.dump({"pitch": round(float(pitch), 2), "saved_at": time.strftime("%Y-%m-%d %H:%M")}, f)
