@@ -3232,7 +3232,8 @@ class WebSocketClient:
                                 log.debug(f"receive camera_type >> {ResNotifyCmosTemperature_message.camera_type}")
                                 cam_type = ResNotifyCmosTemperature_message.camera_type
                                 cam_label = "Wide" if cam_type == 1 else "Tele"
-                                if ResNotifyCmosTemperature_message.HasField("temperature"):
+                                if (ResNotifyCmosTemperature_message.HasField("temperature")
+                                        and _plausible_temperature(ResNotifyCmosTemperature_message.temperature)):
                                     value = ResNotifyCmosTemperature_message.temperature
                                     previous = self.CmosTemperatureDwarf.get(cam_type)
                                     if previous is None or abs(previous - value) >= 5:
