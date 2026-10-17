@@ -1622,8 +1622,8 @@ def display_menu_motor():
     print("RR. Option RR. Reset Rotation Axis (not for the Mini)")
     print("RS. Option RS. Reset Pitch Axis")
     print("GP. Option GP. Read Position (D3 only)")
-    print("SP. Option SP. Save the Pitch Position (opening position)")
-    print("GO. Option GO. Go to the saved Pitch Position (Pitch reset first)")
+    print("SP. Option SP. Save the Position (axes reset first; Pitch, + Rotation on D2/D3)")
+    print("GO. Option GO. Go to the saved Position (axes reset first)")
     print("PA. Option PA. Auto Polar align")
     print("PS. Option PS. Stop Polar align")
     print("0.  Return")
@@ -1726,38 +1726,77 @@ def option_GP():
 
 SAVED_POSITION_FILE = "saved_position.json"
 
-def option_SP():
-    print("You selected Option SP.  Save the Pitch Position")
-    print("")
-    # The opening position: the Pitch position, to come back to after the
-    # lenses were closed (Astro Dwarf Session's end of the night)
-    pitch = perform_get_motor_position_full(2)
-    if pitch is None:
-        print("Pitch position not read - the Dwarf gives it only once the axis was reset since it was")
-        print("switched on (NEED RESET): reset it first (RS, or a polar position / calibration), then SP.")
-        return
-    with open(SAVED_POSITION_FILE, "w", encoding="utf-8") as f:
-        json.dump({"pitch": round(float(pitch), 2), "saved_at": time.strftime("%Y-%m-%d %H:%M")}, f)
-    print(f"Pitch position saved: {pitch:.2f} ({SAVED_POSITION_FILE})")
+def _is_mini():
+    """The Mini's Rotation axis has no home switch: it can't be reset, so
+    only its Pitch is saved / restored."""
+    dwarf_id = dwarf_python_api.get_config_data.get_config_data().get('dwarf_id')
+    return dwarf_python_api.get_config_data.config_to_dwarf_id_int(dwarf_id) == 5
 
-def option_GO():
-    print("You selected Option GO.  Go to the saved Pitch Position")
+def option_SP():
+    print("You selected Option SP.  Save the Position (Pitch, and Rotation on D2 / D3)")
     print("")
-    try:
-        with open(SAVED_POSITION_FILE, encoding="utf-8") as f:
-            pitch = float(json.load(f)["pitch"])
-    except (OSError, ValueError, KeyError, TypeError):
-        print(f"No saved position ({SAVED_POSITION_FILE}): use SP first.")
+    # The opening position, to come back to after the lenses were closed
+    # (Astro Dwarf Session's end of the night). The Dwarf gives a motor
+    # position only once that axis was reset since it was switched on
+    # (NEED RESET): reset first - the axis goes to its limit and comes back
+    # to where it was (user-confirmed), so the position read is the one
+    # the user placed it at. The Mini's Rotation can't be reset.
+    mini = _is_mini()
+    if not mini and not motor_action(5):
+        print("Rotation reset failed.")
         return
-    # Pitch reset first: its reference may be lost (Dwarf powered off and on)
     if not motor_action(6):
         print("Pitch reset failed.")
         return
+    pitch = perform_get_motor_position_full(2)
+    if pitch is None:
+        print("Pitch position not read.")
+        return
+    saved = {"pitch": round(float(pitch), 2), "saved_at": time.strftime("%Y-%m-%d %H:%M")}
+    if not mini:
+        rotation = perform_get_motor_position_full(1)
+        if rotation is None:
+            print("Rotation position not read.")
+            return
+        saved["rotation"] = round(float(rotation), 2)
+    with open(SAVED_POSITION_FILE, "w", encoding="utf-8") as f:
+        json.dump(saved, f)
+    print(f"Position saved: {saved} ({SAVED_POSITION_FILE})")
+
+def option_GO():
+    print("You selected Option GO.  Go to the saved Position")
+    print("")
+    try:
+        with open(SAVED_POSITION_FILE, encoding="utf-8") as f:
+            saved = json.load(f)
+        pitch = float(saved["pitch"])
+        rotation = saved.get("rotation")
+    except (OSError, ValueError, KeyError, TypeError):
+        print(f"No saved position ({SAVED_POSITION_FILE}): use SP first.")
+        return
+    # Reset first: the reference may be lost (Dwarf powered off and on).
+    # Same order as the polar position: Rotation reset, Pitch reset,
+    # Rotation, then Pitch.
+    with_rotation = rotation is not None and not _is_mini()
+    if with_rotation and not motor_action(5):
+        print("Rotation reset failed.")
+        return
+    if not motor_action(6):
+        print("Pitch reset failed.")
+        return
+    if with_rotation:
+        ok = perform_motor_run_to_v3(1, float(rotation), speed=10)
+        print(f"Go to Rotation {float(rotation):.2f}: {'done' if ok else 'failed'}")
+        if not ok:
+            return
     ok = perform_motor_run_to_v3(2, pitch, speed=10)
     print(f"Go to Pitch {pitch:.2f}: {'done' if ok else 'failed'}")
-    read = perform_get_motor_position_full(2)
-    if read is not None:
-        print(f"Pitch position now: {read:.2f}")
+    for motor_id, name in ((1, "Rotation"), (2, "Pitch")):
+        if motor_id == 1 and not with_rotation:
+            continue
+        read = perform_get_motor_position_full(motor_id)
+        if read is not None:
+            print(f"{name} position now: {read:.2f}")
 
 def option_PA():
     print("You selected Option PA.  Auto Polar align")
