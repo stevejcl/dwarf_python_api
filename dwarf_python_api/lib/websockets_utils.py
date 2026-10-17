@@ -977,8 +977,15 @@ class WebSocketClient:
                                 log.debug(f"receive code data >> {ResNotifyMotorPosition_message.code}")
                                 log.debug(f"receive position data >> {ResNotifyMotorPosition_message.position}")
 
+                                # The limit stop reached: an answer, not a
+                                # failure of the link - its code is handed
+                                # back as is, for the caller to decide
+                                # (closing the barrel ends against it)
+                                if (ResNotifyMotorPosition_message.code == protocol.CODE_STEP_MOTOR_LIMIT_POSITION_HIT):
+                                    log.notice(f"CMD_STEP_MOTOR_RUN_TO: limit position reached (position {ResNotifyMotorPosition_message.position:.1f})")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "CMD_STEP_MOTOR_RUN limit position", ResNotifyMotorPosition_message.code)
                                 # OK = 0; // No Error
-                                if (ResNotifyMotorPosition_message.code != protocol.OK):
+                                elif (ResNotifyMotorPosition_message.code != protocol.OK):
                                     if (ResNotifyMotorPosition_message.code == protocol.CODE_STEP_MOTOR_NEED_RESET):
                                         log.error(f"Error MOTOR need RESET >> EXIT")
 
