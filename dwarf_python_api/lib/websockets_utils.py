@@ -394,6 +394,16 @@ class WebSocketClient:
         self.last_restack_check = None   # astro.ResIsImageStackable
         self.last_restack_start = None   # astro.ResRepostprocess
         self.task_states = {}
+        # The task last seen running (TASK_ID_*), to tell when it ends - the
+        # Dwarf then reports TASK_ID_IDLE (field-seen Oct 2026, a megastack:
+        # 109-byte RUNNING notifications, then a 105-byte one and 8-byte
+        # idle ones)
+        self.active_task_id = None
+        # CMD_NOTIFY_ALBUM_UPDATE: when the album last changed and its
+        # media_type (4 during a megastack); CMD_NOTIFY_SWITCH_SHOOTING_MODE:
+        # the shooting mode switched to
+        self.last_album_update = None   # {"media_type", "updated"}
+        self.last_shooting_mode = None  # {"state", "source_mode", "dst_mode", "updated"}
         # User-requested (Sep 2026): the DEVICE_OCCUPIED handler below
         # already builds a clear, actionable message when the device
         # refuses a connection (close code 4409 - another client, likely
@@ -3418,6 +3428,30 @@ class WebSocketClient:
                                     if task_id != task_center.TASK_ID_IDLE and (previous is None or previous["state"] != state):
                                         log.notice(f"Task {task_center.TaskId.Name(task_id)}: {notify.OperationState.Name(state)}"
                                                    + (f" - {result_dir}" if result_dir else ""))
+                                    if task_id != task_center.TASK_ID_IDLE and state == notify.OPERATION_STATE_RUNNING:
+                                        self.active_task_id = task_id
+                                    elif self.active_task_id is not None and (task_id == task_center.TASK_ID_IDLE or task_id == self.active_task_id):
+                                        log.notice(f"Task {task_center.TaskId.Name(self.active_task_id)}: ended"
+                                                   + (f" - {result_dir}" if result_dir else ""))
+                                        self.active_task_id = None
+                            # CMD_NOTIFY_ALBUM_UPDATE 15230: the album changed (media_type)
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_ALBUM_UPDATE):
+                                AlbumUpdate_message = notify.AlbumUpdate()
+                                AlbumUpdate_message.ParseFromString(WsPacket_message.data)
+                                self.last_album_update = {"media_type": AlbumUpdate_message.media_type, "updated": time.time()}
+                                log.debug(f"Album updated (media_type {AlbumUpdate_message.media_type})")
+                            # CMD_NOTIFY_SWITCH_SHOOTING_MODE 15267: the shooting mode switched
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_SWITCH_SHOOTING_MODE):
+                                SwitchShootingMode_message = notify.SwitchShootingMode()
+                                SwitchShootingMode_message.ParseFromString(WsPacket_message.data)
+                                self.last_shooting_mode = {
+                                    "state": SwitchShootingMode_message.state,
+                                    "source_mode": SwitchShootingMode_message.source_mode,
+                                    "dst_mode": SwitchShootingMode_message.dst_mode,
+                                    "updated": time.time(),
+                                }
+                                log.debug(f"Shooting mode switch: {SwitchShootingMode_message.source_mode} -> "
+                                          f"{SwitchShootingMode_message.dst_mode} (state {SwitchShootingMode_message.state})")
                             # Unknown
                             elif (WsPacket_message.cmd != self.command):
                                 log.info(f"Receiving command {WsPacket_message.cmd}")
