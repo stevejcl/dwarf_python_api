@@ -28,6 +28,15 @@ import dwarf_python_api.proto.shooting_schedule_pb2 as shooting_schedule
 # import data for config.py
 import dwarf_python_api.get_config_data
 
+# Megastack (re-stack several sessions on the Dwarf): the official app's
+# command, pcap-confirmed Oct 2026 (Dwarf Mini) - the gap between
+# CMD_ASTRO_STOP_MAKE_FITS_THUMB (11034) and CMD_ASTRO_STOP_RESTACKED
+# (11036), not in protocol.proto. Request ReqStartRepostprocess (the same
+# src_dirs as CMD_ASTRO_CHECK_IF_RESTACKABLE, sent first), response
+# ResRepostprocess (result_dir); the task then reports through
+# CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE (TASK_ID_ASTRO_MULTI_STACK).
+CMD_ASTRO_START_RESTACK = 11035
+
 class Dwarf_Result (Enum):
     DISCONNECTED = -2;
     WARNING = -1;
@@ -377,6 +386,14 @@ class WebSocketClient:
         # "positioning" reference angles for motor_action() - D2/D3 have
         # hardcoded end_position values there already, Mini doesn't).
         self.last_motor_position = {}  # {motor_id: ResMotorPosition}
+        # Megastack (CMD_ASTRO_START_RESTACK): the last check / start
+        # response, and the last state of each device task from
+        # CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE ({task_id: {"state",
+        # "result_dir", "updated"}}) - for perform_check_restackable() /
+        # perform_start_restack() / get_task_state().
+        self.last_restack_check = None   # astro.ResIsImageStackable
+        self.last_restack_start = None   # astro.ResRepostprocess
+        self.task_states = {}
         # User-requested (Sep 2026): the DEVICE_OCCUPIED handler below
         # already builds a clear, actionable message when the device
         # refuses a connection (close code 4409 - another client, likely
@@ -3357,6 +3374,50 @@ class WebSocketClient:
                                 if (self.PowerIndStateDwarf is None or self.PowerIndStateDwarf != value):
                                    log.notice(f"Power Indicator is {getPowerStateName(value)}")
                                    self.PowerIndStateDwarf = value
+                            # CMD_ASTRO_CHECK_IF_RESTACKABLE 11032 (megastack check)
+                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_CHECK_IF_RESTACKABLE):
+                                ResIsImageStackable_message = astro.ResIsImageStackable()
+                                ResIsImageStackable_message.ParseFromString(WsPacket_message.data)
+                                self.last_restack_check = ResIsImageStackable_message
+                                code = ResIsImageStackable_message.code
+                                missing = len(ResIsImageStackable_message.need_dark_frame_info)
+                                log.debug(f"Decoding CMD_ASTRO_CHECK_IF_RESTACKABLE code {code}, dark frames needed: {missing}")
+                                if code != protocol.OK:
+                                    log.error(f"Error CMD_ASTRO_CHECK_IF_RESTACKABLE CODE {getErrorCodeValueName(code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_ASTRO_CHECK_IF_RESTACKABLE", code)
+                                else:
+                                    log.success("Success CMD_ASTRO_CHECK_IF_RESTACKABLE")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CMD_ASTRO_CHECK_IF_RESTACKABLE", code)
+                            # CMD_ASTRO_START_RESTACK 11035 (megastack start)
+                            elif (WsPacket_message.cmd==CMD_ASTRO_START_RESTACK):
+                                ResRepostprocess_message = astro.ResRepostprocess()
+                                ResRepostprocess_message.ParseFromString(WsPacket_message.data)
+                                self.last_restack_start = ResRepostprocess_message
+                                code = ResRepostprocess_message.code
+                                log.debug(f"Decoding CMD_ASTRO_START_RESTACK code {code} result_dir {ResRepostprocess_message.result_dir}")
+                                if code != protocol.OK:
+                                    log.error(f"Error CMD_ASTRO_START_RESTACK CODE {getErrorCodeValueName(code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_ASTRO_START_RESTACK", code)
+                                else:
+                                    log.success(f"Success CMD_ASTRO_START_RESTACK: {ResRepostprocess_message.result_dir}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CMD_ASTRO_START_RESTACK", code)
+                            # CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE 15261: a device task's state
+                            # (megastack: TASK_ID_ASTRO_MULTI_STACK, its result_dir)
+                            elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE):
+                                ResNotifyTaskState_message = task_center.ResNotifyTaskState()
+                                try:
+                                    ResNotifyTaskState_message.ParseFromString(WsPacket_message.data)
+                                except google.protobuf.message.DecodeError:
+                                    log.debug("CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE: not decodable")
+                                else:
+                                    task_id = ResNotifyTaskState_message.task_id
+                                    state = ResNotifyTaskState_message.state.base_state
+                                    result_dir = ResNotifyTaskState_message.param.repostprocess_task_param.result_dir or None
+                                    previous = self.task_states.get(task_id)
+                                    self.task_states[task_id] = {"state": state, "result_dir": result_dir, "updated": time.time()}
+                                    if task_id != task_center.TASK_ID_IDLE and (previous is None or previous["state"] != state):
+                                        log.notice(f"Task {task_center.TaskId.Name(task_id)}: {notify.OperationState.Name(state)}"
+                                                   + (f" - {result_dir}" if result_dir else ""))
                             # Unknown
                             elif (WsPacket_message.cmd != self.command):
                                 log.info(f"Receiving command {WsPacket_message.cmd}")
