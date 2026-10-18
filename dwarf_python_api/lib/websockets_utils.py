@@ -523,7 +523,7 @@ class WebSocketClient:
         try:
             await asyncio.sleep(2)
             while not self.stop_task.is_set():
-                if self.websocket.state != websockets.protocol.OPEN:
+                if not self.websocket or self.websocket.state != websockets.protocol.OPEN:
                     log.error("WebSocket connection is not open.")
                     self.stop_task.set()
                 elif (not self.wait_pong):
@@ -667,7 +667,10 @@ class WebSocketClient:
                 await asyncio.sleep(0.02)
                 log.info("Wait for frames")
 
-                if self.websocket.state != websockets.protocol.OPEN:
+                # self.websocket is False once the connection is closed (a
+                # POWER_OFF notification, user log Oct 2026: "'bool' object
+                # has no attribute 'state'")
+                if not self.websocket or self.websocket.state != websockets.protocol.OPEN:
                     log.error("WebSocket connection is not open.")
                     self.wait_pong = False
                     self.stop_task.set()
