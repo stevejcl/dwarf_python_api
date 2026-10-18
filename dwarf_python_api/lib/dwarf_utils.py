@@ -2768,6 +2768,127 @@ def perform_stopAstroPhoto(session=None):
 
     return False
 
+def _restack_client(active_session):
+    return active_session.client_instance if active_session is not None else websockets_utils.client_instance
+
+
+def _restack_dirs(src_dirs) -> list[str]:
+    """Session folders as the official app sends them: the full path on
+    the Dwarf, with a trailing "/" ("/DWARF_mini/Astronomy/DWARF_RAW_TELE_
+    LDN 1235_EXP_120_GAIN_80_2026-10-17-22-05-06-912/")."""
+    return [d if d.endswith("/") else d + "/" for d in (str(x) for x in src_dirs) if d]
+
+
+def perform_check_restackable(src_dirs, session=None):
+    """Megastack, step 1 - CMD_ASTRO_CHECK_IF_RESTACKABLE (11032): can the
+    Dwarf stack these sessions together (same camera, binning, filter,
+    target, dark frames)? The official app sends it right before the start
+    (pcap-confirmed Oct 2026, Dwarf Mini: 3 sessions of LDN 1235, 120 s and
+    90 s exposures mixed - accepted).
+
+    src_dirs: the sessions' folders on the Dwarf (full paths, see
+    _restack_dirs()).
+
+    Returns {"ok": bool, "code": int, "code_name": str, "need_dark_frames":
+    [{"exp_name", "gain_name", "bin_name", "temperature"}]} - code 0 when
+    they can be stacked, else a CODE_ASTRO_RESTACK_* code (e.g. -11522
+    target mismatch) - or None when the Dwarf isn't connected / didn't
+    answer."""
+    module_id = 3  # MODULE_ASTRO
+    type_id = 0  # REQUEST
+    message = astro.ReqIsImageStackable()
+    message.src_dirs.extend(_restack_dirs(src_dirs))
+    command = 11032  # CMD_ASTRO_CHECK_IF_RESTACKABLE
+
+    active_session = _resolve_session(session)
+    client = _restack_client(active_session)
+    if client is not None:
+        client.last_restack_check = None
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
+    if response is False:
+        log.error("Dwarf API: Dwarf Device not connected")
+        return None
+
+    client = _restack_client(active_session)
+    answer = getattr(client, "last_restack_check", None) if client else None
+    if answer is None:
+        log.error(f"CHECK IF RESTACKABLE: no answer ({response})")
+        return None
+    need = [
+        {"exp_name": d.exp_name, "gain_name": d.gain_name, "bin_name": d.bin_name,
+         "temperature": d.temperature if d.HasField("temperature") else None}
+        for d in answer.need_dark_frame_info
+    ]
+    return {
+        "ok": answer.code == protocol.OK,
+        "code": answer.code,
+        "code_name": websockets_utils.getErrorCodeValueName(answer.code),
+        "need_dark_frames": need,
+    }
+
+
+def perform_start_restack(src_dirs, session=None):
+    """Megastack, step 2 - CMD_ASTRO_START_RESTACK (11035, pcap-confirmed
+    Oct 2026): the Dwarf stacks these sessions together into
+    /<Dwarf>/Astronomy/RESTACKED/RESTACKED_<first session's name>_Astro_
+    <YYYYMMDD-HHMMSSmmm>/. Call perform_check_restackable() first, like the
+    official app. It runs on the Dwarf as a task (TASK_ID_ASTRO_MULTI_
+    STACK): follow it with get_task_state().
+
+    Returns {"ok": bool, "code": int, "code_name": str, "result_dir": str}
+    - result_dir as answered (the official app got its stacked.jpg path) -
+    or None when the Dwarf isn't connected / didn't answer."""
+    module_id = 3  # MODULE_ASTRO
+    type_id = 0  # REQUEST
+    message = astro.ReqStartRepostprocess()
+    message.src_dirs.extend(_restack_dirs(src_dirs))
+    command = websockets_utils.CMD_ASTRO_START_RESTACK
+
+    active_session = _resolve_session(session)
+    client = _restack_client(active_session)
+    if client is not None:
+        client.last_restack_start = None
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
+    if response is False:
+        log.error("Dwarf API: Dwarf Device not connected")
+        return None
+
+    client = _restack_client(active_session)
+    answer = getattr(client, "last_restack_start", None) if client else None
+    if answer is None:
+        log.error(f"START RESTACK: no answer ({response})")
+        return None
+    return {
+        "ok": answer.code == protocol.OK,
+        "code": answer.code,
+        "code_name": websockets_utils.getErrorCodeValueName(answer.code),
+        "result_dir": answer.result_dir,
+    }
+
+
+def get_task_state(task_name: str = "TASK_ID_ASTRO_MULTI_STACK", session=None):
+    """Last state the Dwarf reported for one of its tasks
+    (CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE, no request sent): {"state":
+    "OPERATION_STATE_RUNNING" / ..._STOPPING / ..._STOPPED / ..._IDLE,
+    "result_dir": str | None, "updated": epoch} - or None when none was
+    received on this connection."""
+    import dwarf_python_api.proto.notify_pb2 as notify
+    import dwarf_python_api.proto.task_center_pb2 as task_center
+
+    client = _restack_client(_resolve_session(session))
+    states = getattr(client, "task_states", None) if client else None
+    entry = (states or {}).get(task_center.TaskId.Value(task_name))
+    if entry is None:
+        return None
+    return {**entry, "state": notify.OperationState.Name(entry["state"])}
+
+
 def perform_takeAstroWidePhoto(session=None):
     """`session`: optional DwarfSession - see perform_goto()."""
 

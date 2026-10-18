@@ -146,6 +146,7 @@ from dwarf_python_api.lib.data_wide_utils import (
 )
 import dwarf_python_api.get_config_data
 from dwarf_python_api.lib.websockets_utils import get_client_status
+from dwarf_python_api.lib.dwarf_utils import perform_check_restackable, perform_start_restack, get_task_state
 from dwarf_python_api.lib.dwarf_utils import (
     read_bluetooth_ble_wifi_type,
     read_bluetooth_autoAP,
@@ -1278,12 +1279,13 @@ def display_menu_astro():
     print("A15. Set binning/file format")
     print("A16. Set Mosaic Framing")
     print("A17. Start Mosaic Session")
+    print("A18. Megastack: stack several sessions together on the Dwarf (check, start, follow)")
     print("0.   Return")
 
 
 def get_user_choice_astro():
     try:
-        return input("Enter your choice (A0 to A17) or 0 to return: ")
+        return input("Enter your choice (A0 to A18) or 0 to return: ")
     except KeyboardInterrupt:
         print("Operation interrupted by the user (CTRL+C).")
         return '0'
@@ -1580,6 +1582,47 @@ def option_A17():
         perform_start_mosaic_v3(framingX, framingY)
 
 
+def option_A18():
+    """Megastack (CMD_ASTRO_CHECK_IF_RESTACKABLE then CMD_ASTRO_START_RESTACK,
+    like the official app): the session folders as on the Dwarf's disk."""
+    print("=== Megastack ===")
+    root = input("Astronomy folder on the Dwarf (default /DWARF_mini/Astronomy): ").strip() or "/DWARF_mini/Astronomy"
+    print("Session folder names, one per line (e.g. DWARF_RAW_TELE_LDN 1235_EXP_120_GAIN_80_2026-10-17-22-05-06-912),")
+    print("an empty line to finish:")
+    names = []
+    while True:
+        name = input("> ").strip().strip("/")
+        if not name:
+            break
+        names.append(name if name.startswith("/") else f"{root.rstrip('/')}/{name}")
+    if len(names) < 2:
+        print("At least 2 sessions.")
+        return
+    check = perform_check_restackable(names)
+    print(f"Check: {check}")
+    if not check or not check["ok"]:
+        return
+    if input("Start the megastack? (y/N): ").strip().lower() != "y":
+        return
+    start = perform_start_restack(names)
+    print(f"Start: {start}")
+    if not start or not start["ok"]:
+        return
+    print("Following the task (CTRL+C to stop following - the Dwarf goes on):")
+    last = None
+    try:
+        while True:
+            state = get_task_state()
+            if state != last:
+                print(f"  {time.strftime('%H:%M:%S')} {state}")
+                last = state
+            if state and state["state"] in ("OPERATION_STATE_STOPPED", "OPERATION_STATE_IDLE"):
+                break
+            time.sleep(5)
+    except KeyboardInterrupt:
+        pass
+
+
 def choice_astro():
     while True:
         display_menu_astro()
@@ -1590,7 +1633,7 @@ def choice_astro():
             'A5': option_A5, 'A6': option_A6, 'A7': option_A7, 'A8': option_A8,
             'A9': option_A9, 'A10': option_A10, 'A11': option_A11, 'A12': option_A12,
             'A13': option_A13, 'A14': option_A14, 'A15': option_A15, 'A16': option_A16,
-            'A17': option_A17
+            'A17': option_A17, 'A18': option_A18
         }
         if choice == '0':
             print("Return to the main menu")
