@@ -104,6 +104,35 @@ class _DeviceLabelFilter(logging.Filter):
         record.device = f"[{label}] " if label else ""
         return True
 
+# --- Previous logs kept on restart -----------------------------------------
+# (user-reported Oct 2026: the app restarted twice in a night, the second
+# start's rotation overwrote <log>.old - the session that went wrong was
+# lost). Several generations: <log>.old the last run, <log>.old.2 the one
+# before... up to LOG_BACKUPS.
+LOG_BACKUPS = 5
+
+
+def _rotate(path, backups=None):
+    """Moves `path` to <path>.old, after shifting the earlier backups
+    (<path>.old -> <path>.old.2 ... the oldest dropped)."""
+    backups = LOG_BACKUPS if backups is None else backups
+    if not os.path.exists(path):
+        return
+
+    def name(n):
+        return f"{path}.old" if n == 1 else f"{path}.old.{n}"
+
+    try:
+        if os.path.exists(name(backups)):
+            os.remove(name(backups))
+        for n in range(backups - 1, 0, -1):
+            if os.path.exists(name(n)):
+                shutil.move(name(n), name(n + 1))
+        shutil.move(path, name(1))
+    except Exception as e:
+        print(f"Error moving log file {path}: {e}")
+
+
 # --- Separate file for unmatched/untreated notification frames -------------
 # (user-requested Sep 2026, after tracing a misleading "bad UTF-8" warning
 # to websockets_utils.py's fallback branch for frames whose cmd matched no
@@ -130,16 +159,12 @@ def log_unmatched_frame(message: str) -> None:
     lands here, on perfectly normal traffic, so this file can grow much
     faster across repeated sessions) - same one-generation backup as
     update_log_file()'s own log_file + '.old' handling, not a rotating
-    series of many backups."""
+    series of many backups - several since Oct 2026, see _rotate())."""
     global _unmatched_frame_logger
     if _unmatched_frame_logger is None:
         base = log_file if log_file else "unmatched_frames"
         err_path = os.path.splitext(base)[0] + ".err"
-        if os.path.exists(err_path):
-            try:
-                shutil.move(err_path, err_path + ".old")
-            except Exception as e:
-                print(f"Error moving unmatched-frames log file: {e}")
+        _rotate(err_path)
         _unmatched_frame_logger = logging.getLogger("my_logger.unmatched_frames")
         _unmatched_frame_logger.setLevel(logging.DEBUG)
         _unmatched_frame_logger.propagate = False
@@ -221,14 +246,8 @@ def update_log_file(default_name: str = "app.log"):
         # Add the new file handler if log_file is not None
         if log_file is not None:
             try:
-                # Backup old log file if it exists
-                old_log_file = log_file + '.old'
-                if os.path.exists(log_file):
-                    try:
-                        # Rename the old log file to app.log.old (or any other naming convention)
-                        shutil.move(log_file, old_log_file)
-                    except Exception as e:
-                        print(f"Error moving log file: {e}")
+                # Backup old log files if they exist (.old, .old.2 ...)
+                _rotate(log_file)
 
                 # Determine file log level based on 'debug' in data_config
                 file_log_level = logging.DEBUG if data_config.get('debug') else logging.INFO
