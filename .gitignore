@@ -7,3 +7,5 @@
 *.bak
 saved_position.json
 /myenv
+*.log.old
+*.log.old.*
