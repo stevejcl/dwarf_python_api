@@ -3,7 +3,6 @@ import logging
 import types
 import os
 import sys
-import shutil
 # import data for config.py
 import dwarf_python_api.get_config_data
 
@@ -110,12 +109,34 @@ class _DeviceLabelFilter(logging.Filter):
 # lost). Several generations: <log>.old the last run, <log>.old.2 the one
 # before... up to LOG_BACKUPS.
 LOG_BACKUPS = 5
+# Once per launch (user-reported Oct 2026: at each start the first rotation
+# made the .old, a second one replaced it with an empty log). The native
+# window's process (multiprocessing, spawned: it re-imports this module and
+# re-runs setup_logger()) rotated the file the main process had just opened -
+# on Windows the rename of an open file fails and shutil.move falls back to a
+# copy: the fresh, empty log copied over the .old. Only the first process
+# rotates (the variable is inherited by its children); os.replace never copies.
+_ROTATED_ENV = "DWARF_PYTHON_API_LOGS_ROTATED"
+
+
+def _main_process():
+    try:
+        import multiprocessing
+        return multiprocessing.parent_process() is None
+    except Exception:
+        return True
 
 
 def _rotate(path, backups=None):
     """Moves `path` to <path>.old, after shifting the earlier backups
-    (<path>.old -> <path>.old.2 ... the oldest dropped)."""
+    (<path>.old -> <path>.old.2 ... the oldest dropped). Once per file and
+    per launch, in the main process only (see _ROTATED_ENV)."""
     backups = LOG_BACKUPS if backups is None else backups
+    key = os.path.abspath(path)
+    done = [p for p in os.environ.get(_ROTATED_ENV, "").split(os.pathsep) if p]
+    if key in done or not _main_process():
+        return
+    os.environ[_ROTATED_ENV] = os.pathsep.join(done + [key])
     if not os.path.exists(path):
         return
 
@@ -127,8 +148,8 @@ def _rotate(path, backups=None):
             os.remove(name(backups))
         for n in range(backups - 1, 0, -1):
             if os.path.exists(name(n)):
-                shutil.move(name(n), name(n + 1))
-        shutil.move(path, name(1))
+                os.replace(name(n), name(n + 1))
+        os.replace(path, name(1))
     except Exception as e:
         print(f"Error moving log file {path}: {e}")
 
