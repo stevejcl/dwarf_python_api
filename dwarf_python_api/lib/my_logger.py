@@ -3,7 +3,6 @@ import logging
 import types
 import os
 import sys
-import shutil
 # import data for config.py
 import dwarf_python_api.get_config_data
 
@@ -104,6 +103,57 @@ class _DeviceLabelFilter(logging.Filter):
         record.device = f"[{label}] " if label else ""
         return True
 
+# --- Previous logs kept on restart -----------------------------------------
+# (user-reported Oct 2026: the app restarted twice in a night, the second
+# start's rotation overwrote <log>.old - the session that went wrong was
+# lost). Several generations: <log>.old the last run, <log>.old.2 the one
+# before... up to LOG_BACKUPS.
+LOG_BACKUPS = 5
+# Once per launch (user-reported Oct 2026: at each start the first rotation
+# made the .old, a second one replaced it with an empty log). The native
+# window's process (multiprocessing, spawned: it re-imports this module and
+# re-runs setup_logger()) rotated the file the main process had just opened -
+# on Windows the rename of an open file fails and shutil.move falls back to a
+# copy: the fresh, empty log copied over the .old. Only the first process
+# rotates (the variable is inherited by its children); os.replace never copies.
+_ROTATED_ENV = "DWARF_PYTHON_API_LOGS_ROTATED"
+
+
+def _main_process():
+    try:
+        import multiprocessing
+        return multiprocessing.parent_process() is None
+    except Exception:
+        return True
+
+
+def _rotate(path, backups=None):
+    """Moves `path` to <path>.old, after shifting the earlier backups
+    (<path>.old -> <path>.old.2 ... the oldest dropped). Once per file and
+    per launch, in the main process only (see _ROTATED_ENV)."""
+    backups = LOG_BACKUPS if backups is None else backups
+    key = os.path.abspath(path)
+    done = [p for p in os.environ.get(_ROTATED_ENV, "").split(os.pathsep) if p]
+    if key in done or not _main_process():
+        return
+    os.environ[_ROTATED_ENV] = os.pathsep.join(done + [key])
+    if not os.path.exists(path):
+        return
+
+    def name(n):
+        return f"{path}.old" if n == 1 else f"{path}.old.{n}"
+
+    try:
+        if os.path.exists(name(backups)):
+            os.remove(name(backups))
+        for n in range(backups - 1, 0, -1):
+            if os.path.exists(name(n)):
+                os.replace(name(n), name(n + 1))
+        os.replace(path, name(1))
+    except Exception as e:
+        print(f"Error moving log file {path}: {e}")
+
+
 # --- Separate file for unmatched/untreated notification frames -------------
 # (user-requested Sep 2026, after tracing a misleading "bad UTF-8" warning
 # to websockets_utils.py's fallback branch for frames whose cmd matched no
@@ -130,16 +180,12 @@ def log_unmatched_frame(message: str) -> None:
     lands here, on perfectly normal traffic, so this file can grow much
     faster across repeated sessions) - same one-generation backup as
     update_log_file()'s own log_file + '.old' handling, not a rotating
-    series of many backups."""
+    series of many backups - several since Oct 2026, see _rotate())."""
     global _unmatched_frame_logger
     if _unmatched_frame_logger is None:
         base = log_file if log_file else "unmatched_frames"
         err_path = os.path.splitext(base)[0] + ".err"
-        if os.path.exists(err_path):
-            try:
-                shutil.move(err_path, err_path + ".old")
-            except Exception as e:
-                print(f"Error moving unmatched-frames log file: {e}")
+        _rotate(err_path)
         _unmatched_frame_logger = logging.getLogger("my_logger.unmatched_frames")
         _unmatched_frame_logger.setLevel(logging.DEBUG)
         _unmatched_frame_logger.propagate = False
@@ -221,14 +267,8 @@ def update_log_file(default_name: str = "app.log"):
         # Add the new file handler if log_file is not None
         if log_file is not None:
             try:
-                # Backup old log file if it exists
-                old_log_file = log_file + '.old'
-                if os.path.exists(log_file):
-                    try:
-                        # Rename the old log file to app.log.old (or any other naming convention)
-                        shutil.move(log_file, old_log_file)
-                    except Exception as e:
-                        print(f"Error moving log file: {e}")
+                # Backup old log files if they exist (.old, .old.2 ...)
+                _rotate(log_file)
 
                 # Determine file log level based on 'debug' in data_config
                 file_log_level = logging.DEBUG if data_config.get('debug') else logging.INFO

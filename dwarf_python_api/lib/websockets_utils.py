@@ -437,6 +437,10 @@ class WebSocketClient:
         self.InitHostReceived = False
         self.ErrorConnection = False
         self.BatteryLevelDwarf = None
+        # CMD_NOTIFY_POWER_OFF received (user-asked Oct 2026: a capture
+        # ended short by an empty battery said so) - kept after the
+        # disconnect that follows it
+        self.PowerOffNotified = False
         self.IsChargingDwarf = None  # None until the first CMD_NOTIFY_CHARGE
         self.availableSizeDwarf = None
         self.totalSizeDwarf = None
@@ -3189,6 +3193,7 @@ class WebSocketClient:
                                 log.debug(f"receive request response data >> {ComResponse_message.code}")
                                 log.debug(f">> {getErrorCodeValueName(ComResponse_message.code)}")
                                 log.success("CMD_NOTIFY_POWER_OFF received >> EXIT")
+                                self.PowerOffNotified = True
                                 await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "POWER OFF", protocol.OK)
                                 # disconnect  
                                 await asyncio.sleep(1)
