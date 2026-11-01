@@ -393,6 +393,7 @@ class WebSocketClient:
         # perform_start_restack() / get_task_state().
         self.last_restack_check = None   # astro.ResIsImageStackable
         self.last_restack_start = None   # astro.ResRepostprocess
+        self.last_restack_stop = None    # code of CMD_ASTRO_STOP_RESTACKED's reply
         self.task_states = {}
         # The task last seen running (TASK_ID_*), to tell when it ends - the
         # Dwarf then reports TASK_ID_IDLE (field-seen Oct 2026, a megastack:
@@ -3419,6 +3420,20 @@ class WebSocketClient:
                                 else:
                                     log.success(f"Success CMD_ASTRO_START_RESTACK: {ResRepostprocess_message.result_dir}")
                                     await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CMD_ASTRO_START_RESTACK", code)
+                            # CMD_ASTRO_STOP_RESTACKED 11036 (megastack stop, ReqStopRepostprocess):
+                            # its reply decoded as a ComResponse (its code only)
+                            elif (WsPacket_message.cmd==protocol.CMD_ASTRO_STOP_RESTACKED):
+                                ComResponse_message = base__pb2.ComResponse()
+                                ComResponse_message.ParseFromString(WsPacket_message.data)
+                                code = ComResponse_message.code
+                                self.last_restack_stop = code
+                                log.debug(f"Decoding CMD_ASTRO_STOP_RESTACKED code {code}")
+                                if code != protocol.OK:
+                                    log.error(f"Error CMD_ASTRO_STOP_RESTACKED CODE {getErrorCodeValueName(code)}")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.ERROR, "Error CMD_ASTRO_STOP_RESTACKED", code)
+                                else:
+                                    log.success("Success CMD_ASTRO_STOP_RESTACKED")
+                                    await self.result_receive_messages(self.command, WsPacket_message.cmd, Dwarf_Result.OK, "OK CMD_ASTRO_STOP_RESTACKED", code)
                             # CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE 15261: a device task's state
                             # (megastack: TASK_ID_ASTRO_MULTI_STACK, its result_dir)
                             elif (WsPacket_message.cmd==protocol.CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE):

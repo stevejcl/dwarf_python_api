@@ -2872,6 +2872,39 @@ def perform_start_restack(src_dirs, session=None):
     }
 
 
+def perform_stop_restack(session=None):
+    """Megastack, stop - CMD_ASTRO_STOP_RESTACKED (11036, protocol.proto;
+    request ReqStopRepostprocess, empty): the Dwarf's running multi-stack
+    task stopped (user-asked Nov 2026: a megastack couldn't be stopped from
+    Astro Dwarf Session). Not confirmed by a capture of the official app:
+    follow the task with get_task_state() to see it end (STOPPED / IDLE).
+
+    Returns {"ok": bool, "code": int, "code_name": str}, or None when the
+    Dwarf isn't connected / didn't answer."""
+    module_id = 3  # MODULE_ASTRO
+    type_id = 0  # REQUEST
+    message = astro.ReqStopRepostprocess()
+    command = protocol.CMD_ASTRO_STOP_RESTACKED
+
+    active_session = _resolve_session(session)
+    client = _restack_client(active_session)
+    if client is not None:
+        client.last_restack_stop = None
+    if active_session is not None:
+        response = connect_socket_session(active_session, message, command, type_id, module_id)
+    else:
+        response = connect_socket(message, command, type_id, module_id)
+    if response is False:
+        log.error("Dwarf API: Dwarf Device not connected")
+        return None
+    client = _restack_client(active_session)
+    code = getattr(client, "last_restack_stop", None) if client else None
+    if code is None:
+        log.error(f"STOP RESTACK: no answer ({response})")
+        return None
+    return {"ok": code == protocol.OK, "code": code, "code_name": websockets_utils.getErrorCodeValueName(code)}
+
+
 def get_task_state(task_name: str = "TASK_ID_ASTRO_MULTI_STACK", session=None):
     """Last state the Dwarf reported for one of its tasks
     (CMD_NOTIFY_EXCLUSIVE_SYSTEM_IO_TASK_STATE, no request sent): {"state":
