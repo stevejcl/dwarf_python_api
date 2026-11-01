@@ -4053,7 +4053,7 @@ class WebSocketClient:
                     log.error(f"Exception occurred in the 2nd try block: {e}")
         except Exception as e:
             self.stop_client = True
-            log.error(f"unknown exception with error: {e}")
+            log.error(f"unknown exception with error: {type(e).__name__}: {e!r}")
             self.ErrorConnection = True
             await self.result_receive_messages("Connection", "Connection", Dwarf_Result.ERROR, "Error Connection", -1)
 
@@ -4080,7 +4080,7 @@ class WebSocketClient:
                 try:
                     await self.ping_task
                 except Exception as e:
-                    log.error(f"unknown exception with error: {e}")
+                    log.error(f"unknown exception with error: {type(e).__name__}: {e!r}")
 
         # Cancel the receive task when the client is done
         if self.receive_task:
@@ -4090,7 +4090,7 @@ class WebSocketClient:
                 try:
                     await self.receive_task
                 except Exception as e:
-                    log.error(f"unknown exception with error: {e}")
+                    log.error(f"unknown exception with error: {type(e).__name__}: {e!r}")
 
         # Cancel the abort task when the client is done
         if self.abort_tasks:
@@ -4100,7 +4100,7 @@ class WebSocketClient:
                 try:
                     await self.abort_tasks
                 except Exception as e:
-                    log.error(f"unknown exception with error: {e}")
+                    log.error(f"unknown exception with error: {type(e).__name__}: {e!r}")
 
         # Close the WebSocket connection explicitly
         if self.start_client:
@@ -4119,7 +4119,7 @@ class WebSocketClient:
                     log.error(f'Close: ConnectionClosedError', e)
                     pass
                 except Exception as e:
-                    log.error(f"unknown exception with error: {e}")
+                    log.error(f"unknown exception with error: {type(e).__name__}: {e!r}")
 
             self.start_client = False
             self.stop_client = True
