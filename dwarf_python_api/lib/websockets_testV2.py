@@ -338,7 +338,7 @@ def extracted_frames(user_frame, start_pattern, start_pattern2, end_pattern):
                 error = False
 
             except (DecodeError, ValueError, SyntaxError):
-                # En cas d'échec (trame tronquée), on continue à chercher l'occurrence suivante
+                # In the event of a failure (truncated frame), the search for the next occurrence continues.
                 start_pos = end_index + 1
                 print(f"ignore end_index: \"{end_index}\" (not a complete frame")
 
