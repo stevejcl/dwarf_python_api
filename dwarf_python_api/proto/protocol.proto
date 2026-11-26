@@ -137,6 +137,7 @@ enum DwarfCMD {
     CMD_ASTRO_STOP_SKY_TARGET_FINDER = 11048;
     CMD_V3_ASTRO_CONFIRM = 11048; // Deprecated compatibility alias.
     CMD_ASTRO_CONTINUE_SHOOTING = 11050; // APK 3.4.1: continue after a recoverable shooting warning
+    CMD_ASTRO_CHECK_FLAT_FRAME = 11051; // APK 3.4.6: AstroProto.ReqCheckFlatFrame / ResCheckFlatFrame (fields not documented yet)
 
     CMD_CAMERA_WIDE_OPEN_CAMERA = 12000; // Turn on the camera
     CMD_CAMERA_WIDE_CLOSE_CAMERA = 12001; // Turn off the camera
@@ -189,6 +190,7 @@ enum DwarfCMD {
     CMD_RGB_POWER_POWERIND_ON = 13503; // Turn on the battery indicator
     CMD_RGB_POWER_POWERIND_OFF = 13504; // Turn off battery indicator = 
     CMD_RGB_POWER_REBOOT = 13505; // Restart
+    CMD_RGB_POWER_SET_BRIGHTNESS = 13506; // APK 3.4.6
 
     CMD_STEP_MOTOR_RUN = 14000; // Motor motion
     CMD_STEP_MOTOR_RUN_TO = 14001; // Motor motion to
@@ -344,6 +346,18 @@ enum DwarfCMD {
     CMD_NOTIFY_PANORAMA_FRAMING_RECT = 15297; // notify.PanoramaFramingRect: echo of the framing rect
     CMD_NOTIFY_PANORAMA_FRAMING_PREVIEW = 15298; // notify.PanoramaFramingPreview: WebP preview of the framed area
     CMD_NOTIFY_PANORAMA_FRAMING_STATE = 15299; // notify.PanoramaFramingState: 1 framing, 2 closing, 0 idle
+    // APK 3.4.3 / 3.4.6 (DwarfAlp Draco research) - payload fields not documented yet
+    CMD_NOTIFY_ANTI_TANGLE_STATE = 15306;
+    CMD_NOTIFY_POWER_SOUND_STATE = 15307;
+    CMD_NOTIFY_SHOOTING_DO_NOT_DISTURB_STATE = 15308;
+    CMD_NOTIFY_CAMERA_STATE = 15309; // NotifyProto.CameraState
+    CMD_NOTIFY_ASTRO_LENS_RAISE_STATE = 15310; // NotifyProto.AstroLensRaiseState
+    CMD_NOTIFY_STATE_ASTRO_GUIDE = 15312; // NotifyProto.AstroGuideState
+    CMD_FACTORY_TEST_GET_CAMERA_AND_FOCUS_INFO = 15860;
+    CMD_DEVICE_ANTI_TANGLE = 17003;
+    CMD_DEVICE_SET_POWER_SOUND = 17004;
+    CMD_DEVICE_GET_POWER_SOUND = 17005;
+    CMD_DEVICE_SHOOTING_DO_NOT_DISTURB = 17006;
 
     CMD_PANORAMA_START_GRID = 15500; // Start panorama
     CMD_PANORAMA_STOP = 15501; // Stop panorama

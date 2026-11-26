@@ -1624,6 +1624,14 @@ PARAM_ID_ASTRO_IR_FILTER_TELE = 0x020100000000000d    # "irFilter", tele, astro 
 # by network capture if you test perform_set_astro_auto_calibration_v3().
 CMD_PARAM_SET_GENERAL_BOOL_PARAMS = 16705
 
+# Commands first seen in DWARFLAB APK 3.4.3/3.4.6 (via DwarfAlp "Draco
+# research"). Payload messages are NOT defined here: their fields are not
+# documented yet - capture them (decode_pcap.py) before use.
+CMD_ASTRO_CHECK_FLAT_FRAME = 11051            # AstroProto.ReqCheckFlatFrame / ResCheckFlatFrame
+CMD_NOTIFY_CAMERA_STATE = 15309               # NotifyProto.CameraState
+CMD_NOTIFY_ASTRO_LENS_RAISE_STATE = 15310     # NotifyProto.AstroLensRaiseState
+CMD_NOTIFY_STATE_ASTRO_GUIDE = 15312          # NotifyProto.AstroGuideState
+
 
 def perform_auto_focus_v3(session=None):
     """CMD_FOCUS_AUTO_FOCUS (15000), MODULE_FOCUS module (8).
@@ -4035,6 +4043,7 @@ DEVICE_INFO_HTTP_MODEL_MAP = {
     2: "Dwarf 3",
     3: "Dwarf 3 Pro (reserved, unreleased)",
     4: "Dwarf Mini",
+    6: "Draco",  # APK DeviceType id 6 (DRACO hw 0 / DRACO_SHO hw 1) - to confirm via /deviceInfo
 }
 """Confirmed mapping for /deviceInfo's deviceId field, verified on a real
 Dwarf 3 and Dwarf Mini.

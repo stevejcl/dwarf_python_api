@@ -104,7 +104,7 @@ class AllowedWideExposuresD3:
         ]
 
 def get_wide_exposure_name_by_index(index, dwarf_type = "2"):
-    if (dwarf_type in ("3", "5")):  # "5" = Dwarf Mini, shares D3 tables
+    if (dwarf_type in ("3", "5", "7")):  # "5" = Dwarf Mini, "7" = Draco (wide ranges match D3 per APK; unverified)
         found_option = next((option for option in allowed_wide_exposuresD3.values if option["index"] == index), None)
     else:
         found_option = next((option for option in allowed_wide_exposures.values if option["index"] == index), None)
@@ -116,7 +116,7 @@ def get_wide_exposure_value_by_index(index, dwarf_type = "2"):
 
 def get_wide_exposure_index_by_name(name, dwarf_type = "2"):
     found_option = False
-    if (dwarf_type in ("3", "5")):  # "5" = Dwarf Mini, shares D3 tables
+    if (dwarf_type in ("3", "5", "7")):  # "5" = Dwarf Mini, "7" = Draco (wide ranges match D3 per APK; unverified)
         found_option = next((option for option in allowed_wide_exposuresD3.values if option["name"] == name), None)
         default_value_index = allowed_wide_exposuresD3.default_value_index
     else:
@@ -193,7 +193,7 @@ class AllowedWideGainsD3:
         ]
 
 def get_wide_gain_name_by_index(index, dwarf_type = "2"):
-    if (dwarf_type in ("3", "5")):  # "5" = Dwarf Mini, shares D3 tables
+    if (dwarf_type in ("3", "5", "7")):  # "5" = Dwarf Mini, "7" = Draco (wide ranges match D3 per APK; unverified)
         found_option = next((option for option in allowed_wide_gainsD3.values if option["index"] == index), None)
     else:
         found_option = next((option for option in allowed_wide_gains.values if option["index"] == index), None)
@@ -201,7 +201,7 @@ def get_wide_gain_name_by_index(index, dwarf_type = "2"):
 
 def get_wide_gain_index_by_name(name, dwarf_type = "2"):
     found_option = False
-    if (dwarf_type in ("3", "5")):  # "5" = Dwarf Mini, shares D3 tables
+    if (dwarf_type in ("3", "5", "7")):  # "5" = Dwarf Mini, "7" = Draco (wide ranges match D3 per APK; unverified)
         found_option = next((option for option in allowed_wide_gainsD3.values if option["name"] == name), None)
         default_value_index = allowed_wide_gainsD3.default_value_index
     else:

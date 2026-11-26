@@ -132,8 +132,34 @@ class AllowedExposuresMini:
             {"index": 168, "name": "180"}
         ]
 
+class AllowedExposuresDraco:
+    """Draco tele exposure table - NOT hardware-verified (Nov 2026).
+
+    Source: DwarfAlp "Draco research" (DWARFLAB APK 3.4.1/3.4.3/3.4.6,
+    assets/params_range.json, model id 6). Same index scheme as the D3
+    table (codes step by 3, with 45s=160 and 90s=163 as in D3), extended
+    with the long steps the Draco app offers:
+        168 = 180s (same as Mini, confirmed there)
+        171 = 240s  <- INFERRED from the 3-step pattern, not seen in a source
+        174 = 300s  (APK: 1-300s = codes 120-174)
+        177 = 500s  (APK 3.4.6: "500 s uses code 177"; acceptance by the
+                     device is still unverified upstream)
+    App default is 30s (code 159). Check against getParamAndSetting
+    (dump_device_info.py --label draco) before relying on it.
+    """
+    def __init__(self):
+        self.default_value_index = 159
+        self.values = list(AllowedExposuresD3().values) + [
+            {"index": 168, "name": "180"},
+            {"index": 171, "name": "240"},
+            {"index": 174, "name": "300"},
+            {"index": 177, "name": "500"},
+        ]
+
 def get_exposure_name_by_index(index, dwarf_type = "2"):
-    if (dwarf_type == "5"):  # Dwarf Mini (device id "5"): own table (has an extra 180s step vs D3)
+    if (dwarf_type == "7"):  # Draco (model id 6, logical "7"): own table, see AllowedExposuresDraco
+        found_option = next((option for option in allowed_exposuresDraco.values if option["index"] == index), None)
+    elif (dwarf_type == "5"):  # Dwarf Mini (device id "5"): own table (has an extra 180s step vs D3)
         found_option = next((option for option in allowed_exposuresMini.values if option["index"] == index), None)
     elif (dwarf_type == "3"):
         found_option = next((option for option in allowed_exposuresD3.values if option["index"] == index), None)
@@ -151,7 +177,10 @@ def get_exposure_index_by_name(name, dwarf_type = "2", strict = False):
     table's default index (1/30 s) - or None with strict=True, so callers
     that must not silently change the exposure can detect it."""
     found_option = False
-    if (dwarf_type == "5"):  # Dwarf Mini (device id "5"): own table (has an extra 180s step vs D3)
+    if (dwarf_type == "7"):  # Draco (model id 6, logical "7"): own table, see AllowedExposuresDraco
+        found_option = next((option for option in allowed_exposuresDraco.values if option["name"] == name), None)
+        default_value_index = allowed_exposuresDraco.default_value_index
+    elif (dwarf_type == "5"):  # Dwarf Mini (device id "5"): own table (has an extra 180s step vs D3)
         found_option = next((option for option in allowed_exposuresMini.values if option["name"] == name), None)
         default_value_index = allowed_exposuresMini.default_value_index
     elif (dwarf_type == "3"):
@@ -229,7 +258,7 @@ class AllowedGainsD3:
         ]
 
 def get_gain_name_by_index(index, dwarf_type = "2"):
-    if (dwarf_type in ("3", "5")):  # "5" = Dwarf Mini, shares D3 tables
+    if (dwarf_type in ("3", "5", "7")):  # "5" = Dwarf Mini, "7" = Draco (unverified), share D3 tables
         found_option = next((option for option in allowed_gainsD3.values if option["index"] == index), None)
     else:
         found_option = next((option for option in allowed_gains.values if option["index"] == index), None)
@@ -237,7 +266,7 @@ def get_gain_name_by_index(index, dwarf_type = "2"):
 
 def get_gain_index_by_name(name, dwarf_type = "2"):
     found_option = False
-    if (dwarf_type in ("3", "5")):  # "5" = Dwarf Mini, shares D3 tables
+    if (dwarf_type in ("3", "5", "7")):  # "5" = Dwarf Mini, "7" = Draco (unverified), share D3 tables
         found_option = next((option for option in allowed_gainsD3.values if option["name"] == name), None)
         default_value_index = allowed_gainsD3.default_value_index
     else:
@@ -257,6 +286,7 @@ allowed_gainsD3 = AllowedGainsD3()
 # (both now use a direct value, not an index, when writing - see
 # perform_set_gain_v3 / perform_set_astro_gain_v3 in dwarf_utils.py).
 allowed_exposuresMini = AllowedExposuresMini()
+allowed_exposuresDraco = AllowedExposuresDraco()  # unverified, see class docstring
 allowed_gainsMini = allowed_gainsD3
 
 
@@ -367,6 +397,29 @@ class AllowedIRFilterMini:
             {"index": 2, "name": "Duo-Band Filter"},
         ]
 
+class AllowedIRFilterDraco:
+    """Draco tele filter values (logical app choices, NOT hardware-verified).
+    Source: DwarfAlp "Draco research" / APK 3.4.6 FilterType: Astro = 1,
+    HO (the dual-band filter) = 2. The dark position is value 3 in the
+    dark-frame request defaults (calibration only, not selectable here).
+    Names keep the existing "Astro Filter" / "Duo-Band Filter" wording."""
+    def __init__(self):
+        self.default_value_index = 1
+        self.values = [
+            {"index": 1, "name": "Astro Filter"},
+            {"index": 2, "name": "Duo-Band Filter"},
+        ]
+
+class AllowedIRFilterDracoSHO(AllowedIRFilterDraco):
+    """Draco SHO Edition: Standard values plus SO = 4 and SHO = 5
+    (APK 3.4.6 FilterType; not hardware-verified)."""
+    def __init__(self):
+        super().__init__()
+        self.values = self.values + [
+            {"index": 4, "name": "SO Filter"},
+            {"index": 5, "name": "SHO Filter"},
+        ]
+
 class AllowedBurstCount:
     """Number of photos in a burst (featureParams id=3). WARNING: the V3
     encoding (this table's index, or a raw value?) is NOT confirmed - see
@@ -449,6 +502,8 @@ allowed_wb_preset = AllowedWBPreset()
 allowed_ir_filter = AllowedIRFilter()
 allowed_ir_filterD2 = AllowedIRFilterD2()
 allowed_ir_filterMini = AllowedIRFilterMini()
+allowed_ir_filterDraco = AllowedIRFilterDraco()
+allowed_ir_filterDracoSHO = AllowedIRFilterDracoSHO()
 allowed_burst_count = AllowedBurstCount()
 allowed_burst_interval = AllowedBurstInterval()
 allowed_timelapse_interval = AllowedTimelapseInterval()
@@ -468,9 +523,15 @@ def get_wb_preset_index_by_name(name):
     return found["index"] if found else allowed_wb_preset.default_value_index
 
 
-def get_ir_filter_index_by_name(name):
-    found = next((o for o in allowed_ir_filter.values if o["name"] == name), None)
-    return found["index"] if found else allowed_ir_filter.default_value_index
+def get_ir_filter_index_by_name(name, dwarf_type=None, sho=False):
+    """Index of IR/astro filter `name`. Default behaviour (dwarf_type=None)
+    is unchanged. For the Draco (dwarf_type "7"), uses the Draco table;
+    pass sho=True for the SHO Edition (adds SO/SHO)."""
+    table = allowed_ir_filter
+    if str(dwarf_type) == "7":
+        table = allowed_ir_filterDracoSHO if sho else allowed_ir_filterDraco
+    found = next((o for o in table.values if o["name"] == name), None)
+    return found["index"] if found else table.default_value_index
 
 
 def _parse_seconds_from_name(name):

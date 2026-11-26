@@ -288,6 +288,7 @@ message ReqCaptureCaliFrame {
     int32 cali_frame_type = 6;
     optional int32 filter_type = 7;
     int32 scene_type = 8;
+    optional bool dark_hdr = 9; // APK 3.4.6 (Draco): optional dark HDR flag; calibration type FLAT = 2
 }
 
 message ReqStopCaptureCaliFrame {
